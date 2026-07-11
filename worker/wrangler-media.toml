@@ -1,0 +1,38 @@
+# Shake to Shake メディア配信 Worker（worker/media-r2.js 用・Cloudflare R2＝最大100GB級）
+# 既存の Worker とは「別Worker」として立てる。
+#
+# デプロイ手順（worker/ ディレクトリで実行。先頭に ! を付けてこのセッションで打ってもOK）:
+#   cd ~/work/Shake-to-Shake/worker
+#   npx wrangler r2 bucket create s2s-media          # ① R2バケット作成（初回のみ）
+#   npx wrangler deploy -c wrangler-media.toml        # ② デプロイ
+#   # 出てきた URL（例 https://s2s-media.<account>.workers.dev）を
+#   #   index.html の  var MEDIA_URL="..."  に貼る → 画像/動画がR2配信に切り替わる
+#
+# 動作確認: <URL>/health を開いて {"ok":true} が出ればOK。
+#
+# 注意: R2 は無料枠 10GB。100GB級まで使うには R2 課金(超過分のみ・エグレス無料)を有効化。
+
+name = "s2s-media"
+main = "media-r2.js"
+compatibility_date = "2024-11-01"
+
+# R2 バケットを binding 名 MEDIA で接続（media-r2.js の env.MEDIA）
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "s2s-media"
+
+[vars]
+ALLOW = "*"        # 本番は "https://shake-to-shake.netlify.app" に絞ると安全
+ALLOW_MB = "60"    # 1ファイル上限(MB)。動画はindex.html側でも48MBガード
+CAP_MB = "700"     # S6: R2合計の上限(MB)。超過で古い順に削除(fav=保護)。
+# PUBLIC_BASE = "https://media.example.com"   # R2カスタムドメインを使う場合のみ（未設定ならWorker自身のURLを使う）
+
+# --- S6: ライフサイクル cron（孤児掃除＋700MB eviction）。media-r2.js の scheduled() が動く ---
+# 1日1回で十分（s2sは1ユーザー最新1件＝上書きで旧画像が孤児化→翌日掃除）。
+[triggers]
+crons = ["30 18 * * *"]   # 毎日 UTC18:30 = JST 3:30 に掃除
+
+# ライフサイクルが Firebase の s2s/ を読むための secret（投稿が参照中のキー/fav を判定）:
+#   npx wrangler secret put FB_URL    -c wrangler-media.toml   # https://ichat-pwa-default-rtdb.asia-southeast1.firebasedatabase.app
+#   npx wrangler secret put FB_SECRET -c wrangler-media.toml   # RTDB「データベースシークレット」(レガシートークン・読取用)
+# ※ FB_URL/FB_SECRET 未設定でも /up /m /rm は動く（cronは“参照判定不能”のため安全側で何も消さない）。

@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" id="appTitle" content="座席ID">
+<meta name="theme-color" content="#0a84ff">
+<link rel="apple-touch-icon" id="touchIcon" href="assets/icon-01.png">
+<link rel="manifest" id="manifestLink">
+<title>あなたのコードを作りましょう。</title>
+<style>
+  :root {
+    --safe-top: env(safe-area-inset-top, 0);
+    --safe-bot: env(safe-area-inset-bottom, 0);
+    --bg: #ffffff;
+    --ink: #0c0c0e;
+    --ink-soft: rgba(12,12,14,.55);
+    --accent: #0a84ff;
+    --user-bg: linear-gradient(135deg, #0a84ff, #5856d6);
+    --user-fg: #ffffff;
+    --user-fg-soft: rgba(255,255,255,.85);
+    --spring: cubic-bezier(.22,1,.36,1);
+    --soft: cubic-bezier(.4,0,.2,1);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    font-family: -apple-system, "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+    color: var(--ink); background: var(--bg);
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  /* 開いた時 全体 1.8→1 スケールイン 0.8s */
+  body {
+    transform: scale(1.8); opacity: 0; filter: blur(14px);
+    transform-origin: 50% 50%;
+    transition: transform .8s cubic-bezier(.22,1,.36,1), opacity .8s cubic-bezier(.22,1,.36,1), filter .8s cubic-bezier(.22,1,.36,1);
+  }
+  body.ready { transform: scale(1); opacity: 1; filter: none; }
+  input, textarea { user-select: text; -webkit-user-select: text; }
+  button { font-family: inherit; }
+
+  #stage { position: fixed; inset: 0; overflow: hidden; }
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: calc(var(--safe-top) + 20px) 24px calc(var(--safe-bot) + 24px);
+    opacity: 0; pointer-events: none;
+    transition: opacity .55s var(--soft), transform .7s var(--spring), filter .55s var(--soft);
+    transform: translateY(20px) scale(.98); filter: blur(8px);
+    background: var(--bg);
+  }
+  .screen.active { opacity: 1; pointer-events: auto; transform: none; filter: none; }
+  .screen.exit-back { transform: translateY(40px) scale(.96); filter: blur(12px); opacity: 0; }
+  .screen.exit-fwd  { transform: translateY(-30px) scale(1.02); filter: blur(12px); opacity: 0; }
+
+  /* s-form 専用 0.8s 滑らかスライドアップ */
+  #s-form { transition: transform .8s cubic-bezier(.22,1,.36,1), opacity .6s var(--soft), filter .5s var(--soft), background .6s var(--soft), color .35s var(--soft); transform: translateY(100%); filter: none; }
+  #s-form.active { transform: translateY(0); }
+  #s-form.exit-back { transform: translateY(100%); filter: none; opacity: 1; }
+  #s-form.exit-fwd { transform: translateY(-20%); filter: blur(10px); opacity: 0; }
+  /* フォーム要素のステージングアニメ (JSから .in-animate 付与で発火) */
+  #s-form .h1, #s-form .sub, #s-form .pill-wrap, #s-form .slider-wrap {
+    opacity: 0; transform: translateY(40px) scale(.96); filter: blur(6px);
+    transition: opacity .8s cubic-bezier(.22,1,.36,1), transform .8s cubic-bezier(.22,1,.36,1), filter .6s var(--soft);
+  }
+  #s-form.in-animate .h1        { opacity: 1; transform: none; filter: none; transition-delay: .25s; }
+  #s-form.in-animate .sub       { opacity: 1; transform: none; filter: none; transition-delay: .35s; }
+  #s-form.in-animate .pill-wrap { opacity: 1; transform: none; filter: none; transition-delay: .45s; }
+  #s-form.in-animate .slider-wrap { opacity: 1; transform: none; filter: none; transition-delay: .65s; }
+
+  .blob-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .blob-bg::before, .blob-bg::after, .blob-bg .b3, .blob-bg .b4 {
+    content: ""; position: absolute; border-radius: 50%;
+    filter: blur(78px); opacity: .85;
+    animation: drift 14s ease-in-out infinite alternate;
+  }
+  .blob-bg::before { width: 46vmin; height: 46vmin; top: 18%; left: 12%; background: #ff8a3d; }
+  .blob-bg::after  { width: 50vmin; height: 50vmin; top: 14%; right: 8%;  background: #2eb6ff; animation-delay: -3s; }
+  .blob-bg .b3     { width: 44vmin; height: 44vmin; bottom: 22%; left: 18%; background: #ff3d8a; animation-delay: -6s; }
+  .blob-bg .b4     { width: 40vmin; height: 40vmin; bottom: 16%; right: 22%; background: #4cd964; animation-delay: -9s; }
+  @keyframes drift {
+    0%   { transform: translate(0,0) scale(1); }
+    50%  { transform: translate(8vmin,-6vmin) scale(1.08); }
+    100% { transform: translate(-6vmin,4vmin) scale(.95); }
+  }
+
+  /* Welcome */
+  #s-welcome { justify-content: center; align-items: center; text-align: center; cursor: pointer; }
+  #s-welcome .stack { position: relative; z-index: 2; max-width: 80%; }
+  .ttl1 {
+    font-size: clamp(28px, 7.5vw, 40px); font-weight: 600; letter-spacing: .02em;
+    line-height: 1.45; opacity: 0; transform: translateY(8px) scale(.98); filter: blur(6px);
+    transition: opacity .9s var(--soft), transform .9s var(--spring), filter .9s var(--soft);
+  }
+  .ttl2 {
+    margin-top: 22px; font-size: clamp(16px, 4.4vw, 22px); color: var(--ink-soft); font-weight: 500;
+    line-height: 1.6; opacity: 0; transform: translateY(8px); filter: blur(6px);
+    transition: opacity .9s var(--soft) .5s, transform .9s var(--spring) .5s, filter .9s var(--soft) .5s;
+  }
+  #s-welcome.go .ttl1, #s-welcome.go .ttl2 { opacity: 1; transform: none; filter: blur(0); }
+  .tap-hint {
+    position: absolute; bottom: calc(var(--safe-bot) + 28px); left: 50%; transform: translateX(-50%);
+    font-size: 13px; color: var(--ink-soft); opacity: 0;
+    transition: opacity 1s var(--soft) 1.5s; z-index: 2;
+    animation: pulse 1.6s ease-in-out infinite alternate;
+  }
+  #s-welcome.go .tap-hint { opacity: .7; }
+  @keyframes pulse { from { transform: translateX(-50%) translateY(0);} to { transform: translateX(-50%) translateY(-4px);} }
+
+  /* Pick */
+  #s-pick { background: #fff; }
+  .preview-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center; min-height: 42vh;
+    position: relative;
+  }
+  .preview-area {
+    position: relative;
+    width: min(86vw, 400px);
+    aspect-ratio: 1;
+  }
+  .color-ring { position: absolute; inset: 0; pointer-events: none; }
+  .color-ring .swatch { pointer-events: auto; }
+  .preview {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 58%; aspect-ratio: 1; border-radius: 50%;
+    background: var(--g, linear-gradient(135deg, #ff3d8a, #b829ff));
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.25), inset 0 -8px 30px rgba(0,0,0,.15), inset 0 8px 30px rgba(255,255,255,.35);
+    transition: background .6s var(--soft);
+    overflow: hidden; touch-action: none;
+  }
+  .preview::after {
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background: radial-gradient(circle at 30% 22%, rgba(255,255,255,.55), transparent 45%);
+    pointer-events:none;
+  }
+  .preview .ic {
+    position: absolute; left: 50%; top: 50%;
+    font-size: clamp(70px, 18vw, 110px);
+    line-height: 1; cursor: grab;
+    transform: translate(-50%, -50%) translate(var(--ix, 0px), var(--iy, 0px));
+    transition: transform .25s var(--spring);
+    filter: drop-shadow(0 6px 12px rgba(0,0,0,.25));
+  }
+  .preview .ic.drag { cursor: grabbing; transition: none; }
+  .preview .ic img { width: 1em; height: 1em; vertical-align: middle; pointer-events: none; }
+
+  .pick-bottom { display: flex; flex-direction: column; gap: 16px; padding-bottom: 6px; }
+  .help { font-size: 14px; color: var(--ink-soft); text-align: center; line-height: 1.5; }
+
+  .swatch {
+    position: absolute;
+    left: var(--x, 50%); top: var(--y, 50%);
+    width: 11%; aspect-ratio: 1; border-radius: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 4px 14px -4px rgba(0,0,0,.3), inset 0 -3px 8px rgba(0,0,0,.15), inset 0 3px 8px rgba(255,255,255,.4);
+    transition: transform .45s var(--spring), box-shadow .35s var(--soft);
+    cursor: pointer;
+  }
+  .swatch.sel {
+    transform: translate(-50%, -50%) scale(1.28);
+    box-shadow:
+      inset 0 0 0 3px rgba(255,255,255,.85),
+      0 0 0 2px rgba(255,255,255,.9),
+      0 0 20px 4px rgba(255,255,255,.55),
+      0 0 40px 10px rgba(255,255,255,.3),
+      0 6px 14px rgba(0,0,0,.18);
+    z-index: 2;
+  }
+  .swatch.white { box-shadow: 0 4px 14px -4px rgba(0,0,0,.25), inset 0 0 0 1px rgba(0,0,0,.1), inset 0 -3px 8px rgba(0,0,0,.08); }
+  .swatch.white.sel {
+    box-shadow:
+      inset 0 0 0 3px rgba(10,132,255,.6),
+      0 0 0 2px rgba(10,132,255,.85),
+      0 0 20px 4px rgba(10,132,255,.35),
+      0 0 40px 10px rgba(10,132,255,.2),
+      0 6px 14px rgba(0,0,0,.18);
+  }
+
+  .glassbar {
+    height: 64px; border-radius: 32px;
+    background: rgba(255,255,255,.55);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 6px 24px rgba(0,0,0,.12), inset 1px -1px 1px rgba(255,255,255,.6), inset -2px 1px 3px rgba(255,255,255,.7);
+    display: flex; align-items: center; padding: 0 6px 0 8px; overflow: hidden;
+    border: .5px solid rgba(255,255,255,.6);
+  }
+  .cat-area {
+    display: flex; align-items: center;
+    padding-right: 8px; border-right: .5px solid rgba(0,0,0,.08);
+    transition: max-width .4s var(--spring), gap .3s var(--soft);
+    flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+  }
+  .cat-area::-webkit-scrollbar { display: none; }
+  .cat-area.collapsed { max-width: 54px; overflow: hidden; gap: 0; }
+  .cat-area:not(.collapsed) { max-width: 100%; gap: 2px; overflow-x: scroll; }
+  .cat-icon {
+    font-size: 22px; padding: 6px 9px; border-radius: 22px; cursor: pointer;
+    transition: background .25s var(--soft), width .4s var(--spring), opacity .4s var(--soft), padding .4s var(--spring), font-size .4s var(--spring), min-width .4s var(--spring), flex .4s var(--spring), margin .4s var(--spring);
+    overflow: hidden; white-space: nowrap; flex-shrink: 0;
+    scroll-snap-align: center;
+  }
+  .cat-icon.active { background: rgba(0,0,0,.06); }
+  .cat-area.collapsed .cat-icon:not(.active) { width: 0; min-width: 0; padding: 0; margin: 0; opacity: 0; font-size: 0; flex: 0 0 0; overflow: hidden; pointer-events: none; }
+  .emoji-row {
+    flex-grow: 1; height: 100%; display: flex; align-items: center;
+    overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+  }
+  .emoji-row::-webkit-scrollbar { display: none; }
+  .em {
+    font-size: 32px; padding: 0 8px; cursor: pointer; flex-shrink: 0;
+    transition: transform .15s var(--soft); line-height: 1.6; scroll-snap-align: center;
+  }
+  .em:active { transform: scale(.85); }
+  .em img { width: 32px; height: 32px; vertical-align: middle; }
+
+  .nav-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 0; background: transparent;
+    display: flex; align-items: center; justify-content: center; margin: 4px auto 0;
+    transition: transform .2s var(--soft); cursor: pointer; padding: 0;
+  }
+  .nav-btn img { width: 100%; height: 100%; }
+  .nav-btn:active { transform: scale(.92); }
+
+  /* Form: 背景は ::before レイヤーで opacity フェード */
+  #s-form { background: #fff; color: var(--user-fg); transition: transform .8s cubic-bezier(.22,1,.36,1), opacity .6s var(--soft), filter .5s var(--soft), color .35s var(--soft); isolation: isolate; }
+  #s-form::before {
+    content: ''; position: absolute; top: -50px; left: -50px; right: -50px; bottom: -50px;
+    background: var(--user-bg);
+    opacity: 0;
+    transition: opacity .8s cubic-bezier(.22,1,.36,1), background .6s var(--soft);
+    z-index: -1;
+  }
+  #s-form.bg-on::before { opacity: 1; }
+  #s-form .h1 { text-align: center; font-size: clamp(34px, 9vw, 48px); font-weight: 700; letter-spacing: .02em; margin: 12px 0 6px; }
+  #s-form .sub { text-align: center; font-size: 14px; opacity: .9; line-height: 1.6; margin-bottom: 26px; }
+
+  .pill-wrap { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  .pill {
+    position: relative; display: flex; align-items: center;
+    background: #fff; color: var(--ink); border-radius: 999px;
+    padding: 14px 20px 14px 24px; min-height: 54px; min-width: min(78vw, 320px); max-width: 88vw;
+    box-shadow: 0 12px 30px -10px rgba(0,0,0,.25);
+    transition: transform .35s var(--spring), box-shadow .35s var(--soft);
+    cursor: pointer;
+  }
+  .pill .label { flex: 1; font-size: 17px; text-align: center; padding-right: 28px; outline: none; }
+  .pill input.label {
+    border: 0; background: transparent; color: inherit; font: inherit; text-align: center;
+    padding: 0 28px 0 0; width: 100%; min-width: 0; -webkit-appearance: none; appearance: none;
+    caret-color: var(--accent);
+  }
+  .pill input.label::placeholder { color: rgba(0,0,0,.35); }
+  .pill .label.placeholder { color: rgba(0,0,0,.35); }
+  .pill .check {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%) scale(.5);
+    width: 34px; height: 34px; opacity: 0;
+    transition: opacity .35s var(--soft), transform .55s var(--spring);
+  }
+  .pill.done .check { opacity: 1; transform: translateY(-50%) scale(1); }
+  .pill:active { transform: scale(.97); }
+  .pill.shake { animation: shake .35s var(--spring); }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); } 40% { transform: translateX(7px); }
+    60% { transform: translateX(-5px); } 80% { transform: translateX(3px); }
+  }
+  /* 無効時の拒否アニメ: 1→0.7 縮小 + 左右震え */
+  @keyframes shakeScale {
+    0%   { transform: scale(1)  translateX(0); }
+    15%  { transform: scale(.7) translateX(-10px); }
+    30%  { transform: scale(.7) translateX(9px); }
+    45%  { transform: scale(.75) translateX(-7px); }
+    60%  { transform: scale(.82) translateX(5px); }
+    80%  { transform: scale(.92) translateX(-2px); }
+    100% { transform: scale(1)  translateX(0); }
+  }
+  .shake-sc { animation: shakeScale .55s cubic-bezier(.22,1,.36,1); }
+
+  /* Slide (tog.html風) */
+  .slider-wrap {
+    margin-top: auto; margin-bottom: 4px;
+    position: relative; width: 100%; max-width: 360px; height: 64px; align-self: center;
+  }
+  .slider-track {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,.18);
+    border-radius: 36px;
+    box-shadow: inset 1px -1px 11px rgba(255,255,255,.12), inset 1px -1px 55px rgba(255,255,255,.11), 0 2px 18px rgba(0,0,0,.05);
+    overflow: visible;
+  }
+  .slider-inner {
+    position: absolute; top: 0; left: -5px; height: 64px;
+    border-radius: 36px; background: rgba(255,255,255,.22);
+    transform: scale(.9); transition: width .13s; pointer-events: none; z-index: 1;
+    width: 72px;
+  }
+  .slider-label {
+    position: absolute; left: 0; right: 0; top: 0; height: 64px; line-height: 64px;
+    text-align: center; color: var(--user-fg); font-size: 19px; font-weight: 500;
+    letter-spacing: 1px; z-index: 2; opacity: .9;
+    transition: opacity .2s; pointer-events: none;
+    text-shadow: 0 2px 10px rgba(0,0,0,.25);
+  }
+  .slider-knob {
+    position: absolute; top: 4px; left: 4px;
+    width: 56px; height: 56px;
+    background: rgba(255,255,255,.85); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10; touch-action: none; cursor: grab;
+    box-shadow: 1px -1px 1px rgba(255,255,255,.62), -1px 1px 1px rgba(255,255,255,.62), 0 2px 18px rgba(0,0,0,.15);
+    transition: background .5s var(--soft), left .5s var(--spring);
+  }
+  .slider-knob.active { background: rgba(255,255,255,.95); cursor: grabbing; }
+  .slider-knob svg { width: 32px; height: 32px; }
+  .slider-arrow { stroke: var(--accent); stroke-width: 2.6; transition: stroke .3s var(--soft), stroke-width .3s var(--soft), filter .3s var(--soft); }
+  .slider-knob.active .slider-arrow { stroke: #1552be; stroke-width: 3.2; filter: drop-shadow(0 0 7px var(--accent)); }
+
+  /* 3D Touch風 Peek */
+  .peek-back {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+    opacity: 0; pointer-events: none; transition: opacity .35s var(--soft); z-index: 50;
+  }
+  .peek-back.open { opacity: 1; pointer-events: auto; }
+  .peek {
+    position: fixed;
+    left: 50%; top: 50%;
+    width: min(86vw, 380px); max-height: 78vh;
+    background: #fff; color: var(--ink); border-radius: 28px;
+    padding: 18px 20px; z-index: 60; overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0,0,0,.3), 0 0 0 .5px rgba(0,0,0,.05);
+    transform-origin: var(--ox, 50%) var(--oy, 50%);
+    transform: translate(-50%, -50%) scale(.12);
+    opacity: 0; filter: blur(14px);
+    transition: transform .5s cubic-bezier(.22,1.25,.36,1), opacity .35s var(--soft), filter .4s var(--soft);
+    pointer-events: none;
+    display: flex; flex-direction: column;
+  }
+  .peek.open {
+    opacity: 1; filter: none; pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .peek.closing {
+    transform: translate(-50%, -50%) scale(.7) !important;
+    opacity: 0 !important; filter: blur(10px) !important;
+    transition: transform .8s cubic-bezier(.22,1,.36,1), opacity .6s var(--soft), filter .6s var(--soft) !important;
+    pointer-events: none !important;
+  }
+  .peek h3 { margin: 4px 0 14px; font-size: 18px; text-align: center; }
+  .peek-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 2px; }
+  .peek-body::-webkit-scrollbar { display: none; }
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding-bottom: 6px; }
+  .chip {
+    background: #f1f3f5; border: 0; padding: 12px 18px; border-radius: 999px;
+    font-size: 15px; cursor: pointer; transition: transform .15s var(--soft), background .2s var(--soft);
+    color: var(--ink);
+  }
+  .chip:active { transform: scale(.9); }
+  .chip.sel { background: var(--accent); color: #fff; }
+  .chip.plus { background: transparent; border: 1.5px dashed rgba(0,0,0,.3); color: rgba(0,0,0,.65); }
+  .chip.plus:active { transform: scale(.92); background: rgba(0,0,0,.04); }
+
+  /* 新規入力 inline */
+  .new-row {
+    display: flex; gap: 8px; align-items: center; margin-top: 10px;
+    opacity: 0; max-height: 0; overflow: hidden;
+    transition: opacity .3s var(--soft), max-height .4s var(--spring), margin-top .4s var(--spring);
+  }
+  .new-row.show { opacity: 1; max-height: 70px; margin-top: 10px; }
+  .new-row input {
+    flex: 1; border: 1px solid rgba(0,0,0,.15); border-radius: 999px; padding: 10px 16px;
+    font: inherit; font-size: 15px; outline: none;
+    -webkit-appearance: none; appearance: none; background: #fff;
+  }
+  .new-row input:focus { border-color: var(--accent); }
+  .new-row button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 999px;
+    padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .new-row button:active { transform: scale(.94); }
+
+  .seat-peek { width: min(94vw, 480px); }
+
+  /* Finish */
+  #s-finish { background: #fff; color: var(--user-fg); align-items: center; justify-content: center; isolation: isolate; transition: color .35s var(--soft); }
+  #s-finish::before {
+    content: ''; position: absolute; top: -50px; left: -50px; right: -50px; bottom: -50px;
+    background: var(--user-bg);
+    opacity: 0;
+    transition: opacity .8s cubic-bezier(.22,1,.36,1), background .6s var(--soft);
+    z-index: -1;
+  }
+  #s-finish.bg-on::before { opacity: 1; }
+  /* 在室トグルで背景が 0.5s フェードでグリーンに切り替わる */
+  #s-finish::after {
+    content: ''; position: absolute; top: -50px; left: -50px; right: -50px; bottom: -50px;
+    background: linear-gradient(160deg,#36e074,#11b377 55%,#0aa07a);
+    opacity: 0; z-index: -1; pointer-events: none;
+    transition: opacity .5s var(--soft);
+  }
+  #s-finish.io-in::after { opacity: 1; }
+  #s-finish.io-in { color: #fff; }
+  /* OFF時でも背景の字がちゃんと見えるように（白＋影。淡色テーマのOFFだけ濃色＋影） */
+  #s-finish .finish-msg, #s-finish .finish-sub {
+    color: #fff; text-shadow: 0 1px 12px rgba(0,0,0,.30), 0 0 2px rgba(0,0,0,.22);
+  }
+  body.user-light #s-finish:not(.io-in) .finish-msg,
+  body.user-light #s-finish:not(.io-in) .finish-sub {
+    color: var(--ink); text-shadow: 0 1px 10px rgba(255,255,255,.55);
+  }
+  .finish-msg {
+    margin-top: 28px; font-size: clamp(20px, 5.6vw, 26px); font-weight: 700; line-height: 1.5; text-align: center;
+    opacity: 0; transform: translateY(10px); filter: blur(8px);
+    transition: opacity .8s var(--soft) .35s, transform .8s var(--spring) .35s, filter .8s var(--soft) .35s;
+  }
+  .finish-sub {
+    margin-top: 14px; font-size: 14px; opacity: 0; text-align: center; line-height: 1.6;
+    transition: opacity .8s var(--soft) .55s; max-width: 86vw;
+  }
+  #s-finish.show .finish-msg { opacity: 1; transform: none; filter: none; }
+  #s-finish.show .finish-sub { opacity: .9; }
+  .actions-row { margin-top: 18px; display: flex; gap: 10px; opacity: 0; transition: opacity .8s var(--soft) .8s; }
+  #s-finish.show .actions-row { opacity: 1; }
+  .pill-btn {
+    background: rgba(255,255,255,.95); color: var(--ink);
+    border: 0; padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    box-shadow: 0 8px 22px rgba(0,0,0,.18); cursor: pointer;
+    transition: transform .2s var(--soft);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .pill-btn:active { transform: scale(.95); }
+  .pill-btn.ghost { background: rgba(255,255,255,.18); color: var(--user-fg); box-shadow: none; }
+
+  /* 入退室 iOS風 縦スイッチ (PWAカードの主役) */
+  .io-wrap { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+    opacity: 0; transition: opacity .8s var(--soft) .65s; }
+  #s-finish.show .io-wrap { opacity: 1; }
+  .io-toggle {
+    position: relative; width: 92px; height: 172px; border-radius: 999px;
+    background: rgba(120,124,140,.30);
+    box-shadow: inset 0 3px 12px rgba(0,0,0,.22), inset 0 -1px 1px rgba(255,255,255,.35),
+      0 14px 34px -14px rgba(0,0,0,.4);
+    cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent;
+    transition: background .5s var(--soft), box-shadow .4s var(--soft);
+  }
+  .io-toggle.in {
+    background: linear-gradient(180deg,#3ddc74,#1fae6f);
+    box-shadow: inset 0 3px 12px rgba(0,0,0,.18), inset 0 -1px 1px rgba(255,255,255,.5),
+      0 16px 40px -14px rgba(31,174,111,.6);
+  }
+  /* ドラッグで上げ切り=緑 / 下げ切り=グレー を0.5sでプレビュー（音は無し / 確定は離した時） */
+  .io-toggle.preview-in  { background: linear-gradient(180deg,#3ddc74,#1fae6f); }
+  .io-toggle.preview-out { background: rgba(120,124,140,.30); }
+  .io-knob {
+    position: absolute; left: 7px; right: 7px; height: 78px; border-radius: 999px;
+    background: linear-gradient(180deg,#ffffff,#f2f3f7);
+    box-shadow: 0 10px 22px -6px rgba(0,0,0,.4), inset 0 1px 1px rgba(255,255,255,.95),
+      inset 0 -2px 4px rgba(0,0,0,.08);
+    top: 87px; /* OFF=下 */
+    border: 1px solid rgba(255,255,255,0);
+    /* 出る/消える/戻る すべて 0.3s cubic（離した瞬間 top も0.3s cubicで戻る） */
+    transition:
+      top .3s cubic-bezier(.4,0,.2,1),
+      height .3s cubic-bezier(.33,1,.68,1),
+      background .3s cubic-bezier(.33,1,.68,1),
+      box-shadow .3s cubic-bezier(.33,1,.68,1),
+      border-color .3s cubic-bezier(.33,1,.68,1),
+      transform .18s cubic-bezier(.4,0,.2,1);
+  }
+  .io-toggle.in .io-knob { top: 7px; }      /* ON=上 */
+  .io-toggle:active .io-knob { transform: scale(.97); }
+  /* 掴み中＆スワイプ中 共通：液体ガラス風（backdrop-filter なし＝影＋半透明bgで表現 / ちょい伸びて流体感） */
+  .io-toggle.dragging .io-knob,
+  .io-toggle.swiping .io-knob {
+    height: 106px;
+    background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.16) 48%, rgba(255,255,255,.42));
+    border: 1.5px solid rgba(255,255,255,.92);
+    box-shadow:
+      0 28px 50px -10px rgba(0,0,0,.45),
+      0 4px 12px rgba(0,0,0,.18),
+      inset 0 2px 3px rgba(255,255,255,1),
+      inset 0 -12px 26px rgba(255,255,255,.5),
+      inset 0 0 0 1px rgba(255,255,255,.55),
+      inset 0 0 30px rgba(255,255,255,.42);
+  }
+  /* 掴み中：top は指に即追従(0s) */
+  .io-toggle.dragging .io-knob {
+    transition:
+      top 0s,
+      height .3s cubic-bezier(.33,1,.68,1), background .3s cubic-bezier(.33,1,.68,1),
+      box-shadow .3s cubic-bezier(.33,1,.68,1), border-color .3s cubic-bezier(.33,1,.68,1),
+      transform .15s cubic-bezier(.4,0,.2,1);
+  }
+  /* スワイプ中：top も 0.3s cubic でスライド（流体glassのまま移動） */
+  .io-toggle.swiping .io-knob {
+    transition:
+      top .3s cubic-bezier(.4,0,.2,1),
+      height .3s cubic-bezier(.33,1,.68,1), background .3s cubic-bezier(.33,1,.68,1),
+      box-shadow .3s cubic-bezier(.33,1,.68,1), border-color .3s cubic-bezier(.33,1,.68,1),
+      transform .15s cubic-bezier(.4,0,.2,1);
+  }
+  .io-toggle.dragging { box-shadow: inset 0 3px 14px rgba(0,0,0,.26),
+    inset 0 -1px 1px rgba(255,255,255,.4), 0 16px 38px -14px rgba(0,0,0,.45); }
+  .io-status { font-size: 15px; font-weight: 800; letter-spacing: .6px; padding: 7px 20px; border-radius: 999px;
+    background: rgba(255,255,255,.92); color: #6e7396; box-shadow: 0 6px 16px rgba(0,0,0,.12);
+    transition: background .4s var(--soft), color .4s var(--soft); }
+  .io-status.in { background: rgba(48,196,106,.96); color: #fff; }
+  /* 連投対策: 押下→5秒後に反映の「予約(pending)」表示 */
+  .io-status.pending { background: rgba(10,132,255,.96); color: #fff; }
+  .io-status.pending b { font-weight: 900; font-variant-numeric: tabular-nums; }
+  .io-toggle.pending { animation: ioPend 1.1s ease-in-out infinite; }
+  @keyframes ioPend {
+    0%,100% { box-shadow: inset 0 3px 12px rgba(0,0,0,.18), inset 0 -1px 1px rgba(255,255,255,.4), 0 0 0 0 rgba(10,132,255,0); }
+    50%     { box-shadow: inset 0 3px 12px rgba(0,0,0,.18), inset 0 -1px 1px rgba(255,255,255,.4), 0 0 0 7px rgba(10,132,255,.18); }
+  }
+  .io-toggle.pending.pending-in  .io-knob { top: 7px !important; }
+  .io-toggle.pending.pending-out .io-knob { top: 87px !important; }
+
+  /* 座席ピッカー (保存済みの座席表) */
+  .mini-seat { border-collapse: separate; border-spacing: 0; table-layout: auto; width: 100%;
+    border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,0,0,.08); }
+  .mini-seat th, .mini-seat td { padding: 11px 8px; text-align: center; font-size: 13px;
+    border-right: 1px solid rgba(0,0,0,.06); border-bottom: 1px solid rgba(0,0,0,.06);
+    color: var(--ink); background: #fafaff; }
+  .mini-seat th { background: #eceaf6; font-weight: 700; color: #5b5790; }
+  .mini-seat tr td:last-child, .mini-seat tr th:last-child { border-right: none; }
+  .mini-seat td.ds { cursor: pointer; transition: background .2s var(--soft), transform .12s var(--soft); }
+  .mini-seat td.ds:active { transform: scale(.94); }
+  .mini-seat td.ds.sel { background: var(--accent); color: #fff; font-weight: 800;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.5); }
+  .seat-empty { padding: 24px; text-align: center; color: #8a8eb0; font-size: 14px; line-height: 1.8; }
+  .seat-empty a { color: var(--accent); font-weight: 700; text-decoration: none; }
+
+  .dots {
+    position: absolute; top: calc(var(--safe-top) + 14px); left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; z-index: 5;
+    opacity: 0; transition: opacity .4s var(--soft);
+  }
+  .dots.show { opacity: 1; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(0,0,0,.15); transition: all .4s var(--spring); }
+  .dot.on { background: var(--ink); width: 18px; border-radius: 4px; }
+  #s-form .dot, #s-finish .dot { background: rgba(255,255,255,.35); }
+  #s-form .dot.on, #s-finish .dot.on { background: var(--user-fg); }
+  body.user-light #s-form .dot.on, body.user-light #s-finish .dot.on { background: var(--ink); }
+
+  .back-btn {
+    position: absolute; top: calc(var(--safe-top) + 8px); left: 12px;
+    width: 40px; height: 40px; border: 0; background: transparent;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    z-index: 5; opacity: .7; transition: opacity .25s, transform .2s var(--soft); color: inherit;
+  }
+  .back-btn:active { transform: scale(.9); }
+  .back-btn svg { width: 22px; height: 22px; }
+
+  /* PWA install hint */
+  .install-hint {
+    position: fixed; left: 14px; right: 14px; bottom: calc(var(--safe-bot) + 14px);
+    background: rgba(255,255,255,.96); color: var(--ink); border-radius: 18px;
+    padding: 14px 16px; font-size: 14px; line-height: 1.6;
+    box-shadow: 0 18px 40px rgba(0,0,0,.25);
+    transform: translateY(140%); transition: transform .55s var(--spring); z-index: 80;
+  }
+  .install-hint.open { transform: none; }
+  .install-hint .close { position: absolute; right: 12px; top: 8px; background: transparent; border: 0; font-size: 20px; cursor: pointer; color: rgba(0,0,0,.4); }
+
+  /* 教室タグ（タップで教室/役割の選択へ戻る） */
+  .room-tag {
+    position: fixed; top: calc(var(--safe-top) + 10px); right: 12px; z-index: 70;
+    font-size: 12px; font-weight: 800; letter-spacing: .4px; color: rgba(12,12,14,.62);
+    background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.75); border-radius: 999px;
+    padding: 7px 13px; text-decoration: none; display: none; align-items: center; gap: 6px;
+    backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%);
+    box-shadow: 0 8px 20px -8px rgba(0,0,0,.28);
+  }
+  .room-tag.show { display: inline-flex; }
+  .room-tag:active { transform: scale(.95); }
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <section class="screen active" id="s-welcome">
+    <div class="blob-bg"><div class="b3"></div><div class="b4"></div></div>
+    <div class="stack">
+      <div class="ttl1">あなたのコードを<br>作りましょう。</div>
+      <div class="ttl2">まず好きな色と<br>好きなアイコンを選ぼう。</div>
+    </div>
+    <div class="tap-hint">画面をタップして開始</div>
+  </section>
+
+  <section class="screen" id="s-pick">
+    <button class="back-btn" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="dots show"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+    <div class="preview-wrap">
+      <div class="preview-area">
+        <div class="color-ring" id="colorRing"></div>
+        <div class="preview" id="preview"><span class="ic" id="previewIc">😀</span></div>
+      </div>
+    </div>
+    <div class="pick-bottom">
+      <div class="glassbar">
+        <div class="cat-area" id="catArea"></div>
+        <div class="emoji-row" id="emojiRow"></div>
+      </div>
+      <div class="help">アイコンはドラッグで位置調整できます</div>
+      <button class="nav-btn" data-next aria-label="次へ"><img src="assets/arrow.png" alt=""></button>
+    </div>
+  </section>
+
+  <section class="screen" id="s-form">
+    <button class="back-btn" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="dots show"><i class="dot"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></div>
+    <div class="h1">座席IDを作成</div>
+    <div class="sub">名前と科目を入力。<br>タップで変更できます。</div>
+
+    <div class="pill-wrap">
+      <div class="pill" id="pillName">
+        <input type="text" class="label" id="nameLabel" placeholder="名前を入力" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" maxlength="20">
+        <img class="check" src="assets/check.png" alt="">
+      </div>
+      <div class="pill" id="pillDept">
+        <span class="label placeholder" id="deptLabel">科目を選択</span>
+        <img class="check" src="assets/check.png" alt="">
+      </div>
+      <div class="pill" id="pillSeat">
+        <span class="label placeholder" id="seatLabel">座席を選ぶ</span>
+        <img class="check" src="assets/check.png" alt="">
+      </div>
+    </div>
+
+    <div class="slider-wrap" id="sliderWrap">
+      <div class="slider-track">
+        <div class="slider-inner" id="sliderInner"></div>
+        <div class="slider-label" id="sliderLabel">スライドして作成</div>
+      </div>
+      <div class="slider-knob" id="sliderKnob">
+        <svg viewBox="0 0 32 32"><polyline class="slider-arrow" points="12,8 20,16 12,24" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-finish">
+    <div class="dots show"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot on"></i></div>
+    <div class="finish-msg" id="finishMsg">ユーザー情報 完成 ✨</div>
+    <div class="finish-sub" id="finishSub">ホーム画面に追加すると<br>このカードがいつでも開けます。</div>
+
+    <div class="io-wrap" id="ioWrap">
+      <div class="io-toggle out" id="ioToggle" role="switch" aria-checked="false" tabindex="0">
+        <div class="io-knob"></div>
+      </div>
+      <div class="io-status out" id="ioStatus">退室中</div>
+    </div>
+
+    <div class="actions-row">
+      <button class="pill-btn" id="installBtn">📲 ホーム画面に追加</button>
+      <button class="pill-btn ghost" id="restartBtn">作り直す</button>
+    </div>
+  </section>
+
+</div>
+
+<a class="room-tag" id="roomTag" href="index.html" title="教室・役割を変更">🏫 <span id="roomTagCode">—</span></a>
+
+<div class="peek-back" id="deptBack"></div>
+<div class="peek" id="deptSheet">
+  <h3>科目を選択</h3>
+  <div class="peek-body">
+    <div class="chip-grid" id="deptChips"></div>
+    <div class="new-row" id="deptNewRow">
+      <input type="text" id="deptNewInput" placeholder="科目名を入力" maxlength="12" enterkeyhint="done">
+      <button id="deptNewAdd">追加</button>
+    </div>
+  </div>
+</div>
+
+<div class="peek-back" id="seatBack"></div>
+<div class="peek seat-peek" id="seatSheet">
+  <h3>座席を選ぶ</h3>
+  <div class="peek-body">
+    <div id="seatRoom"></div>
+    <div class="chip-grid" style="margin-top:10px;"><button class="chip sel" id="seatConfirm">この席にする</button></div>
+  </div>
+</div>
+
+<div class="install-hint" id="installHint">
+  <button class="close" id="installClose">×</button>
+  <strong>ホーム画面に追加</strong><br>
+  画面下の<b>共有 ⬆︎</b>をタップ → <b>「ホーム画面に追加」</b>を選択。<br>
+  名前・科目・座席がアイコン入りで保存されます。
+</div>
+
+<canvas id="iconCanvas" width="256" height="256" style="display:none;"></canvas>
+
+<!-- Firebase RTDB 同期（chat-app と共通の設定・匿名認証）。同一オリジンの iframe で動作 -->
+<script src="../../lib/firebase-app-compat.js"></script>
+<script src="../../lib/firebase-auth-compat.js"></script>
+<script src="../../lib/firebase-database-compat.js"></script>
+<script src="../../lib/firebase-app-check-compat.js"></script>
+<script src="../../firebase-config.js"></script>
+<script src="seat-sync.js"></script>
+
+<script type="module">
+  try {
+    const m = await import("https://esm.sh/ios-haptics");
+    window.haptic = m.haptic;
+  } catch (e) {
+    window.haptic = Object.assign(()=>{}, {
+      confirm:()=>{}, error:()=>{}, soft:()=>{}, selection:()=>{}, impact:()=>{}, medium:()=>{}, light:()=>{}, heavy:()=>{}, warning:()=>{}
+    });
+  }
+  document.dispatchEvent(new Event('haptic-ready'));
+</script>
+
+<script>
+'use strict';
+(function(){
+
+  /* ===== Haptic 動的参照 ===== */
+  function _h(name) {
+    const h = window.haptic;
+    if (!h) return;
+    try {
+      if (name && typeof h[name] === 'function') h[name]();
+      else if (typeof h === 'function') h();
+    } catch(e){}
+  }
+  const H = {
+    tap()       { _h(); },
+    confirm()   { _h('confirm'); },
+    error()     { _h('error'); },
+    soft()      { _h('soft'); },
+    selection() { _h('selection'); },
+    impact()    { _h('impact'); }
+  };
+
+  /* ===== Audio ===== */
+  /* ===== WebAudio で瞬時再生 ===== */
+  const SOUNDS = {
+    activate: 'sounds/activate.mp3',
+    tune1: 'sounds/tune-1.mp3',
+    tune2: 'sounds/tune-2.mp3',
+    tune3: 'sounds/tune-3.mp3',
+    tune4: 'sounds/tune-4.mp3',
+    macAct: 'sounds/mac-act.mp3',
+    lock:  'sounds/lock.mp3',
+    back:  'sounds/back.mp3',
+    h2:    'sounds/h2.mp3',
+    c0: 'sounds/c1.mp3',        c1: 'sounds/c2.mp3',         c2: 'sounds/click-x1.mp3',
+    c3: 'sounds/click-001.mp3', c4: 'sounds/click-002.mp3',  c5: 'sounds/click-003.mp3',
+    c6: 'sounds/click-004.mp3', c7: 'sounds/c3.mp3',         c8: 'sounds/click-006.mp3',
+    c9: 'sounds/click-01.mp3',
+    pickEmoji: 'sounds/pick-emoji.mp3',
+    pickIcon:  'sounds/pick-icon.mp3',
+    join: 'sounds/Join.wav',
+    off:  'sounds/Off.wav'
+  };
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let actx = null;
+  try { actx = AC ? new AC() : null; } catch(e) { actx = null; }
+  const gain = actx ? actx.createGain() : null;
+  if (gain) { gain.gain.value = 0.8; gain.connect(actx.destination); }
+  const buffers = {};
+  const audioEls = {};        // HTMLAudio フォールバック（Safari / file:// / 古いSafari 用）
+  let audioUnlocked = false;
+
+  function decode(arr) {
+    // promise形式・callback形式の両対応（古いSafariは callback のみ）
+    return new Promise((resolve, reject) => {
+      try {
+        const p = actx.decodeAudioData(arr, resolve, reject);
+        if (p && p.then) p.then(resolve, reject);
+      } catch(e) { reject(e); }
+    });
+  }
+  function loadSound(name, url) {
+    // 1) HTMLAudio を必ず用意（fetch不可・file://・古いSafariでもこれで鳴る）
+    try {
+      const a = new Audio();
+      a.preload = 'auto';
+      a.src = url;
+      audioEls[name] = a;
+    } catch(e){}
+    // 2) WebAudio（fetchが通る環境なら低遅延でこちらを優先）
+    if (!actx) return;
+    fetch(url).then(r => r.arrayBuffer()).then(decode)
+      .then(buf => { buffers[name] = buf; })
+      .catch(() => { /* WebAudio不可 → HTMLAudio で鳴らす */ });
+  }
+  Object.keys(SOUNDS).forEach(k => loadSound(k, SOUNDS[k]));
+
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    if (actx && actx.state === 'suspended') { try { actx.resume(); } catch(e){} }
+    // HTMLAudio を全要素 無音で一度叩いて iOS の再生ロックを解除
+    Object.keys(audioEls).forEach(k => {
+      const a = audioEls[k]; if (!a) return;
+      try {
+        a.muted = true;
+        const pr = a.play();
+        if (pr && pr.then) pr.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        else { try { a.pause(); a.currentTime = 0; } catch(e){} a.muted = false; }
+      } catch(e) { try { a.muted = false; } catch(_){} }
+    });
+  }
+  function play(name) {
+    // WebAudio が使えるなら低遅延で再生
+    if (actx && buffers[name]) {
+      if (actx.state === 'suspended') { try { actx.resume(); } catch(e){} }
+      try {
+        const src = actx.createBufferSource();
+        src.buffer = buffers[name];
+        src.connect(gain);
+        if (src.start) src.start(0); else if (src.noteOn) src.noteOn(0); // 古いWebKit
+        return;
+      } catch(e){}
+    }
+    // フォールバック: HTMLAudio（Safari / file:// / 古いSafari）
+    const a = audioEls[name];
+    if (a) {
+      try {
+        a.muted = false;
+        a.currentTime = 0;
+        const pr = a.play();
+        if (pr && pr.catch) pr.catch(() => {});
+      } catch(e){}
+    }
+  }
+  ['pointerdown','touchstart','mousedown','click','keydown'].forEach(ev =>
+    document.addEventListener(ev, unlockAudio, { passive: true }));
+
+  /* ===== 状態 ===== */
+  const state = {
+    color: 0,
+    icon: { type: 'emoji', value: '😀' },
+    iconPos: { x: 0, y: 0 },
+    name: '',
+    dept: '',
+    seat: null,
+    seatLabel: ''
+  };
+
+  /* ===== 共有ストア & 入退室 ===== */
+  const STORE_KEY = 'seatingApp_v1';
+  const bc = ('BroadcastChannel' in window) ? new BroadcastChannel('seatingApp_v1') : null;
+  function loadStore(){ try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){ return {}; } }
+  function saveStore(s){ localStorage.setItem(STORE_KEY, JSON.stringify(s)); try { bc && bc.postMessage({t:'sync'}); } catch(e){} }
+  function esc(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  let currentPerson = null;
+  let ioBounceFn = null;   // 同状態スワイプ時のノブ弾みを公開
+
+  function upsertPerson(p, status){
+    const s = loadStore();
+    s.persons = s.persons || []; s.log = s.log || [];
+    const ex = s.persons.find(x => x.id === p.id);
+    if (ex){ ex.name=p.name; ex.seatId=p.seatId; ex.seatLabel=p.seatLabel; ex.meta=p.meta; if(status) ex.status=status; }
+    else s.persons.push(Object.assign({ status: status || 'out' }, p));
+    saveStore(s);
+    try { if(window.SeatSync){ const me = s.persons.find(x => x.id === p.id); if(me) SeatSync.pushPerson(me); } } catch(e){}
+  }
+  function getStatus(){
+    if(!currentPerson) return 'out';
+    const ex = (loadStore().persons || []).find(x => x.id === currentPerson.id);
+    return ex ? ex.status : 'out';
+  }
+  /* === 入退室の確定（実際の書き込み + Firebase 反映）=== */
+  function commitStatus(action){
+    if(!currentPerson){ H.error(); return; }
+    const s = loadStore();
+    s.persons = s.persons || []; s.log = s.log || [];
+    let ex = s.persons.find(x => x.id === currentPerson.id);
+    if(!ex){ ex = Object.assign({ status:'out' }, currentPerson); s.persons.push(ex); }
+    if(ex.status === action){ refreshIO(); return; }
+    ex.status = action;
+    const entry = { personId: ex.id, name: ex.name, seatId: ex.seatId, seatLabel: ex.seatLabel,
+      dept: ex.meta && ex.meta.dept, color: ex.meta && ex.meta.color, icon: ex.meta && ex.meta.icon,
+      action, t: Date.now() };
+    s.log.unshift(entry);
+    if(s.log.length > 500) s.log.length = 500;
+    saveStore(s);
+    try { if(window.SeatSync){ SeatSync.pushPerson(ex); SeatSync.pushLog(entry); } } catch(e){}
+    if(action === 'in'){ H.confirm(); play('join'); }   // 入室: confirm + Join.wav
+    else { H.error(); play('off'); }                     // 退出: error + Off.wav
+    refreshIO();
+  }
+
+  /* === 連投対策: 押下→5秒カウントダウン→確定（その間は取消/押し直し可能）=== */
+  const HOLD_SEC = 5;
+  let pending = null;   // { action, remain, timer, tick }
+  function effectiveStatus(){ return pending ? pending.action : getStatus(); }
+  function requestStatus(action){
+    if(!currentPerson){ H.error(); return; }
+    const committed = getStatus();
+    if(pending){
+      if(pending.action === action){ H.error(); play('lock'); return; }   // 同方向の連打 → 無視
+      cancelPending(true);                                                 // 反対方向に押し直し
+      if(action === committed){ H.soft(); play('back'); return; }          // 元の状態へ＝予約取消だけ
+    } else if(action === committed){
+      H.error(); play('lock'); try { ioBounceFn && ioBounceFn(committed); } catch(e){} return;   // 既にその状態
+    }
+    startPending(action);
+  }
+  function startPending(action){
+    pending = { action: action, remain: HOLD_SEC, timer: null, tick: null };
+    applyPendingUI(action, HOLD_SEC);
+    H.selection(); play('tune1');
+    pending.tick = setInterval(() => {
+      if(!pending) return;
+      pending.remain--;
+      if(pending.remain > 0){ applyPendingUI(action, pending.remain); H.selection(); }
+    }, 1000);
+    pending.timer = setTimeout(() => {
+      const a = pending ? pending.action : action;
+      if(pending){ clearInterval(pending.tick); pending = null; }
+      clearPendingUI();
+      commitStatus(a);
+    }, HOLD_SEC * 1000);
+  }
+  function cancelPending(silent){
+    if(!pending) return;
+    clearInterval(pending.tick); clearTimeout(pending.timer); pending = null;
+    clearPendingUI();
+    if(!silent) refreshIO();
+  }
+  function applyPendingUI(action, n){
+    const tg = document.getElementById('ioToggle');
+    const st = document.getElementById('ioStatus');
+    const fin = document.getElementById('s-finish');
+    if(!st) return;
+    if(tg){
+      tg.classList.add('pending');
+      tg.classList.toggle('pending-in', action === 'in');
+      tg.classList.toggle('pending-out', action === 'out');
+      tg.classList.toggle('preview-in', action === 'in');
+      tg.classList.toggle('preview-out', action === 'out');
+    }
+    if(fin) fin.classList.toggle('io-in', action === 'in');
+    st.className = 'io-status pending ' + (action === 'in' ? 'in' : 'out');
+    st.innerHTML = (action === 'in' ? '在室' : '退室') + 'まで <b>' + n + '</b> ・ タップで取消';
+  }
+  function clearPendingUI(){
+    const tg = document.getElementById('ioToggle');
+    if(tg) tg.classList.remove('pending','pending-in','pending-out','preview-in','preview-out');
+  }
+  function refreshIO(){
+    const tg = document.getElementById('ioToggle');
+    const statusEl = document.getElementById('ioStatus');
+    if(!statusEl) return;
+    const isIn = getStatus() === 'in';
+    if(tg){
+      tg.classList.toggle('in', isIn);
+      tg.classList.toggle('out', !isIn);
+      tg.setAttribute('aria-checked', isIn ? 'true' : 'false');
+    }
+    const fin = document.getElementById('s-finish');
+    if(fin) fin.classList.toggle('io-in', isIn);   // 背景0.5sフェード
+    statusEl.textContent = isIn ? '在室中' : '退室中';
+    statusEl.className = 'io-status ' + (isIn ? 'in' : 'out');
+    if (pending) applyPendingUI(pending.action, pending.remain);   // 予約中はカウントダウン表示を維持
+  }
+
+  /* ===== カラー (1番目を白に) ===== */
+  const COLORS = [
+    ['#ffffff','#f0f0f5'],
+    ['#ff3d8a','#b829ff'],
+    ['#ff8a3d','#ff3d8a'],
+    ['#ffd23d','#ff8a3d'],
+    ['#4cd964','#2eb6ff'],
+    ['#2eb6ff','#5856d6'],
+    ['#5856d6','#b829ff'],
+    ['#ff453a','#ff9f0a'],
+    ['#30d158','#0a84ff'],
+    ['#bf5af2','#ff375f']
+  ];
+  function gradStr(i){ const c = COLORS[i]; return 'linear-gradient(135deg,'+c[0]+','+c[1]+')'; }
+  function isLight(hex) {
+    const c = hex.replace('#','');
+    const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+    return (0.299*r + 0.587*g + 0.114*b) > 200;
+  }
+  function gradLuminance(i) {
+    const [a,b] = COLORS[i];
+    return isLight(a) && isLight(b);
+  }
+  function applyUserColor() {
+    document.documentElement.style.setProperty('--user-bg', gradStr(state.color));
+    const light = gradLuminance(state.color);
+    document.body.classList.toggle('user-light', light);
+    document.documentElement.style.setProperty('--user-fg', light ? '#0c0c0e' : '#ffffff');
+    document.documentElement.style.setProperty('--user-fg-soft', light ? 'rgba(12,12,14,.65)' : 'rgba(255,255,255,.85)');
+    const themeMeta = document.querySelector('meta[name=theme-color]');
+    if (themeMeta) themeMeta.setAttribute('content', COLORS[state.color][0]);
+  }
+
+  /* ===== カスタムアイコン ===== */
+  const CUSTOM_ICONS = [
+    'icon-01.png','icon-02.png','icon-03.png','icon-04.png','icon-05.png',
+    'icon-06.png','icon-07.png','icon-08.png','icon-10.png','icon-11.png',
+    'icon-12.png','icon-13.png','icon-14.png','icon-15.png','icon-16.png','icon-17.png'
+  ];
+  const CATEGORIES = {
+    'Custom':  { icon: '✦', emojis: CUSTOM_ICONS.map(f => ({ type: 'img', src: 'assets/'+f })) },
+    'Recent':  { icon: '🕘', emojis: ['😀','😂','🥹','🥰','😎','🤔','🥳','😴','🤩','🫶','👍','🙏'].map(e => ({ type:'emoji', value:e })) },
+    'Smileys': { icon: '😀', emojis: '😀 😃 😄 😁 😆 😅 🤣 😂 🙂 🙃 😉 😊 😇 🥰 😍 🤩 😘 😋 😛 😜 🤪 😝 🤔 😏 😒 🙄 😬 😴 😎 🤓 🧐'.split(' ').map(e=>({type:'emoji',value:e})) },
+    'People':  { icon: '👋', emojis: '👋 🤚 ✋ 🖖 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👍 👎 ✊ 👊 👏 🙌 🫶 🙏 💪'.split(' ').map(e=>({type:'emoji',value:e})) },
+    'Hearts':  { icon: '💖', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','💖','💗','💓','💞','💕'].map(e=>({type:'emoji',value:e})) },
+    'Animals': { icon: '🐶', emojis: '🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🦉 🦄 🐝 🦋 🐢 🐙 🐠 🐳 🦈'.split(' ').map(e=>({type:'emoji',value:e})) },
+    'Food':    { icon: '🍎', emojis: '🍎 🍊 🍌 🍉 🍇 🍓 🍒 🥭 🍍 🥥 🥝 🍅 🥑 🥦 🥕 🌽 🥐 🍞 🧀 🍳 🥞 🥓 🍔 🍟 🍕 🌮 🍣 🍜 🍰'.split(' ').map(e=>({type:'emoji',value:e})) },
+    'Travel':  { icon: '🚗', emojis: '🚗 🚕 🚙 🚌 🏎 🚓 🚑 🛵 🏍 🚲 🚂 ✈️ 🚀 🛸 🚁 ⛵️ 🚢'.split(' ').map(e=>({type:'emoji',value:e})) },
+    'Objects': { icon: '💡', emojis: '💡 🔦 💸 💎 🔧 🔨 ⚙️ 🔮 📿 ⚗️ 🔭 🔬 💊 🧬'.split(' ').map(e=>({type:'emoji',value:e})) }
+  };
+
+  const DEPTS = ['国語','数学','英語','理科','社会','体育','音楽','美術','技術','家庭','情報','電気','電子','機械','建築','デザイン科','保健','生活','教務','その他'];
+
+  /* 座席は table.html で保存した store.table.grid から動的に読み込む（renderSeats参照） */
+
+  /* ===== 画面遷移 ===== */
+  const screens = ['s-welcome','s-pick','s-form','s-finish'];
+  let cur = 0;
+  function show(idx, dir) {
+    if (idx === cur) return;
+    const out = document.getElementById(screens[cur]);
+    const into = document.getElementById(screens[idx]);
+    out.classList.remove('active','in-animate','show','bg-on');
+    out.classList.add(dir === 'fwd' ? 'exit-fwd' : 'exit-back');
+    setTimeout(() => { out.classList.remove('exit-fwd','exit-back'); }, 820);
+    into.classList.add('active');
+    cur = idx;
+    /* s-form: スタガーアニメ + 背景0.8sフェード */
+    if (idx === 2) {
+      into.classList.remove('in-animate','bg-on');
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        into.classList.add('in-animate');
+        into.classList.add('bg-on');
+      }));
+    }
+    if (idx === 3) {
+      into.classList.remove('bg-on');
+      requestAnimationFrame(() => requestAnimationFrame(() => into.classList.add('bg-on')));
+      setTimeout(() => into.classList.add('show'), 60);
+    } else into.classList.remove('show');
+  }
+
+  /* ===== Welcome ===== */
+  const welcome = document.getElementById('s-welcome');
+  setTimeout(() => welcome.classList.add('go'), 50);
+  welcome.addEventListener('click', () => { unlockAudio(); H.confirm(); play('activate'); show(1,'fwd'); });
+
+  /* ===== Color/Icon ===== */
+  function renderColors() {
+    const ring = document.getElementById('colorRing');
+    ring.innerHTML = '';
+    const N = COLORS.length;
+    const R = 42; /* ring radius % of container (42 → swatchの縁が49%まで = はみ出ず) */
+    COLORS.forEach((c, i) => {
+      const sw = document.createElement('div');
+      sw.className = 'swatch' + (i === state.color ? ' sel' : '') + (i === 0 ? ' white' : '');
+      sw.style.background = gradStr(i);
+      const a = (i / N) * 2 * Math.PI - Math.PI / 2;
+      const x = 50 + Math.cos(a) * R;
+      const y = 50 + Math.sin(a) * R;
+      sw.style.setProperty('--x', x + '%');
+      sw.style.setProperty('--y', y + '%');
+      sw.addEventListener('click', () => {
+        H.selection();
+        play('c' + i);
+        state.color = i;
+        ring.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel'));
+        sw.classList.add('sel');
+        applyPreview();
+        applyUserColor();
+        schedulePwaIconUpdate();
+      });
+      ring.appendChild(sw);
+    });
+  }
+  function renderCats() {
+    const area = document.getElementById('catArea');
+    area.innerHTML = '';
+    Object.keys(CATEGORIES).forEach((k, i) => {
+      const c = document.createElement('div');
+      c.className = 'cat-icon' + (i === 0 ? ' active' : '');
+      c.textContent = CATEGORIES[k].icon;
+      c.addEventListener('click', () => {
+        H.soft();
+        if (!c.classList.contains('active')) {
+          area.querySelectorAll('.cat-icon').forEach(x => x.classList.remove('active'));
+          c.classList.add('active');
+          renderEmojis(k);
+          area.classList.add('collapsed');
+        } else {
+          area.classList.toggle('collapsed');
+        }
+      });
+      area.appendChild(c);
+    });
+    renderEmojis(Object.keys(CATEGORIES)[0]);
+    setTimeout(() => area.classList.add('collapsed'), 1500);
+  }
+  function renderEmojis(catKey) {
+    const row = document.getElementById('emojiRow');
+    row.innerHTML = ''; row.scrollLeft = 0;
+    CATEGORIES[catKey].emojis.forEach(e => {
+      const span = document.createElement('span');
+      span.className = 'em';
+      if (e.type === 'img') {
+        const img = document.createElement('img');
+        img.src = e.src; img.alt = '';
+        span.appendChild(img);
+      } else span.textContent = e.value;
+      span.addEventListener('click', () => {
+        H.tap();
+        if (e.type === 'img') { state.icon = { type:'img', src:e.src }; play('pickIcon'); }
+        else { state.icon = { type:'emoji', value:e.value }; play('pickEmoji'); }
+        state.iconPos = { x: 0, y: 0 };
+        applyPreview();
+        schedulePwaIconUpdate();
+      });
+      row.appendChild(span);
+    });
+  }
+  function applyPreview() {
+    const p = document.getElementById('preview');
+    p.style.setProperty('--g', gradStr(state.color));
+    const ic = document.getElementById('previewIc');
+    ic.innerHTML = '';
+    if (state.icon.type === 'img') {
+      const img = document.createElement('img');
+      img.src = state.icon.src; ic.appendChild(img);
+    } else ic.textContent = state.icon.value;
+    ic.style.setProperty('--ix', state.iconPos.x + 'px');
+    ic.style.setProperty('--iy', state.iconPos.y + 'px');
+    /* translateを保持してscaleだけアニメ (位置ズレ防止) */
+    p.animate([
+      { transform: 'translate(-50%, -50%) scale(.94)' },
+      { transform: 'translate(-50%, -50%) scale(1)' }
+    ], { duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' });
+  }
+
+  /* ドラッグでアイコン位置調整 */
+  (function(){
+    const ic = document.getElementById('previewIc');
+    let dragging = false, sx = 0, sy = 0, x0 = 0, y0 = 0;
+    function lim(v) { const m = 60; return Math.max(-m, Math.min(m, v)); }
+    function start(x, y) {
+      dragging = true; sx = x; sy = y; x0 = state.iconPos.x; y0 = state.iconPos.y;
+      ic.classList.add('drag'); H.selection();
+    }
+    function move(x, y) {
+      if (!dragging) return;
+      state.iconPos.x = lim(x0 + (x - sx));
+      state.iconPos.y = lim(y0 + (y - sy));
+      ic.style.setProperty('--ix', state.iconPos.x + 'px');
+      ic.style.setProperty('--iy', state.iconPos.y + 'px');
+    }
+    function end() { if (dragging) { dragging = false; ic.classList.remove('drag'); H.tap(); } }
+    ic.addEventListener('touchstart', e => { e.preventDefault(); start(e.touches[0].clientX, e.touches[0].clientY); }, { passive:false });
+    ic.addEventListener('touchmove',  e => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive:false });
+    ic.addEventListener('touchend', end);
+    ic.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+    window.addEventListener('mouseup', end);
+  })();
+
+  /* ===== Form ===== */
+  const nameLabel = document.getElementById('nameLabel');
+  const pillName = document.getElementById('pillName');
+
+  pillName.addEventListener('click', (e) => {
+    if (e.target === nameLabel) return;
+    nameLabel.focus();
+  });
+  nameLabel.addEventListener('focus', () => H.error());
+  let _lastNameDone = false;
+  nameLabel.addEventListener('input', () => {
+    state.name = nameLabel.value.trim();
+    const done = state.name.length > 0;
+    pillName.classList.toggle('done', done);
+    if (done && !_lastNameDone) { play('tune2'); H.confirm(); schedulePwaIconUpdate(); }
+    _lastNameDone = done;
+  });
+  nameLabel.addEventListener('blur', () => { if (state.name) H.confirm(); });
+  nameLabel.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); nameLabel.blur(); }
+  });
+
+  /* Peek (3D Touch風) */
+  function openPeek(back, peek, anchor) {
+    if (anchor) {
+      const r = anchor.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      /* peekの中心は画面中央なので、そこからの相対オフセットで origin を設定 */
+      const w = Math.min(window.innerWidth * 0.86, 380);
+      const peekW = peek.classList.contains('seat-peek') ? Math.min(window.innerWidth * 0.94, 480) : w;
+      const peekH = Math.min(window.innerHeight * 0.78, 560);
+      const peekCX = window.innerWidth / 2;
+      const peekCY = window.innerHeight / 2;
+      const relX = ((cx - (peekCX - peekW/2)) / peekW) * 100;
+      const relY = ((cy - (peekCY - peekH/2)) / peekH) * 100;
+      peek.style.setProperty('--ox', Math.max(0, Math.min(100, relX)) + '%');
+      peek.style.setProperty('--oy', Math.max(0, Math.min(100, relY)) + '%');
+    }
+    back.classList.add('open');
+    requestAnimationFrame(() => peek.classList.add('open'));
+  }
+  function closePeek(back, peek) {
+    back.classList.remove('open');
+    peek.classList.remove('open');
+    peek.classList.add('closing');
+    setTimeout(() => peek.classList.remove('closing'), 820);
+  }
+
+  const deptBack = document.getElementById('deptBack');
+  const deptSheet = document.getElementById('deptSheet');
+  const deptChips = document.getElementById('deptChips');
+  const deptNewRow = document.getElementById('deptNewRow');
+  const deptNewInput = document.getElementById('deptNewInput');
+  const deptNewAdd = document.getElementById('deptNewAdd');
+
+  function pickDept(d) {
+    H.confirm();
+    play('tune3');
+    state.dept = d;
+    const lbl = document.getElementById('deptLabel');
+    lbl.textContent = d; lbl.classList.remove('placeholder');
+    document.getElementById('pillDept').classList.add('done');
+    schedulePwaIconUpdate();
+    setTimeout(() => closePeek(deptBack, deptSheet), 140);
+  }
+  function renderDepts() {
+    deptChips.innerHTML = '';
+    DEPTS.forEach(d => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (state.dept === d ? ' sel' : '');
+      b.textContent = d;
+      b.addEventListener('click', () => pickDept(d));
+      deptChips.appendChild(b);
+    });
+    const plus = document.createElement('button');
+    plus.className = 'chip plus'; plus.textContent = '＋ 追加';
+    plus.addEventListener('click', () => {
+      H.tap();
+      deptNewRow.classList.toggle('show');
+      if (deptNewRow.classList.contains('show')) setTimeout(() => deptNewInput.focus(), 200);
+    });
+    deptChips.appendChild(plus);
+  }
+  deptNewAdd.addEventListener('click', () => {
+    const v = deptNewInput.value.trim();
+    if (!v) { H.error(); return; }
+    if (DEPTS.indexOf(v) === -1) DEPTS.unshift(v);
+    try {
+      const saved = JSON.parse(localStorage.getItem('customDepts') || '[]');
+      if (saved.indexOf(v) === -1) { saved.unshift(v); localStorage.setItem('customDepts', JSON.stringify(saved)); }
+    } catch(e){}
+    deptNewInput.value = '';
+    deptNewRow.classList.remove('show');
+    renderDepts();
+    pickDept(v);
+  });
+  deptNewInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); deptNewAdd.click(); }
+  });
+  /* 保存済みカスタム科目を読込 */
+  try {
+    const saved = JSON.parse(localStorage.getItem('customDepts') || '[]');
+    saved.forEach(d => { if (DEPTS.indexOf(d) === -1) DEPTS.unshift(d); });
+  } catch(e){}
+  renderDepts();
+
+  document.getElementById('pillDept').addEventListener('click', (e) => {
+    H.tap();
+    openPeek(deptBack, deptSheet, e.currentTarget);
+  });
+  deptBack.addEventListener('click', () => { H.soft(); closePeek(deptBack, deptSheet); });
+
+  const seatBack = document.getElementById('seatBack');
+  const seatSheet = document.getElementById('seatSheet');
+  const seatRoom = document.getElementById('seatRoom');
+  function renderSeats() {
+    const t = loadStore().table;
+    seatRoom.innerHTML = '';
+    if (!t || !t.grid) {
+      seatRoom.innerHTML = '<div class="seat-empty">座席表がまだありません。<br><a href="table.html">座席表エディタ</a>で作成して「💾 保存」してください。</div>';
+      document.getElementById('seatConfirm').style.display = 'none';
+      return;
+    }
+    document.getElementById('seatConfirm').style.display = '';
+    const { rows, cols, grid } = t;
+    let html = '<table class="mini-seat"><tbody>';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) {
+        const cell = grid[r][c];
+        if (!cell || cell.kind === 'c') continue;
+        const span = (cell.rs > 1 ? ' rowspan="'+cell.rs+'"' : '') + (cell.cs > 1 ? ' colspan="'+cell.cs+'"' : '');
+        if (cell.header) {
+          html += '<th'+span+'>'+esc(cell.text || '')+'</th>';
+        } else {
+          const id = r + '_' + c;
+          const lbl = (cell.text && cell.text.trim()) || id;
+          html += '<td class="ds'+(state.seat === id ? ' sel' : '')+'"'+span+' data-seat="'+id+'" data-label="'+esc(lbl)+'">'+esc(lbl)+'</td>';
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    seatRoom.innerHTML = html;
+    seatRoom.querySelectorAll('td.ds').forEach(td => {
+      td.addEventListener('click', () => {
+        H.selection(); play('h2');
+        state.seat = td.dataset.seat;
+        state.seatLabel = td.dataset.label;
+        seatRoom.querySelectorAll('td.ds').forEach(x => x.classList.remove('sel'));
+        td.classList.add('sel');
+      });
+    });
+  }
+  document.getElementById('pillSeat').addEventListener('click', (e) => { H.tap(); renderSeats(); openPeek(seatBack, seatSheet, e.currentTarget); });
+  seatBack.addEventListener('click', () => { H.soft(); closePeek(seatBack, seatSheet); });
+  document.getElementById('seatConfirm').addEventListener('click', (ev) => {
+    if (!state.seat) {
+      H.error();
+      play('lock');
+      const btn = ev.currentTarget;
+      btn.classList.remove('shake-sc');
+      void btn.offsetWidth;
+      btn.classList.add('shake-sc');
+      setTimeout(() => btn.classList.remove('shake-sc'), 600);
+      return;
+    }
+    H.confirm();
+    play('tune4');
+    const lbl = document.getElementById('seatLabel');
+    lbl.textContent = state.seatLabel || state.seat;
+    lbl.classList.remove('placeholder');
+    document.getElementById('pillSeat').classList.add('done');
+    closePeek(seatBack, seatSheet);
+  });
+
+  /* ===== Slider (tog.html式) ===== */
+  (function(){
+    const wrap = document.getElementById('sliderWrap');
+    const knob = document.getElementById('sliderKnob');
+    const inner = document.getElementById('sliderInner');
+    const label = document.getElementById('sliderLabel');
+
+    let dragging = false, startX = 0, knobX = 0, lastH = 0;
+    let maxOffset = 280;
+    function updateSizes() { maxOffset = wrap.offsetWidth - knob.offsetWidth - 4; }
+    window.addEventListener('resize', updateSizes);
+    setTimeout(updateSizes, 100);
+
+    function setPos(x) {
+      knob.style.left = (4 + x) + 'px';
+      inner.style.width = (72 + x) + 'px';
+      label.style.opacity = String(1 - x / maxOffset);
+    }
+    function reset(animate) {
+      knob.style.transition = animate ? 'left .5s var(--spring), background .5s var(--soft)' : 'none';
+      inner.style.transition = animate ? 'width .35s var(--spring)' : 'width .13s';
+      label.style.transition = 'opacity .25s';
+      knob.style.left = '4px'; inner.style.width = '72px'; label.style.opacity = '1';
+      setTimeout(() => { knob.style.transition = ''; inner.style.transition = 'width .13s'; }, 500);
+    }
+    function ultraBurst() { for (let i=0;i<5;i++) setTimeout(()=>H.confirm(), i*40); }
+    function rapidBurst() { for (let i=0;i<7;i++) setTimeout(()=>H.error(), i*45); }
+
+    function startDrag(x) {
+      updateSizes();
+      if (!(state.name && state.dept && state.seat)) {
+        H.error();
+        play('lock');
+        ['pillName','pillDept','pillSeat'].forEach(id => {
+          const el = document.getElementById(id);
+          if (!el.classList.contains('done')) {
+            el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),400);
+          }
+        });
+        return false;
+      }
+      dragging = true; startX = x; knobX = 0; lastH = 0;
+      knob.style.transition = 'none'; inner.style.transition = 'none';
+      knob.classList.add('active');
+      H.selection();
+      return true;
+    }
+    function moveDrag(x) {
+      if (!dragging) return;
+      let dx = Math.max(0, Math.min(maxOffset, x - startX));
+      knobX = dx;
+      setPos(dx);
+      if (Math.abs(dx - lastH) > 12) { H.selection(); lastH = dx; }
+    }
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      knob.classList.remove('active');
+      H.impact();
+      if (knobX >= maxOffset * 0.9) { ultraBurst(); finish(); reset(true); }
+      else { rapidBurst(); reset(true); }
+    }
+    knob.addEventListener('touchstart', e => { if (startDrag(e.touches[0].clientX)) e.preventDefault(); }, { passive:false });
+    knob.addEventListener('touchmove',  e => { moveDrag(e.touches[0].clientX); }, { passive:true });
+    knob.addEventListener('touchend', endDrag);
+    knob.addEventListener('touchcancel', endDrag);
+    knob.addEventListener('mousedown', e => { startDrag(e.clientX); });
+    window.addEventListener('mousemove', e => moveDrag(e.clientX));
+    window.addEventListener('mouseup', endDrag);
+  })();
+
+  /* ===== Icon canvas → data URL ===== */
+  function buildIconDataURL() {
+    return new Promise((resolve) => {
+      const cv = document.getElementById('iconCanvas');
+      const sz = cv.width;
+      const ctx = cv.getContext('2d');
+      const [c1, c2] = COLORS[state.color];
+      const grad = ctx.createLinearGradient(0,0,sz,sz);
+      grad.addColorStop(0, c1); grad.addColorStop(1, c2);
+      /* rounded square iOS-style */
+      const r = sz * 0.22;
+      ctx.beginPath();
+      ctx.moveTo(r,0);
+      ctx.arcTo(sz,0,sz,sz,r);
+      ctx.arcTo(sz,sz,0,sz,r);
+      ctx.arcTo(0,sz,0,0,r);
+      ctx.arcTo(0,0,sz,0,r);
+      ctx.closePath();
+      ctx.fillStyle = grad; ctx.fill();
+      /* highlight */
+      const hg = ctx.createRadialGradient(sz*0.3,sz*0.22,0,sz*0.3,sz*0.22,sz*0.6);
+      hg.addColorStop(0,'rgba(255,255,255,.5)'); hg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle = hg; ctx.fill();
+
+      const offX = (state.iconPos.x / 240) * sz;
+      const offY = (state.iconPos.y / 240) * sz;
+      const cx = sz/2 + offX, cy = sz/2 + offY;
+
+      function drawShadow() {
+        ctx.shadowColor = 'rgba(0,0,0,.25)';
+        ctx.shadowBlur = 16; ctx.shadowOffsetY = 6;
+      }
+      function clearShadow() { ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0; }
+
+      if (state.icon.type === 'emoji') {
+        ctx.font = '160px -apple-system, "Apple Color Emoji", sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        drawShadow();
+        ctx.fillText(state.icon.value, cx, cy);
+        clearShadow();
+        resolve(cv.toDataURL('image/png'));
+      } else {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const target = sz * 0.66;
+          drawShadow();
+          /* icon-XX.pngは黒ライン素材なので、白系背景なら黒・濃色背景なら白に反転 */
+          if (gradLuminance(state.color)) {
+            ctx.drawImage(img, cx - target/2, cy - target/2, target, target);
+          } else {
+            const tmp = document.createElement('canvas');
+            tmp.width = target; tmp.height = target;
+            const tctx = tmp.getContext('2d');
+            tctx.drawImage(img, 0, 0, target, target);
+            tctx.globalCompositeOperation = 'source-in';
+            tctx.fillStyle = '#fff'; tctx.fillRect(0,0,target,target);
+            ctx.drawImage(tmp, cx - target/2, cy - target/2);
+          }
+          clearShadow();
+          resolve(cv.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(cv.toDataURL('image/png'));
+        img.src = state.icon.src;
+      }
+    });
+  }
+
+  /* ===== PWA アイコン/マニフェスト 動的更新 ===== */
+  let pwaUpdateTimer = null;
+  function schedulePwaIconUpdate() {
+    clearTimeout(pwaUpdateTimer);
+    pwaUpdateTimer = setTimeout(async () => {
+      try {
+        const iconURL = await buildIconDataURL();
+        document.getElementById('touchIcon').setAttribute('href', iconURL);
+        const themeMeta = document.querySelector('meta[name=theme-color]');
+        if (themeMeta) themeMeta.setAttribute('content', COLORS[state.color][0]);
+        const manifest = {
+          name: (state.name || '座席ID') + (state.dept ? ' ' + state.dept : ''),
+          short_name: state.name || '座席ID',
+          start_url: location.pathname,
+          display: 'standalone',
+          background_color: COLORS[state.color][0],
+          theme_color: COLORS[state.color][0],
+          icons: [{ src: iconURL, sizes: '256x256', type: 'image/png' }]
+        };
+        const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        const prev = document.getElementById('manifestLink').getAttribute('href');
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        document.getElementById('manifestLink').setAttribute('href', URL.createObjectURL(blob));
+      } catch(e){}
+    }, 120);
+  }
+
+  /* ===== Hash codec ===== */
+  function encodeHash(payload) {
+    const json = JSON.stringify(payload);
+    return btoa(unescape(encodeURIComponent(json))).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
+  }
+  function decodeHash(s) {
+    try {
+      s = s.replace(/-/g,'+').replace(/_/g,'/');
+      while (s.length % 4) s += '=';
+      return JSON.parse(decodeURIComponent(escape(atob(s))));
+    } catch(e){ return null; }
+  }
+
+  /* ===== Finish ===== */
+  function finish(){
+    H.confirm();
+    play('macAct');
+    const id = 'p' + Date.now().toString(36) + Math.floor(Math.random()*1000).toString(36);
+    const iconShort = state.icon.type === 'img'
+      ? { t:'i', s: state.icon.src.replace(/^assets\//,'') }
+      : { t:'e', v: state.icon.value };
+    const payload = { v:1, id, n:state.name, d:state.dept, s:state.seat, sl:state.seatLabel, c:state.color, i:iconShort, p:state.iconPos };
+
+    document.getElementById('finishMsg').textContent = (state.name || 'あなた') + 'さん、ユーザー情報 完成 ✨';
+    document.getElementById('finishSub').innerHTML =
+      (state.dept || '') + (state.seatLabel ? ' / 座席 ' + esc(state.seatLabel) : '')
+      + '<br>下の<b>スイッチ</b>で在室 / 退室を切り替え。';
+    const appTitle = (state.name || '座席') + ' ' + (state.dept || '');
+    document.title = appTitle + ' | 座席ID';
+
+    /* 2) 画面を即遷移（async前） */
+    history.replaceState(null,'','#mine=' + encodeHash(payload));
+    show(3,'fwd');
+
+    /* 3) 共有ストアに本人を登録（status は out からスタート） */
+    currentPerson = { id, name: state.name, seatId: state.seat, seatLabel: state.seatLabel,
+      meta: { dept: state.dept, color: state.color, icon: state.icon, iconPos: state.iconPos } };
+    upsertPerson(currentPerson, 'out');
+    try { localStorage.setItem(myCardKey(), JSON.stringify(payload)); } catch(e){}   // 教室ごとに本人カードを保存（再オープン時に復元）
+    showRoomTag();
+    refreshIO();
+
+    buildIconDataURL().then(iconURL => {
+      document.getElementById('touchIcon').setAttribute('href', iconURL);
+      const manifest = {
+        name: appTitle, short_name: state.name || '座席ID',
+        start_url: location.pathname + '#mine=' + encodeHash(payload),
+        display: 'standalone', background_color: COLORS[state.color][0], theme_color: COLORS[state.color][0],
+        icons: [{ src: iconURL, sizes: '256x256', type: 'image/png' }]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      const prev = document.getElementById('manifestLink').getAttribute('href');
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      document.getElementById('manifestLink').setAttribute('href', URL.createObjectURL(blob));
+    }).catch(()=>{});
+  }
+
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    H.confirm();
+    play('back');
+    state.name = ''; state.dept = ''; state.seat = null;
+    document.getElementById('nameLabel').value = '';
+    document.getElementById('deptLabel').textContent = '科目を選択';
+    document.getElementById('deptLabel').classList.add('placeholder');
+    document.getElementById('seatLabel').textContent = '座席を選ぶ';
+    document.getElementById('seatLabel').classList.add('placeholder');
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('done'));
+    history.replaceState(null,'',location.pathname);
+    show(1,'back');
+  });
+
+  /* PWA install hint */
+  document.getElementById('installBtn').addEventListener('click', () => {
+    H.confirm();
+    play('h2');
+    document.getElementById('installHint').classList.add('open');
+  });
+  document.getElementById('installClose').addEventListener('click', () => {
+    H.tap();
+    document.getElementById('installHint').classList.remove('open');
+  });
+
+  /* 入退室 iOS風 縦スイッチ (タップで切替 / ノブをドラッグでスライド) */
+  (function(){
+    const tg = document.getElementById('ioToggle');
+    if(!tg) return;
+    const knob = tg.querySelector('.io-knob');
+    const TOP_ON = 7, TOP_OFF = 87, MID = (TOP_ON + TOP_OFF) / 2;
+    /* 既に同じ状態へ動かした時：丸ノブがその方向へちょい飛び出て滑らかに戻る（ON/OFF対称・iOS程度の押し込みニュアンス） */
+    function bounceKnob(dir){
+      const d = dir === 'in' ? -1 : 1;   // in=上 / out=下 で同量
+      try {
+        knob.animate(
+          [{ transform:'translateY(0) scaleY(1)' },
+           { transform:'translateY('+(d*15)+'px) scaleY(1.05)', offset:.42 },
+           { transform:'translateY(0) scaleY(1)' }],
+          { duration: 460, easing: 'cubic-bezier(.34,1.56,.64,1)' }
+        );
+      } catch(e){}
+    }
+    ioBounceFn = bounceKnob;
+    let sy = null, startTop = 0, moved = false, captured = false, pid = null;
+
+    const curTop = () => getStatus() === 'in' ? TOP_ON : TOP_OFF;
+    const flip = () => requestStatus(effectiveStatus() === 'in' ? 'out' : 'in');
+
+    /* iOS26.5 触覚対策: ioToggle の上に“本物の”透明スイッチを重ねる。
+       タップ = スイッチが実トグル → iOSネイティブ触覚が確実に1発(26.5でも鳴る) ＋ flip。
+       ドラッグ = 指が動いた時だけ捕捉してスライド確定（pointerdownで即captureすると
+       実スイッチのトグルを奪って26.5で無音になるため、capture はドラッグ確定後に限定）。 */
+    const hsw = document.createElement('input');
+    hsw.type = 'checkbox'; hsw.setAttribute('switch',''); hsw.tabIndex = -1; hsw.setAttribute('aria-hidden','true');
+    // opacity:0 のみ（display/visibility/appearance 非表示は“本物のスイッチ”でなくなり触覚が出ない）
+    hsw.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;z-index:6;cursor:pointer;touch-action:none;';
+    tg.appendChild(hsw);
+
+    function moveTo(y){
+      const dy = y - sy;
+      if(!moved && Math.abs(dy) > 4){ moved = true; tg.classList.add('dragging'); }   // 動いて初めてドラッグ確定
+      if(!moved) return;
+      const t = Math.max(TOP_ON, Math.min(TOP_OFF, startTop + dy));
+      knob.style.top = t + 'px';
+      /* 上げ切り=緑 / 下げ切り=グレー をトラック色で0.5sプレビュー（音なし） */
+      if(t <= TOP_ON + 6){ tg.classList.add('preview-in'); tg.classList.remove('preview-out'); }
+      else if(t >= TOP_OFF - 6){ tg.classList.add('preview-out'); tg.classList.remove('preview-in'); }
+      else tg.classList.remove('preview-in','preview-out');
+    }
+    function endGesture(y){
+      if(sy === null) return;
+      if(captured){ try{ hsw.releasePointerCapture(pid); }catch(_){} }
+      if(moved){
+        tg.classList.remove('dragging','preview-in','preview-out');   // 確定後は本来の色へ
+        knob.style.top = '';                                          // クラス制御に戻す→0.3s cubicでスナップ
+        const t = Math.max(TOP_ON, Math.min(TOP_OFF, startTop + (y - sy)));
+        requestStatus(t < MID ? 'in' : 'out');
+      } else {
+        flip();   // タップ＝flip（確定的。iOSネイティブ触覚は重ねスイッチの実トグルが担当）
+      }
+      sy = null; captured = false; moved = false;
+    }
+    hsw.addEventListener('pointerdown', e => {
+      pid = e.pointerId; sy = e.clientY; startTop = curTop(); moved = false; captured = false;
+      H.selection();   // つかみ感（鳴る端末向け。26.5は下の change が確実な床）
+    });
+    hsw.addEventListener('pointermove', e => {
+      if(sy === null) return;
+      moveTo(e.clientY);
+      if(moved && !captured){ try{ hsw.setPointerCapture(pid); captured = true; }catch(_){} }   // ドラッグ確定後だけ捕捉＝タップのトグルは奪わない
+    });
+    hsw.addEventListener('pointerup',     e => endGesture(e.clientY));
+    hsw.addEventListener('pointercancel', e => endGesture(e.clientY));
+    /* 実タップでスイッチがトグル → iOSネイティブ触覚(26.5でも確実1発) ＋ 状態flip */
+    hsw.addEventListener('change', () => {
+      hsw.checked = false;                                            // 見た目は使わない／次タップも必ず“変化”=確実に鳴る
+      try{ navigator.vibrate && navigator.vibrate(12); }catch(e){}    // Android（iOSの触覚はこの実トグル自体が発火）
+    });
+    tg.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); flip(); } });
+  })();
+
+  /* 何もないところを 上スワイプ=入室 / 下スワイプ=退室 */
+  (function(){
+    const fin = document.getElementById('s-finish');
+    if(!fin) return;
+    const tg = document.getElementById('ioToggle');
+    const TH = 46;
+    const onCtl = t => t && t.closest && (t.closest('#ioToggle') || t.closest('.actions-row'));
+    let sx=0, sy=0, on=false;
+    function begin(x,y,t){ if(onCtl(t)){ on=false; return; } sx=x; sy=y; on=true; }
+    function finish(x,y){
+      if(!on) return; on=false;
+      const dx=x-sx, dy=y-sy;
+      if(Math.abs(dy) >= TH && Math.abs(dy) > Math.abs(dx)*1.2){
+        const dir = dy < 0 ? 'in' : 'out';
+        if(tg){ tg.classList.add('swiping'); setTimeout(()=> tg.classList.remove('swiping'), 360); }  // スワイプも流体glass
+        if(effectiveStatus() === dir){ ioBounceFn && ioBounceFn(dir); H.error(); play('lock'); }  // 既に同/予約中の状態→弾むだけ
+        else requestStatus(dir);
+      }
+    }
+    fin.addEventListener('touchstart', e=>{ if(e.touches.length!==1) return; begin(e.touches[0].clientX, e.touches[0].clientY, e.target); }, {passive:true});
+    fin.addEventListener('touchend',   e=>{ finish(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, {passive:true});
+    fin.addEventListener('mousedown',  e=>{ begin(e.clientX, e.clientY, e.target); });
+    fin.addEventListener('mouseup',    e=>{ finish(e.clientX, e.clientY); });
+  })();
+
+  /* 他タブ/ボードからの変更を反映 */
+  if (bc) bc.onmessage = () => refreshIO();
+  window.addEventListener('storage', e => { if (e.key === STORE_KEY) refreshIO(); });
+
+  /* nav */
+  document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { H.confirm(); play('back'); show(Math.max(0, cur - 1),'back'); }));
+  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => { H.confirm(); play('tune1'); show(Math.min(screens.length - 1, cur + 1),'fwd'); }));
+
+  /* ── URL #room=CODE で同じ教室に参加（共有リンクを開いた別端末が join）── */
+  (function(){
+    try{
+      const src = (location.hash||'') + '&' + (location.search||'');
+      const m = src.match(/(?:^|[#&?])room=([A-Za-z0-9_-]+)/);
+      if(m && m[1] && window.SeatSync && SeatSync.roomId() !== m[1]) SeatSync.setRoom(m[1]);
+    }catch(e){}
+  })();
+
+  /* ===== 起動: hashにデータがあれば復元してFinish直行 ===== */
+  function myCardKey(){
+    let rid = '';
+    try { rid = (localStorage.getItem('seatRoom') || '').trim(); } catch(e){}
+    return 'seatCard:' + rid;
+  }
+  function showRoomTag(){
+    let rid = '';
+    try { rid = (localStorage.getItem('seatRoom') || '').trim(); } catch(e){}
+    const tag = document.getElementById('roomTag');
+    const code = document.getElementById('roomTagCode');
+    if(!tag) return;
+    if(rid){ if(code) code.textContent = rid; tag.classList.add('show'); }
+    else tag.classList.remove('show');
+  }
+  function restoreFinish(data){
+    if (!data || !data.id) return false;
+    state.name = data.n || ''; state.dept = data.d || ''; state.seat = data.s || null;
+    state.seatLabel = data.sl || (data.s || '');
+    state.color = data.c || 0;
+    state.icon = data.i?.t === 'i' ? { type:'img', src: 'assets/'+data.i.s } : { type:'emoji', value: data.i?.v || '😀' };
+    state.iconPos = data.p || { x:0, y:0 };
+    applyUserColor();
+    try { localStorage.setItem(myCardKey(), JSON.stringify(data)); } catch(e){}   // 教室ごとに本人カードを保存
+    /* 本人を共有ストアに登録（既存statusは保持） */
+    currentPerson = { id: data.id, name: state.name, seatId: state.seat, seatLabel: state.seatLabel,
+      meta: { dept: state.dept, color: state.color, icon: state.icon, iconPos: state.iconPos } };
+    upsertPerson(currentPerson);
+    showRoomTag();
+    /* 直接Finishへ */
+    setTimeout(async () => {
+      document.getElementById('finishMsg').textContent = (state.name || 'あなた') + 'さんのカード';
+      document.getElementById('finishSub').innerHTML = esc(state.dept || '') + (state.seatLabel ? ' / 座席 ' + esc(state.seatLabel) : '') + '<br>下の<b>入室 / 退室</b>で記録（押して5秒後に反映）。';
+      const iconURL = await buildIconDataURL();
+      document.getElementById('touchIcon').setAttribute('href', iconURL);
+      document.title = state.name + ' | ' + state.dept;
+      /* welcome をスキップして finish 表示 */
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const fin = document.getElementById('s-finish');
+      fin.classList.add('active'); cur = 3;
+      setTimeout(() => { fin.classList.add('show'); refreshIO(); }, 60);
+    }, 50);
+    return true;
+  }
+  function tryRestoreFromHash() {
+    const m = location.hash.match(/#mine=(.+)/);
+    if (!m) return false;
+    return restoreFinish(decodeHash(m[1]));
+  }
+  function tryRestoreFromLocal() {
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem(myCardKey()) || 'null'); } catch(e){ data = null; }
+    return restoreFinish(data);
+  }
+
+  /* ===== iOS 標準ズーム封じ ===== */
+  (function(){
+    ['gesturestart','gesturechange','gestureend'].forEach(ev => {
+      document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+    });
+    /* ピンチ: 2本指タッチムーブを潰す */
+    document.addEventListener('touchmove', e => {
+      if (e.touches && e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+    /* ダブルタップズーム封じ */
+    let lastTap = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTap < 320) { e.preventDefault(); }
+      lastTap = now;
+    }, { passive: false });
+  })();
+
+  /* ===== 左エッジスワイプで戻る ===== */
+  (function(){
+    let sx = null, sy = null, active = false;
+    document.addEventListener('touchstart', e => {
+      if (!e.touches || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (t.clientX < 26) { sx = t.clientX; sy = t.clientY; active = true; }
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+      if (!active || !e.touches || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = t.clientX - sx, dy = t.clientY - sy;
+      if (dx > 80 && Math.abs(dy) < 45) {
+        active = false;
+        /* peek を開いてたら閉じる */
+        if (deptSheet.classList.contains('open')) { H.soft(); closePeek(deptBack, deptSheet); return; }
+        if (seatSheet.classList.contains('open')) { H.soft(); closePeek(seatBack, seatSheet); return; }
+        if (cur > 0) { H.confirm(); show(cur - 1, 'back'); }
+      }
+    }, { passive: true });
+    document.addEventListener('touchend', () => { active = false; }, { passive: true });
+    document.addEventListener('touchcancel', () => { active = false; }, { passive: true });
+  })();
+
+  /* ===== 絵文字バー オーバースクロール ===== */
+  (function(){
+    const row = document.getElementById('emojiRow');
+    const area = document.getElementById('catArea');
+    let tsX = 0, moved = false, startScroll = 0;
+    row.addEventListener('touchstart', e => {
+      tsX = e.touches[0].clientX; startScroll = row.scrollLeft; moved = false;
+    }, { passive: true });
+    row.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - tsX;
+      if (row.scrollLeft <= 0 && dx > 50 && area.classList.contains('collapsed') && !moved) {
+        moved = true;
+        H.soft();
+        area.classList.remove('collapsed');
+      }
+    }, { passive: true });
+    /* wheel (trackpad / マウス) */
+    row.addEventListener('wheel', e => {
+      if (row.scrollLeft === 0 && e.deltaX < -8 && area.classList.contains('collapsed')) {
+        H.soft();
+        area.classList.remove('collapsed');
+      }
+    }, { passive: true });
+  })();
+
+  /* ===== 背景タップで haptic ===== */
+  document.getElementById('stage').addEventListener('touchstart', (e) => {
+    const t = e.target;
+    /* 画面の空き部分(screen/blob-bg/stack) のみ */
+    if (t.classList && (t.classList.contains('screen') || t.classList.contains('blob-bg') || t.classList.contains('stack') || t.classList.contains('preview-wrap') || t.classList.contains('pick-bottom'))) {
+      H.tap();
+    }
+  }, { passive: true });
+
+  /* ===== Haptic 可用性チェック ===== */
+  document.addEventListener('haptic-ready', () => {
+    const ok = !!(window.haptic && typeof window.haptic === 'function');
+    console.log('[haptic]', ok ? 'ready' : 'unavailable');
+    if (ok) setTimeout(() => { try { window.haptic.selection?.() ?? window.haptic(); } catch(e){} }, 200);
+  });
+
+  /* 全ページ開き時に 1.8→1 スケールイン */
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => document.body.classList.add('ready'));
+  });
+
+  /* init */
+  renderColors();
+  renderCats();
+  applyPreview();
+  applyUserColor();
+  showRoomTag();
+  if (!tryRestoreFromHash()) tryRestoreFromLocal();
+
+  /* remote(他端末)からの変更を反映（同一文書内イベント） */
+  window.addEventListener('seat-remote-sync', () => { try { refreshIO(); } catch(e){} });
+})();
+</script>
+
+<!-- 触覚Ultra（自己完結・import不要）: 各ボタンに“本物の”透明スイッチを重ね、実タップで iOS の触覚を確実発火（iOS26.5でも 1タップ=1発の床を保証。既存の H.* は残すので鳴る端末では二重に軽く乗る）。Android は navigator.vibrate を type 別パターンで。※#ioToggle はドラッグ式の実装なので対象外（無改変）。 -->
+<script>
+(function(){
+  var PAT = { tap:12, confirm:[10,32,10], heavy:[16,28,16,28,16] };   // 的確なタイプ別
+  function typeOf(el){
+    if(el.hasAttribute('data-haptic')) return el.getAttribute('data-haptic') || 'tap';
+    if(el.matches('.del-badge,[data-act="delRow"],[data-act="delCol"]')) return 'heavy';
+    if(el.matches('.save,[data-act="save"],[data-act="share"]')) return 'confirm';
+    return 'tap';
+  }
+  function overlay(el){
+    if(el.__hpt) return; el.__hpt = 1;
+    if(getComputedStyle(el).position === 'static') el.style.position = 'relative';
+    var sw = document.createElement('input');
+    sw.type='checkbox'; sw.setAttribute('switch',''); sw.tabIndex=-1; sw.setAttribute('aria-hidden','true');
+    // opacity:0 のみ（display/visibility/appearance での非表示は“本物のスイッチ”でなくなり触覚が出ない）
+    sw.style.cssText='position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;pointer-events:auto;cursor:inherit;z-index:4;';
+    var pat = PAT[typeOf(el)] || 12;
+    sw.addEventListener('change', function(){
+      try{ navigator.vibrate && navigator.vibrate(pat); }catch(e){}   // Android
+      sw.checked = false;   // 戻して次タップも必ず“変化”=確実に鳴る
+    });
+    el.appendChild(sw);
+  }
+  function auto(){
+    document.querySelectorAll('button, a.tb, .tb, .del-badge, .edit-act, .glass-btn, [data-haptic]').forEach(overlay);
+  }
+  window.HapticUltra = { bind: overlay, auto: auto };
+  var pending = 0;
+  function schedule(){ if(pending) return; pending = 1; Promise.resolve().then(function(){ pending = 0; auto(); }); }
+  if(document.readyState !== 'loading') auto(); else document.addEventListener('DOMContentLoaded', auto);
+  try{ new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true}); }catch(e){}   // 後から増えるボタン(科目チップ等)も拾う
+})();
+</script>
+</body>
+</html>

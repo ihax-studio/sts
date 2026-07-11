@@ -1,0 +1,2571 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#8b7af5">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <title>Document Studio</title>
+    <script src="ui-sfx.js"></script>
+    <script src="motion-fx.js"></script>
+    <script>window.MotionFX && MotionFX.boot();</script>
+    <link rel="stylesheet" href="ds.css">
+</head>
+<body>
+    <!-- Home / back to launcher. The old icon button is kept (hidden) so its tested
+         save-confirm handler can be reused; the visible control is the sl-home-btn
+         pill (same grabber affordance as the app launcher). -->
+    <button class="home-btn" id="homeBtn" type="button" aria-label="ホームに戻る" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+    </button>
+    <button class="sl-home-btn" id="slHomeBtn" type="button" aria-label="ホーム（ランチャーに戻る）"></button>
+    <!-- styles → ds.css -->
+
+    <!-- Top toolbar removed — undo/redo live in the OmniBar (dynamic island);
+         箇条書き / 見出し / ページ余白 moved into the selection bubble below. -->
+
+    <!-- Contextual text bubble — appears above the selection.
+         B/I/U · 整列(1つで循環) · 箇条書き/見出し · サイズ · ページ余白 -->
+    <div class="sel-bar" id="dsSelBar">
+        <!-- simple & unified: 整列(motion) ／ サイズ ／ ⚙設定(全機能を1パネルに集約) のみ -->
+        <button class="tb-btn ds-align-cycle" id="dsAlignCycle" data-aligncycle title="整列（タップ=次／右クリック・長押し=前）" aria-label="整列"><img src="motion.png" alt="整列"></button>
+        <span class="tb-sep"></span>
+        <div class="tb-size-swipe" id="sizeSwipe" role="button" tabindex="0" title="上下スワイプでサイズ／ダブルタップで入力" aria-label="文字サイズ"><span class="tb-size" id="sizeLabel">16</span></div>
+        <span class="tb-sep"></span>
+        <button class="tb-btn ds-gear" data-doc="textstyle" title="テキスト設定" aria-label="テキスト設定"><img src="gear.png" alt="設定"></button>
+    </div>
+
+    <!-- Left language switcher (multilingual view) -->
+    <div class="langs" id="langs"></div>
+
+    <!-- Center A4 stack -->
+    <div class="stage" id="stage">
+        <div class="paper-stack" id="paperStack">
+            <div class="paper back2"></div>
+            <div class="paper back1"></div>
+            <div class="paper front">
+                <div class="doc-page" id="docPage" contenteditable="true" spellcheck="false" data-placeholder="ここに入力…"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right page ruler -->
+    <div class="ruler" id="ruler"></div>
+
+    <!-- Bottom page pill / page bar removed (ページ番号はルーラーの tick だけに集約) -->
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Add-language overlay -->
+    <div class="overlay" id="langOverlay">
+        <div class="sheet">
+            <h3>言語を追加</h3>
+            <p class="sub">この書類に新しい言語ビューを追加します。</p>
+            <div class="lang-grid" id="langGrid"></div>
+        </div>
+    </div>
+
+    <!-- Add-language via terrakoku globe (same globe as the app). bare iframe, opacity fade -->
+    <div class="ds-lang-globe" id="dsLangGlobe" aria-hidden="true">
+        <iframe id="dsGlobeFrame" title="地球儀"></iframe>
+        <button class="ds-globe-close" id="dsGlobeClose" type="button" aria-label="閉じる">×</button>
+    </div>
+    <!-- styles → ds.css -->
+
+    <!-- Hidden file input for docx import -->
+    <input type="file" id="docxInput" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.html,.htm,.psd,.pxd,text/html" style="display:none">
+
+    <script src="platform-bridge.js"></script>
+    <script src="liveTranslate.js"></script>
+    <script src="omnibar.js"></script>
+    <script>
+    (function () {
+        'use strict';
+
+        // ---------------------------------------------------------------
+        // Haptics (Mac native bridge via platform-bridge.js, with fallback)
+        // ---------------------------------------------------------------
+        const haptic = {
+            tap()  { try { window.haptic ? (window.haptic.light||window.haptic.selection||function(){})() : null; } catch(_){} try { navigator.vibrate && navigator.vibrate(6); } catch(_){} },
+            ok()   { try { if (window.sfx) { window.sfx.play('done'); return; } } catch(_){} try { window.haptic ? (window.haptic.confirm||window.haptic.light||function(){})() : null; } catch(_){} try { navigator.vibrate && navigator.vibrate(12); } catch(_){} },
+            err()  { try { window.haptic ? (window.haptic.error||function(){})() : null; } catch(_){} try { navigator.vibrate && navigator.vibrate([18,40,18]); } catch(_){} }
+        };
+
+        // ---------------------------------------------------------------
+        // State + persistence
+        // ---------------------------------------------------------------
+        const STORE_KEY = 'documentStudio.v1';
+        const DEFAULT_LANGS = [{ code: 'ja', label: '日本語' }, { code: 'en', label: 'English' }];
+
+        function blankPage(id) {
+            return { id, name: '', content: {} };  // no "Page" naming; content[langCode] = HTML string
+        }
+
+        let state = load();
+        // Page layout (Image #2: 余白/向き/サイズ). Defensive defaults for old saves.
+        if (!state.layout) state.layout = { mv: 48, mh: 54, landscape: false, ph: null };
+        function load() {
+            try {
+                const raw = localStorage.getItem(STORE_KEY);
+                if (raw) {
+                    const s = JSON.parse(raw);
+                    if (s && Array.isArray(s.pages) && s.pages.length && Array.isArray(s.languages)) return s;
+                }
+            } catch (_) {}
+            return {
+                languages: DEFAULT_LANGS.slice(),
+                currentLang: 'ja',
+                currentPage: 0,
+                pages: [blankPage(1)],
+                fontSize: 16
+            };
+        }
+        let saveTimer = null;
+        function save() {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {}
+            }, 350);
+        }
+
+        // ---------------------------------------------------------------
+        // DOM refs
+        // ---------------------------------------------------------------
+        const docPage   = document.getElementById('docPage');
+        const langsEl   = document.getElementById('langs');
+        const rulerEl   = document.getElementById('ruler');
+        const pagePill  = document.getElementById('pagePill');
+        const toolbar   = document.getElementById('toolbar');
+        const toastEl   = document.getElementById('toast');
+        const sizeLabel = document.getElementById('sizeLabel');
+        const langOverlay = document.getElementById('langOverlay');
+        const langGrid  = document.getElementById('langGrid');
+        const docxInput = document.getElementById('docxInput');
+
+        function toast(msg, kind) {
+            toastEl.textContent = msg;
+            toastEl.classList.add('show');
+            if (kind === 'err') haptic.err();
+            clearTimeout(toast._t);
+            toast._t = setTimeout(() => toastEl.classList.remove('show'), 1900);
+        }
+
+        // ---------------------------------------------------------------
+        // Rendering
+        // ---------------------------------------------------------------
+        function curPage() { return state.pages[state.currentPage]; }
+
+        function loadEditor() {
+            if (window.__dsHrEdit) window.__dsHrEdit.close();   // 遷移前に区切り線ポップを閉じる(選択枠の残留防止)
+            const p = curPage();
+            const html = (p.content && p.content[state.currentLang]) || '';
+            docPage.innerHTML = html;
+            // 保存から復元した動画も必ず動く状態に（controls/playsinline/contenteditable=false を担保）
+            docPage.querySelectorAll('video').forEach(v => {
+                v.controls = true; v.setAttribute('playsinline', ''); v.playsInline = true;
+                v.setAttribute('contenteditable', 'false'); if (!v.preload) v.preload = 'metadata';
+            });
+        }
+        function stashEditor() {
+            const p = curPage();
+            if (!p.content) p.content = {};
+            // 一時的なUIクラス(区切り線の選択枠 / ♡のタップアニメ)は保存HTMLに残さない
+            const _tmp = docPage.querySelectorAll('.ds-hr-sel, .ds-heart-pop'), _restore = [];
+            _tmp.forEach(el => { _restore.push([el, el.className]); el.classList.remove('ds-hr-sel', 'ds-heart-pop'); });
+            p.content[state.currentLang] = docPage.innerHTML;
+            _restore.forEach(pair => { pair[0].className = pair[1]; });
+        }
+
+        let langSlide = null;
+        function renderLangs() {
+            langsEl.innerHTML = '';
+            langSlide = null;
+            state.languages.forEach(l => {
+                const b = document.createElement('button');
+                b.className = 'lang' + (l.code === state.currentLang ? ' active' : '');
+                b.type = 'button';
+                b.dataset.code = l.code;
+                var _flag = '🌐'; try { var _ch = LANG_CHOICES.find(function (c) { return c.code === l.code; }); if (_ch && _ch.flag) _flag = _ch.flag; } catch (_) {}
+                b.innerHTML = '<span class="bar"></span><span class="lang-flag">' + _flag + '</span><span class="lbl">' + escapeHtml(l.label) + '</span>';   // G2#24: 国旗(入力中)＋言語名
+                b.addEventListener('click', () => switchLang(l.code));
+                langsEl.appendChild(b);
+            });
+            const add = document.createElement('button');
+            add.className = 'lang lang-add';
+            add.type = 'button';
+            add.innerHTML = '<span class="bar"></span><span class="lbl"><span class="lng-long">言語を追加</span><span class="lng-short">＋🌐</span><span class="spark"> ✨</span></span>';
+            add.addEventListener('click', openLangGlobe);
+            langsEl.appendChild(add);
+            positionLangSlide();
+        }
+        // a single accent that SLIDES (0.5s) to the active language (replaces the old toast)
+        function positionLangSlide() {
+            if (!langSlide) { langSlide = document.createElement('div'); langSlide.className = 'lang-slide'; langsEl.appendChild(langSlide); }
+            const active = langsEl.querySelector('.lang.active');
+            if (!active) { langSlide.style.opacity = '0'; return; }
+            langSlide.style.opacity = '1';
+            langSlide.style.transform = 'translateY(' + (active.offsetTop + active.offsetHeight / 2) + 'px)';
+        }
+
+        function renderRuler() {
+            rulerEl.innerHTML = '';
+            // ruler-label (総ページ数) removed — ページが1枚なら番号 tick は「1」の1つだけ出る。
+            state.pages.forEach((p, i) => {
+                const t = document.createElement('button');
+                t.className = 'tick' + (i === state.currentPage ? ' active' : '');
+                t.type = 'button';
+                t.innerHTML = '<span class="num">' + (i + 1) + '</span><span class="line"></span>';
+                t.addEventListener('click', () => switchPage(i));
+                rulerEl.appendChild(t);
+            });
+            // "+" tick — tap to add a page (今までの index のようにタップで追加)
+            const add = document.createElement('button');
+            add.className = 'tick tick-add';
+            add.type = 'button';
+            add.innerHTML = '<span class="plus">+</span><span class="line"></span>';
+            add.addEventListener('click', addPage);
+            rulerEl.appendChild(add);
+        }
+
+        function renderPill() {
+            if (pagePill) pagePill.textContent = curPage().name || String(state.currentPage + 1);
+        }
+
+        function renderAll() {
+            renderLangs();
+            renderRuler();
+            renderPill();
+            loadEditor();
+            sizeLabel.textContent = state.fontSize;
+            docPage.style.fontSize = state.fontSize + 'px';
+        }
+
+        // ---------------------------------------------------------------
+        // Navigation
+        // ---------------------------------------------------------------
+        function switchLang(code) {
+            if (code === state.currentLang) return;
+            stashEditor();
+            const _sc = docPage.scrollTop;   // #10 innerHTML 差し替えで本文がトップにズレないようスクロール位置を保持
+            state.currentLang = code;
+            showLangIsland(code);
+            // update in place (no rebuild)
+            langsEl.querySelectorAll('.lang').forEach(b => b.classList.toggle('active', b.dataset.code === code));
+            positionLangSlide();
+            loadEditor();
+            docPage.scrollTop = _sc;          // #10 復元（毎回ズレるのを防ぐ）
+            if (window.sfx) sfx.play('swish'); else haptic.tap();
+            save();
+        }
+        // card-style 0.5s swap when changing / adding pages
+        function flashCard() {
+            const front = document.querySelector('.paper.front');
+            if (!front) return;
+            front.style.animation = 'none'; void front.offsetWidth;
+            front.style.animation = 'cardSwap .5s cubic-bezier(.16,1,.3,1)';
+        }
+        function switchPage(i) {
+            if (i === state.currentPage) return;
+            stashEditor();
+            const dir = i > state.currentPage ? 'navPush' : 'navPop';
+            state.currentPage = i;
+            renderRuler(); renderPill(); loadEditor(); flashCard();
+            if (window.sfx) sfx.play(dir); else haptic.tap();
+            save();
+        }
+        function addPage() {
+            stashEditor();
+            const id = (state.pages.reduce((m, p) => Math.max(m, p.id), 0)) + 1;
+            state.pages.push(blankPage(id));
+            state.currentPage = state.pages.length - 1;
+            renderRuler(); renderPill(); loadEditor(); flashCard();
+            haptic.ok();
+            save();
+            docPage.focus();
+        }
+
+        // rename current page by tapping the pill (pill removed → guard)
+        if (pagePill) pagePill.addEventListener('click', () => {
+            const name = prompt('ページ名', curPage().name);
+            if (name && name.trim()) { curPage().name = name.trim(); renderPill(); renderRuler(); save(); haptic.tap(); }
+        });
+
+        // ---------------------------------------------------------------
+        // Editor: toolbar (Word-like). Buttons preventDefault on pointerdown
+        // so the text selection / caret is NEVER lost (this is what made the
+        // old mobile UI "close / lose focus" on tap — fixed here).
+        // ---------------------------------------------------------------
+        try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (_) {}
+        try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+
+        function exec(cmd, val) { try { docPage.focus(); document.execCommand(cmd, false, val); } catch (_) {} }
+
+        function applyAlign(dir) {
+            const map = { left: 'justifyLeft', center: 'justifyCenter', right: 'justifyRight' };
+            exec(map[dir]);
+            refreshToolbarState();
+            stashEditor(); save();
+        }
+        function applySize(delta) {
+            state.fontSize = Math.max(10, Math.min(40, state.fontSize + delta));
+            sizeLabel.textContent = state.fontSize;
+            // apply to selection if any, else to whole page baseline
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount && !sel.isCollapsed) {
+                exec('fontSize', '4'); // placeholder size 4, then override px on the produced font tags
+                docPage.querySelectorAll('font[size="4"]').forEach(f => { f.removeAttribute('size'); f.style.fontSize = state.fontSize + 'px'; });
+            } else {
+                docPage.style.fontSize = state.fontSize + 'px';
+            }
+            stashEditor(); save();
+        }
+
+        // ── A3: 文字サイズ = 上下スワイプ・ピッカー + ダブルタップで数値入力 ──
+        (function () {
+            const sw = document.getElementById('sizeSwipe');
+            if (!sw) return;
+            function setSize(v, commit) {
+                v = Math.max(10, Math.min(40, Math.round(v)));
+                const changed = v !== state.fontSize;
+                state.fontSize = v; sizeLabel.textContent = v;
+                if (!commit) { docPage.style.fontSize = v + 'px'; return changed; }   // live baseline preview
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount && !sel.isCollapsed) {
+                    exec('fontSize', '4');
+                    docPage.querySelectorAll('font[size="4"]').forEach(f => { f.removeAttribute('size'); f.style.fontSize = v + 'px'; });
+                } else { docPage.style.fontSize = v + 'px'; }
+                stashEditor(); save();
+                return changed;
+            }
+            let startY = null, startSize = 16, moved = false, lastTap = 0;
+            sw.addEventListener('pointerdown', e => {
+                if (sw.classList.contains('editing')) return;
+                e.preventDefault();                                    // keep the doc selection (don't steal focus)
+                startY = e.clientY; startSize = state.fontSize; moved = false;
+                try { sw.setPointerCapture(e.pointerId); } catch (_) {}
+            });
+            sw.addEventListener('pointermove', e => {
+                if (startY == null) return;
+                const dy = startY - e.clientY;
+                if (Math.abs(dy) > 3) moved = true;
+                if (setSize(startSize + Math.round(dy / 7), false)) { try { haptic.tap(); } catch (_) {} }
+            });
+            function endSwipe() {
+                if (startY == null) return;
+                startY = null;
+                if (moved) { setSize(state.fontSize, true); return; }   // commit the swiped size to the selection
+                const now = Date.now();                                 // tap (no move) → double-tap?
+                if (now - lastTap < 320) { lastTap = 0; beginEdit(); } else lastTap = now;
+            }
+            sw.addEventListener('pointerup', endSwipe);
+            sw.addEventListener('pointercancel', () => { if (startY != null && moved) setSize(state.fontSize, true); startY = null; });
+            function beginEdit() {
+                sw.classList.add('editing');
+                sizeLabel.contentEditable = 'true';
+                try { const r = document.createRange(); r.selectNodeContents(sizeLabel); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); } catch (_) {}
+                sizeLabel.focus();
+            }
+            function endEdit(apply) {
+                if (!sw.classList.contains('editing')) return;
+                sizeLabel.contentEditable = 'false';
+                sw.classList.remove('editing');
+                if (apply) { const n = parseInt((sizeLabel.textContent || '').replace(/[^\d]/g, ''), 10); if (n) { setSize(n, true); return; } }
+                sizeLabel.textContent = state.fontSize;
+            }
+            sizeLabel.addEventListener('keydown', e => {
+                if (!sw.classList.contains('editing')) return;
+                if (e.key === 'Enter') { e.preventDefault(); endEdit(true); }
+                else if (e.key === 'Escape') { e.preventDefault(); endEdit(false); }
+            });
+            sizeLabel.addEventListener('blur', () => endEdit(true));
+        })();
+
+        // ── A1: 「テキストと線」リッチ・テキストパネル（index準拠）→ 選択テキストへ適用 ──
+        // ---- 区切り線(hr) スタイル適用 — index.html applyHrStyle 準拠（点線=丸ドット / 実線、太さ・色、タップ用に上下padding） ----
+        function applyDsHr(hr, style, color) {
+            style = (style === 'dotted') ? 'dotted' : 'solid';
+            const thick = parseInt(hr.getAttribute('data-hr-thick') || (style === 'dotted' ? '3' : '2'), 10) || 2;
+            hr.setAttribute('data-hr-style', style);
+            if (color) hr.setAttribute('data-hr-color', color); else hr.removeAttribute('data-hr-color');
+            const c = color || 'var(--hr-default-color, #16161a)';
+            hr.style.border = 'none';
+            hr.style.margin = '.4em 0';
+            hr.style.padding = '7px 0';          // 線は細いので上下paddingでタップ領域を確保
+            hr.style.height = thick + 'px';
+            hr.style.boxSizing = 'content-box';
+            hr.style.backgroundPosition = 'center';
+            if (style === 'dotted') {
+                hr.style.backgroundImage = 'radial-gradient(circle, ' + c + ' 0 50%, transparent 52%)';
+                hr.style.backgroundSize = (thick * 3) + 'px ' + thick + 'px';
+                hr.style.backgroundRepeat = 'repeat-x';
+            } else {
+                hr.style.backgroundImage = 'linear-gradient(to right, ' + c + ', ' + c + ')';
+                hr.style.backgroundSize = '100% ' + thick + 'px';
+                hr.style.backgroundRepeat = 'no-repeat';
+            }
+        }
+
+        window.__dsOpenTextPanel = (function () {
+            const st = document.createElement('style');
+            st.textContent =
+                '.dtp-ov{position:fixed;inset:0;z-index:1400;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.18)}' +
+                '.dtp-ov.show{display:flex;animation:dtpFade .2s ease}' +
+                '@keyframes dtpFade{from{opacity:0}to{opacity:1}}' +
+                '.dtp-sheet{width:min(440px,96vw);margin-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(180deg,#fbfbfd,#f1f1f5);border-radius:26px;padding:14px 14px 16px;box-shadow:0 24px 70px rgba(20,18,50,.34),inset 0 .5px 0 rgba(255,255,255,.9);transform:translateY(16px);opacity:0;transition:transform .32s cubic-bezier(.2,.9,.2,1.05),opacity .28s ease}' +
+                '.dtp-ov.show .dtp-sheet{transform:none;opacity:1}' +
+                '.dtp-grab{width:38px;height:5px;border-radius:3px;background:rgba(0,0,0,.18);margin:0 auto 12px}' +
+                '.dtp-title{text-align:center;font:700 15px -apple-system,"Hiragino Sans";color:#1c1c1e;margin-bottom:10px}' +
+                '.dtp-fmt{display:flex;gap:8px;margin-bottom:10px}' +
+                '.dtp-fmt button{flex:1;border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:12px;padding:11px 0;cursor:pointer;font:700 16px -apple-system;color:#1c1c1e;transition:transform .12s,background .2s}' +
+                '.dtp-fmt button:active{transform:scale(.9)}' +
+                '.dtp-fmt button.on{background:#1c1c1e;color:#fff}' +
+                '.dtp-presets{display:flex;gap:8px;margin-bottom:10px}' +
+                '.dtp-tile{flex:1;border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:14px;padding:14px 6px;cursor:pointer;font:600 14px -apple-system;color:#1c1c1e;text-align:center;transition:transform .15s}' +
+                '.dtp-tile:active{transform:scale(.94)}' +
+                '.dtp-tile[data-preset="heading"]{font-size:17px;font-weight:800}' +
+                '.dtp-tile[data-preset="caption"]{font-size:11px;color:#8e8e93;letter-spacing:.4px;text-transform:uppercase}' +
+                '.dtp-tile[data-preset="quote"]{font-style:italic;color:#5856d6;border-left:3px solid #AF52DE}' +
+                '.dtp-seg{display:flex;position:relative;background:rgba(118,118,128,.12);border-radius:12px;padding:3px;margin-bottom:10px}' +
+                '.dtp-pill{position:absolute;top:0;left:0;width:0;border-radius:9px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.14);transition:transform .28s cubic-bezier(.2,.9,.2,1.05),width .26s cubic-bezier(.2,.9,.2,1.05);pointer-events:none;z-index:0}' +
+                '.dtp-seg button{position:relative;z-index:1;flex:1;border:none;background:none;cursor:pointer;padding:9px 0;border-radius:9px;font:600 13px -apple-system;color:#3a3a3c;transition:color .2s}' +
+                '.dtp-seg button.on{color:#1c1c1e}' +
+                '.dtp-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}' +
+                '.dtp-row input[type=range]{flex:1}' +
+                '.dtp-val{min-width:48px;text-align:right;font:700 13px -apple-system;color:#5b3df0}' +
+                '.dtp-color{display:flex;align-items:center;gap:12px;background:rgba(118,118,128,.08);border-radius:14px;padding:10px 12px;margin-bottom:10px}' +
+                '.dtp-color input[type=color]{width:54px;height:36px;border:none;border-radius:10px;background:none;cursor:pointer;padding:0}' +
+                '.dtp-hex{font:600 13px ui-monospace,monospace;color:#8e8e93;flex:1}' +
+                '.dtp-hr{display:flex;gap:8px}' +
+                '.dtp-hr button{flex:1;border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:12px;padding:11px 0;cursor:pointer;font:600 13px -apple-system;color:#1c1c1e}' +
+                '.dtp-hr button:active{transform:scale(.94)}' +
+                '.dtp-done{margin-top:10px;width:100%;border:none;background:#5b3df0;color:#fff;border-radius:14px;padding:13px;font:700 15px -apple-system;cursor:pointer}';
+            document.head.appendChild(st);
+
+            const ov = document.createElement('div'); ov.className = 'dtp-ov';
+            ov.innerHTML =
+                '<div class="dtp-sheet">' +
+                '<div class="dtp-grab"></div><div class="dtp-title">テキストと線</div>' +
+                '<div class="dtp-fmt" id="dtpFmt"><button data-fmt="bold" style="font-weight:800" title="太字">B</button><button data-fmt="italic" style="font-style:italic;font-family:Georgia,serif" title="斜体">I</button><button data-fmt="underline" style="text-decoration:underline" title="下線">U</button><button data-fmt="strike" style="text-decoration:line-through" title="取り消し線">S</button><button data-fmt="bullet" title="箇条書き / Todo">・</button><button data-fmt="translate" title="翻訳 on/off">訳</button></div>' +
+                '<div class="dtp-presets"><div class="dtp-tile" data-preset="heading">Heading</div><div class="dtp-tile" data-preset="body">Body</div><div class="dtp-tile" data-preset="caption">Caption</div><div class="dtp-tile" data-preset="quote">Quote</div></div>' +
+                '<div class="dtp-seg" id="dtpProp"><div class="dtp-pill"></div><button data-prop="weight" class="on">太さ</button><button data-prop="size">サイズ</button><button data-prop="opacity">不透明</button><button data-prop="shadow">影</button></div>' +
+                '<div class="dtp-row"><input type="range" id="dtpSlider"><span class="dtp-val" id="dtpVal"></span></div>' +
+                '<div class="dtp-seg" id="dtpCmode"><div class="dtp-pill"></div><button data-cmode="solid" class="on">単色</button><button data-cmode="grad">グラデ</button></div>' +
+                '<div class="dtp-color"><input type="color" id="dtpColor" value="#000000"><input type="color" id="dtpColor2" value="#5856d6" style="display:none"><span class="dtp-hex" id="dtpHex">#000000</span><button class="dtp-tile" id="dtpApplyColor" style="flex:0 0 auto;padding:9px 16px">適用</button></div>' +
+                '<div class="dtp-hr"><button data-hr="dotted">・・・ 点線</button><button data-hr="solid">― 線</button><button data-hr="heart">♡</button></div>' +
+                '<button class="dtp-done" id="dtpDone">完了</button></div>';
+            document.body.appendChild(ov);
+
+            const slider = ov.querySelector('#dtpSlider'), val = ov.querySelector('#dtpVal');
+            const colorIn = ov.querySelector('#dtpColor'), hexEl = ov.querySelector('#dtpHex');
+
+            // ---- selection preservation (panel focus must not lose the doc selection) ----
+            let savedRange = null;
+            function saveSel() {
+                const s = window.getSelection();
+                if (s && s.rangeCount && s.anchorNode && docPage.contains(s.anchorNode) && !s.isCollapsed) savedRange = s.getRangeAt(0).cloneRange();
+            }
+            function restoreSel() {
+                if (!savedRange) return null;
+                try { const s = window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); return s.getRangeAt(0); } catch (_) { return null; }
+            }
+            function commit() { try { stashEditor(); save(); } catch (_) {} }
+            function setStyles(node, styles) { for (const k in styles) node.style[k] = styles[k]; }
+            function reselect(node) { try { const s = window.getSelection(); s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(node); s.addRange(nr); savedRange = nr.cloneRange(); } catch (_) {} }
+            function wrapSel(styles, noCommit) {
+                const r = restoreSel(); if (!r || r.collapsed) return null;
+                // multi-block selection → style each intersecting block directly (never flatten/merge blocks)
+                const blocks = [];
+                Array.prototype.forEach.call(docPage.children, el => { try { if (el.nodeType === 1 && r.intersectsNode(el)) blocks.push(el); } catch (_) {} });
+                if (blocks.length > 1) { blocks.forEach(b => setStyles(b, styles)); if (!noCommit) commit(); return null; }
+                // reuse an existing wrapper span when the selection is exactly its contents (prevents deep nesting on repeated edits)
+                let anc = r.commonAncestorContainer;
+                if (anc && anc.nodeType !== 1) anc = anc.parentNode;
+                if (anc && anc.tagName === 'SPAN' && anc !== docPage && r.toString() === anc.textContent) { setStyles(anc, styles); reselect(anc); if (!noCommit) commit(); return anc; }
+                // otherwise wrap the selection in one new styled span
+                const span = document.createElement('span'); setStyles(span, styles);
+                try { r.surroundContents(span); }
+                catch (_) { try { const f = r.extractContents(); span.appendChild(f); r.insertNode(span); } catch (e) { return null; } }
+                reselect(span);
+                if (!noCommit) commit();
+                return span;
+            }
+            function blocksInSel() {
+                const r = restoreSel(); if (!r) return [];
+                const out = [];
+                Array.prototype.forEach.call(docPage.children, el => { try { if (el.nodeType === 1 && r.intersectsNode(el)) out.push(el); } catch (_) {} });
+                if (!out.length) { let n = r.startContainer; while (n && n !== docPage && n.parentNode !== docPage) n = n.parentNode; if (n && n.nodeType === 1 && n.parentNode === docPage) out.push(n); }
+                return out;
+            }
+
+            // ---- RD-22e: セグメントの選択pillを active ボタンへスライド (index準拠の見た目) ----
+            function positionPill(seg) {
+                const pill = seg && seg.querySelector('.dtp-pill'), on = seg && seg.querySelector('button.on');
+                if (!pill || !on || !on.offsetWidth) return;   // 非表示(display:none)時は offsetWidth=0 → スキップ
+                const sr = seg.getBoundingClientRect(), br = on.getBoundingClientRect();
+                pill.style.width = br.width + 'px'; pill.style.height = br.height + 'px';
+                pill.style.transform = 'translate(' + (br.left - sr.left) + 'px,' + (br.top - sr.top) + 'px)';
+            }
+            function snapPills() {   // 開いた直後/リサイズ時はアニメ無しで即配置
+                [ov.querySelector('#dtpProp'), ov.querySelector('#dtpCmode')].forEach(seg => {
+                    const pill = seg && seg.querySelector('.dtp-pill'); if (!pill) return;
+                    const t = pill.style.transition; pill.style.transition = 'none';
+                    positionPill(seg); void pill.offsetWidth; pill.style.transition = t;
+                });
+            }
+
+            // ---- presets (applied to the selected block(s)) ----
+            const PRESETS = {
+                heading: { fontSize:'1.9em', fontWeight:'800', fontStyle:'normal', color:'', letterSpacing:'-.01em', textTransform:'none', borderLeft:'', paddingLeft:'' },
+                body:    { fontSize:'1em',   fontWeight:'400', fontStyle:'normal', color:'', letterSpacing:'normal', textTransform:'none', borderLeft:'', paddingLeft:'' },
+                caption: { fontSize:'.8em',  fontWeight:'600', fontStyle:'normal', color:'#8e8e93', letterSpacing:'.04em', textTransform:'uppercase', borderLeft:'', paddingLeft:'' },
+                quote:   { fontSize:'1em',   fontWeight:'400', fontStyle:'italic', color:'#5856d6', letterSpacing:'normal', textTransform:'none', borderLeft:'3px solid #AF52DE', paddingLeft:'12px' }
+            };
+            ov.querySelectorAll('.dtp-tile[data-preset]').forEach(t => {
+                t.addEventListener('pointerdown', e => e.preventDefault());
+                t.addEventListener('click', () => {
+                    const p = PRESETS[t.dataset.preset]; if (!p) return;
+                    const bl = blocksInSel(); if (!bl.length) return;
+                    bl.forEach(b => { for (const k in p) b.style[k] = p[k]; });
+                    commit(); try { haptic.tap(); } catch (_) {}
+                });
+            });
+
+            // ---- prop slider 太さ/サイズ/不透明/影 (apply on release → no nested spans) ----
+            const PROP = {
+                weight:  { min:100, max:900, step:100, def:500, fmt: v => v },
+                size:    { min:10,  max:96,  step:1,   def:18,  fmt: v => v + 'px' },
+                opacity: { min:10,  max:100, step:1,   def:100, fmt: v => v + '%' },
+                shadow:  { min:0,   max:30,  step:1,   def:0,   fmt: v => v }
+            };
+            let curProp = 'weight';
+            // B2: パネルは常に「選択中テキストの実際の値」を映す（既定値リセットだと説明が要る＝直感に反する）
+            function selStyle() {
+                try {
+                    let n = savedRange ? savedRange.commonAncestorContainer : null;
+                    if (n && n.nodeType !== 1) n = n.parentNode;
+                    if (!n || !docPage.contains(n)) n = docPage;
+                    return window.getComputedStyle(n);
+                } catch (_) { return null; }
+            }
+            function loadProp(name) {
+                curProp = name; const c = PROP[name];
+                slider.min = c.min; slider.max = c.max; slider.step = c.step;
+                let v = c.def;
+                const cs = selStyle();
+                if (cs) {   // 現在値をスライダーに反映
+                    if (name === 'weight') { const w = parseInt(cs.fontWeight, 10); if (w) v = Math.max(c.min, Math.min(c.max, w)); }
+                    else if (name === 'size') { const s = parseFloat(cs.fontSize); if (s) v = Math.max(c.min, Math.min(c.max, Math.round(s))); }
+                    else if (name === 'opacity') { const o = parseFloat(cs.opacity); if (!isNaN(o)) v = Math.max(c.min, Math.min(c.max, Math.round(o * 100))); }
+                }
+                slider.value = v; val.textContent = c.fmt(v);
+                ov.querySelectorAll('#dtpProp button').forEach(b => b.classList.toggle('on', b.dataset.prop === name));
+                positionPill(ov.querySelector('#dtpProp'));
+            }
+            ov.querySelectorAll('#dtpProp button').forEach(b => {
+                b.addEventListener('pointerdown', e => e.preventDefault());
+                b.addEventListener('click', () => loadProp(b.dataset.prop));
+            });
+            let _liveSpan = null, _sliderDirty = false;
+            function propStyle(v) {
+                if (curProp === 'weight') return { fontWeight: String(v) };
+                if (curProp === 'size') return { fontSize: v + 'px' };
+                if (curProp === 'opacity') return { opacity: String(v / 100) };
+                return { textShadow: v > 0 ? '0 ' + v + 'px ' + (v * 2) + 'px rgba(0,0,0,.25)' : 'none' };
+            }
+            function applyProp(v, noCommit) {
+                const sty = propStyle(v);
+                // ライブ中(noCommit)は最初に掴んだspanへ直接適用＝毎フレーム選択を触らない(iOSのジャンク/ちらつき回避)
+                if (noCommit && _liveSpan && docPage.contains(_liveSpan)) { setStyles(_liveSpan, sty); return; }
+                const t = wrapSel(sty, noCommit);
+                if (noCommit) _liveSpan = t || null;
+            }
+            function commitSlider() {   // changeが出ない(開始値に戻して離した)場合の保険も兼ねた確定保存
+                if (!_sliderDirty) return;
+                applyProp(+slider.value, false); _sliderDirty = false; _liveSpan = null;
+            }
+            slider.addEventListener('pointerdown', () => { _liveSpan = null; });   // 新しいドラッグ=spanを取り直す
+            slider.addEventListener('input', () => { val.textContent = PROP[curProp].fmt(+slider.value); applyProp(+slider.value, true); _sliderDirty = true; });   // 即ライブ反映(未保存)
+            slider.addEventListener('change', () => { commitSlider(); try { haptic.tap(); } catch (_) {} });   // 離した時に確定保存
+            slider.addEventListener('pointerup', commitSlider);   // changeが発火しない場合の確定
+
+            // ---- color (単色) ----
+            colorIn.addEventListener('input', () => { hexEl.textContent = colorIn.value.toUpperCase(); });
+            const color2In = ov.querySelector('#dtpColor2');
+            const cmodeSeg = ov.querySelector('#dtpCmode');
+            let gradMode = false;
+            if (cmodeSeg) cmodeSeg.querySelectorAll('button').forEach(function (b) {
+                b.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+                b.addEventListener('click', function () {
+                    gradMode = b.dataset.cmode === 'grad';
+                    cmodeSeg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+                    positionPill(cmodeSeg);
+                    if (color2In) color2In.style.display = gradMode ? '' : 'none';
+                });
+            });
+            const applyColorBtn = ov.querySelector('#dtpApplyColor');
+            applyColorBtn.addEventListener('pointerdown', e => e.preventDefault());
+            applyColorBtn.addEventListener('click', () => {
+                if (!restoreSel()) return;
+                if (gradMode) {   // グラデ: 選択テキストに linear-gradient 塗り
+                    wrapSel({ backgroundImage: 'linear-gradient(135deg,' + colorIn.value + ',' + (color2In ? color2In.value : '#5856d6') + ')', webkitBackgroundClip: 'text', backgroundClip: 'text', webkitTextFillColor: 'transparent', color: 'transparent' });
+                } else {
+                    try { docPage.focus(); document.execCommand('foreColor', false, colorIn.value); } catch (_) {}
+                    saveSel(); commit();
+                }
+                try { haptic.tap(); } catch (_) {}
+            });
+
+            // ---- 区切り線 / ♡ (insert at caret) ----
+            ov.querySelectorAll('.dtp-hr button').forEach(b => {
+                b.addEventListener('pointerdown', e => e.preventDefault());
+                b.addEventListener('click', () => {
+                    const kind = b.dataset.hr;
+                    restoreSel();
+                    let el;
+                    if (kind === 'heart') { el = document.createElement('div'); el.className = 'ds-heart'; el.setAttribute('contenteditable', 'false'); el.setAttribute('data-state', 'empty'); el.textContent = '♡'; el.style.cssText = 'text-align:center;color:#AF52DE;font-size:24px;margin:.6em 0;cursor:pointer;-webkit-user-select:none;user-select:none'; }
+                    else { el = document.createElement('hr'); el.className = 'ds-hr'; el.setAttribute('data-hr-thick', kind === 'dotted' ? '3' : '2'); applyDsHr(el, kind === 'dotted' ? 'dotted' : 'solid', null); }
+                    try {
+                        const s = window.getSelection();
+                        if (s && s.rangeCount) { const r = s.getRangeAt(0); r.collapse(false); r.insertNode(el); const nr = document.createRange(); nr.setStartAfter(el); nr.collapse(true); s.removeAllRanges(); s.addRange(nr); }
+                        else docPage.appendChild(el);
+                    } catch (_) { docPage.appendChild(el); }
+                    commit(); try { haptic.tap(); } catch (_) {}
+                    close();
+                });
+            });
+
+            // B/I/U/S + 箇条書き(Todo) + 翻訳 on/off （sel-bar から集約）
+            const fmt = ov.querySelector('#dtpFmt');
+            const FMT = { bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikeThrough', bullet: 'insertUnorderedList' };
+            function refreshFmt() {
+                if (!fmt) return;
+                restoreSel();
+                fmt.querySelectorAll('button').forEach(function (b) {
+                    var c = b.dataset.fmt, on = false;
+                    try { if (c === 'translate') on = (localStorage.getItem('ds_translate_on') === '1'); else if (FMT[c]) on = document.queryCommandState(FMT[c]); } catch (_) {}
+                    b.classList.toggle('on', !!on);
+                });
+            }
+            if (fmt) ov.querySelectorAll('#dtpFmt button').forEach(function (b) {
+                b.addEventListener('pointerdown', function (e) { e.preventDefault(); });   // keep selection
+                b.addEventListener('click', function () {
+                    var c = b.dataset.fmt;
+                    if (c === 'translate') {
+                        var on = localStorage.getItem('ds_translate_on') === '1';
+                        try { localStorage.setItem('ds_translate_on', on ? '0' : '1'); } catch (_) {}
+                        try { window.__dsTranslateOn = !on; window.dispatchEvent(new CustomEvent('ds:translate', { detail: { on: !on } })); } catch (_) {}
+                    } else if (FMT[c]) {
+                        restoreSel();
+                        try { docPage.focus(); document.execCommand(FMT[c], false, null); } catch (_) {}
+                        saveSel();
+                    }
+                    refreshFmt(); try { haptic.tap(); } catch (_) {}
+                });
+            });
+            function open() {
+                saveSel(); loadProp('weight');
+                // B2: 色も選択中テキストの現在色で開く
+                let _c = '#000000';
+                try { const cs = selStyle(); const m = cs && cs.color.match(/\d+/g); if (m) _c = '#' + [0,1,2].map(i => (+m[i]).toString(16).padStart(2,'0')).join(''); } catch (_) {}
+                colorIn.value = _c; hexEl.textContent = _c.toUpperCase();
+                refreshFmt(); ov.classList.add('show'); requestAnimationFrame(() => requestAnimationFrame(snapPills)); try { haptic.ok(); } catch (_) {}
+            }
+            function close() { commitSlider(); ov.classList.remove('show'); }   // 閉じる時に未確定のライブ変更を確定(保険)
+            window.addEventListener('resize', () => { if (ov.classList.contains('show')) snapPills(); });
+            ov.querySelector('#dtpDone').addEventListener('click', close);
+            ov.addEventListener('click', e => { if (e.target === ov) close(); });
+            return open;
+        })();
+
+        // ---- RD-22b: 区切り線(hr)をタップで選択 → 色 / 点線・実線 を編集するポップオーバー ----
+        (function () {
+            const st = document.createElement('style');
+            st.textContent =
+                '#docPage{--hr-default-color:#16161a}' +
+                'hr.ds-hr{cursor:pointer}' +
+                'hr.ds-hr.ds-hr-sel{outline:2px solid #5b3df0;outline-offset:3px;border-radius:2px;background-color:rgba(91,61,240,.06)}' +
+                '.ds-hrpop{position:fixed;z-index:99999;background:rgba(255,255,255,.98);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border:1px solid rgba(0,0,0,.08);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.18);padding:12px;display:none;width:236px;font:600 13px -apple-system}' +
+                '.ds-hrpop.show{display:block;animation:dshrpop .18s ease}' +
+                '@keyframes dshrpop{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}' +
+                '.ds-hrpop-seg{display:flex;background:rgba(118,118,128,.12);border-radius:11px;padding:3px;margin-bottom:10px}' +
+                '.ds-hrpop-seg button{flex:1;border:none;background:none;cursor:pointer;padding:8px 0;border-radius:8px;font:600 13px -apple-system;color:#3a3a3c}' +
+                '.ds-hrpop-seg button.on{background:#fff;color:#1c1c1e;box-shadow:0 2px 6px rgba(0,0,0,.12)}' +
+                '.ds-hrpop-color{display:flex;align-items:center;gap:10px}' +
+                '.ds-hrpop-color input[type=color]{width:44px;height:32px;border:none;border-radius:9px;background:none;cursor:pointer;padding:0}' +
+                '.ds-hrpop-hex{font:600 12px ui-monospace,monospace;color:#8e8e93;flex:1}' +
+                '.ds-hrpop-auto{border:1px solid rgba(0,0,0,.1);background:#fff;border-radius:9px;padding:7px 12px;font:600 12px -apple-system;color:#1c1c1e;cursor:pointer}' +
+                '.ds-hrpop-auto.on{background:#5b3df0;color:#fff;border-color:#5b3df0}';
+            document.head.appendChild(st);
+
+            let pop = null, selHr = null;
+            function commit() { try { stashEditor(); save(); } catch (_) {} }
+            function curStyle() { return (selHr && selHr.getAttribute('data-hr-style')) || 'solid'; }
+            function curColor() { return selHr ? selHr.getAttribute('data-hr-color') : null; }
+            function live() { if (selHr && !docPage.contains(selHr)) closePop(); return !!selHr; }   // 遷移でhrがdetachされていたら閉じる
+            function buildPop() {
+                const p = document.createElement('div');
+                p.className = 'ds-hrpop';
+                p.innerHTML =
+                    '<div class="ds-hrpop-seg"><button data-hs="dotted">・・・ 点線</button><button data-hs="solid">― 線</button></div>' +
+                    '<div class="ds-hrpop-color"><input type="color" class="ds-hrpop-ci" value="#16161a"><span class="ds-hrpop-hex">#16161A</span><button class="ds-hrpop-auto" type="button">標準</button></div>';
+                document.body.appendChild(p);
+                const seg = p.querySelectorAll('.ds-hrpop-seg button');
+                const ci = p.querySelector('.ds-hrpop-ci'), hex = p.querySelector('.ds-hrpop-hex'), auto = p.querySelector('.ds-hrpop-auto');
+                p._sync = function () {
+                    const stl = curStyle(), col = curColor();
+                    seg.forEach(b => b.classList.toggle('on', b.dataset.hs === stl));
+                    ci.value = col || '#16161a'; hex.textContent = (col || '#16161A').toUpperCase();
+                    auto.classList.toggle('on', !col);
+                };
+                seg.forEach(b => {
+                    b.addEventListener('pointerdown', e => e.preventDefault());
+                    b.addEventListener('click', () => { if (!live()) return; applyDsHr(selHr, b.dataset.hs, curColor()); p._sync(); commit(); try { haptic.tap(); } catch (_) {} });
+                });
+                ci.addEventListener('input', () => { if (!live()) return; hex.textContent = ci.value.toUpperCase(); auto.classList.remove('on'); applyDsHr(selHr, curStyle(), ci.value); });
+                ci.addEventListener('change', () => { commit(); try { haptic.tap(); } catch (_) {} });
+                auto.addEventListener('pointerdown', e => e.preventDefault());
+                auto.addEventListener('click', () => { if (!live()) return; applyDsHr(selHr, curStyle(), null); p._sync(); commit(); try { haptic.tap(); } catch (_) {} });
+                return p;
+            }
+            function place(p, hr) {
+                p.style.visibility = 'hidden'; p.classList.add('show');
+                const r = hr.getBoundingClientRect(), pw = p.offsetWidth, ph = p.offsetHeight;
+                let left = Math.max(8, Math.min(r.left + r.width / 2 - pw / 2, window.innerWidth - pw - 8));
+                let top = r.bottom + 8;
+                if (top + ph > window.innerHeight - 8) top = r.top - ph - 8;
+                if (top < 8) top = 8;
+                p.style.left = left + 'px'; p.style.top = top + 'px'; p.style.visibility = '';
+            }
+            function selectHr(hr) {
+                if (selHr && selHr !== hr) selHr.classList.remove('ds-hr-sel');
+                selHr = hr; hr.classList.add('ds-hr-sel');
+                if (!pop) pop = buildPop();
+                pop._sync(); place(pop, hr); pop.classList.add('show');
+                try { haptic.ok(); } catch (_) {}
+            }
+            function closePop() {
+                if (pop) pop.classList.remove('show');
+                if (selHr) { selHr.classList.remove('ds-hr-sel'); selHr = null; }
+            }
+            docPage.addEventListener('click', e => {
+                const hr = e.target.closest && e.target.closest('hr.ds-hr, hr');
+                if (hr && docPage.contains(hr)) {
+                    if (!hr.classList.contains('ds-hr')) {           // 旧来の素のhrをタップ時に移行
+                        hr.classList.add('ds-hr');
+                        const cs = hr.getAttribute('style') || '';
+                        hr.setAttribute('data-hr-thick', /dotted/.test(cs) ? '3' : '2');
+                        applyDsHr(hr, /dotted/.test(cs) ? 'dotted' : 'solid', null);
+                    }
+                    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); selectHr(hr);  // 同一docPageの add-bar/inspector ハンドラを抑止
+                } else if (pop && pop.classList.contains('show')) { closePop(); }
+            });
+            document.addEventListener('pointerdown', e => {
+                if (!pop || !pop.classList.contains('show')) return;
+                if (pop.contains(e.target)) return;
+                if (e.target.closest && e.target.closest('hr.ds-hr, hr')) return;
+                closePop();
+            }, true);
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
+            window.addEventListener('scroll', closePop, true);   // スクロールでhrから離れたら閉じる(selBar/addBar踏襲)
+            window.__dsHrEdit = { close: closePop };
+        })();
+
+        // ---- RD-22c: ♡ をタップ・トグル(♡→❤︎→❤️‍🔥) — index.html heart 準拠の軽量版(設定ダイアログ/JS無し) ----
+        (function () {
+            const st = document.createElement('style');
+            st.textContent =
+                '.ds-heart{cursor:pointer;-webkit-user-select:none;user-select:none}' +
+                '.ds-heart.ds-heart-pop{animation:dsheartpop .3s ease}' +
+                '@keyframes dsheartpop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}';
+            document.head.appendChild(st);
+            const STATES = [{ s: 'empty', g: '♡' }, { s: 'touched', g: '❤︎' }, { s: 'burning', g: '❤️‍🔥' }];
+            function idxOf(state) { for (let i = 0; i < STATES.length; i++) if (STATES[i].s === state) return i; return 0; }
+            function toggleHeart(h) {
+                const nx = STATES[(idxOf(h.getAttribute('data-state') || 'empty') + 1) % STATES.length];
+                h.setAttribute('data-state', nx.s); h.textContent = nx.g;
+                try { (nx.s === 'empty' ? haptic.tap() : haptic.ok()); } catch (_) {}
+                try { stashEditor(); save(); } catch (_) {}          // 状態を先に保存(popクラス付与前=直列化されない)
+                h.classList.remove('ds-heart-pop'); void h.offsetWidth; h.classList.add('ds-heart-pop');
+                h.addEventListener('animationend', () => h.classList.remove('ds-heart-pop'), { once: true });
+            }
+            docPage.addEventListener('click', e => {
+                const h = e.target.closest && e.target.closest('.ds-heart');
+                if (h && docPage.contains(h)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); toggleHeart(h); }
+            });
+        })();
+
+        // ---- single cycling align button (motion.png — replaces the 3 separate align buttons) ----
+        const ALIGN_ORDER = ['left', 'center', 'right'];
+        const ALIGN_JP = { left: '左', center: '中央', right: '右' };
+        function currentAlign() {
+            try {
+                if (document.queryCommandState('justifyCenter')) return 'center';
+                if (document.queryCommandState('justifyRight'))  return 'right';
+            } catch (_) {}
+            return 'left';
+        }
+        function updateAlignCycleIcon(dir) {
+            // icon stays motion.png; reflect the current alignment in the tooltip only
+            const b = document.getElementById('dsAlignCycle');
+            if (b) b.title = '整列: ' + (ALIGN_JP[dir] || '左') + '（タップ=次／右クリック・長押し=前）';
+        }
+        function animateAlignMove(dir) {
+            // the affected block(s) slide 0.3s ease toward the new alignment
+            const from = dir === 'right' ? -14 : dir === 'left' ? 14 : 10;
+            let blocks = [];
+            try {
+                const s = window.getSelection();
+                if (s && s.rangeCount) {
+                    const r = s.getRangeAt(0);
+                    blocks = Array.prototype.filter.call(docPage.children, el => r.intersectsNode(el));
+                }
+            } catch (_) {}
+            if (!blocks.length) { const cb = currentBlock(); if (cb) blocks = [cb]; }
+            blocks.forEach(b => {
+                b.classList.remove('ds-align-move');
+                b.style.transition = 'none';
+                b.style.transform = 'translateX(' + from + 'px)';
+                void b.offsetWidth;                         // commit the start offset
+                b.classList.add('ds-align-move');           // 0.3s ease transition
+                b.style.transition = '';
+                b.style.transform = 'translateX(0)';
+                clearTimeout(b._alignT);
+                b._alignT = setTimeout(() => { b.classList.remove('ds-align-move'); b.style.transform = ''; }, 340);
+            });
+        }
+        function cycleAlign(step) {
+            const idx = ALIGN_ORDER.indexOf(currentAlign());
+            const next = ALIGN_ORDER[(idx + step + 3) % 3];
+            applyAlign(next);                               // exec + refresh + stash + save
+            updateAlignCycleIcon(next);
+            animateAlignMove(next);
+        }
+
+        let alignSuppressClick = false, alignPressTimer = null;
+        document.querySelectorAll('#dsSelBar .tb-btn').forEach(btn => {
+            // keep selection: don't let the button steal focus
+            btn.addEventListener('pointerdown', e => e.preventDefault());
+            btn.addEventListener('mousedown', e => e.preventDefault());
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                // formatting must NOT close the bubble: ignore the input-hide it triggers, then re-show
+                if (btn.dataset.doc !== 'layout') {
+                    suppressInputHide = true;
+                    requestAnimationFrame(() => { suppressInputHide = false; updateSelBar(); });
+                }
+                if (btn.dataset.aligncycle !== undefined) {     // tap / Mac強クリック(1.7) → 次
+                    if (alignSuppressClick) { alignSuppressClick = false; return; }  // long-press already moved 前
+                    haptic.tap(); return cycleAlign(1);
+                }
+                haptic.tap();
+                const cmd = btn.dataset.cmd, align = btn.dataset.align, size = btn.dataset.size, doc = btn.dataset.doc;
+                if (align) return applyAlign(align);
+                if (size) return applySize(size === 'inc' ? 2 : -2);
+                if (doc === 'textstyle') return (window.__dsOpenTextPanel && window.__dsOpenTextPanel());
+                if (doc === 'export') return openExportSheet();
+                if (doc === 'import') return docxInput.click();
+                if (doc === 'layout') return openPageLayout();
+                if (cmd === 'bold') { exec('bold'); refreshToolbarState(); }
+                else if (cmd === 'italic') { exec('italic'); refreshToolbarState(); }
+                else if (cmd === 'underline') { exec('underline'); refreshToolbarState(); }
+                else if (cmd === 'strike') { exec('strikeThrough'); refreshToolbarState(); }
+                else if (cmd === 'undo') exec('undo');
+                else if (cmd === 'redo') exec('redo');
+                else if (cmd === 'bullet') exec('insertUnorderedList');
+                else if (cmd === 'h2') toggleHeading();
+                stashEditor(); save();
+            });
+        });
+        // align button: right-click or 0.3s long-press → 一つ前の整列に戻る
+        (function () {
+            const cyc = document.getElementById('dsAlignCycle');
+            if (!cyc) return;
+            cyc.addEventListener('contextmenu', e => { e.preventDefault(); haptic.tap(); cycleAlign(-1); });
+            cyc.addEventListener('pointerdown', e => {
+                if (e.button === 2) return;                  // right-click handled by contextmenu
+                clearTimeout(alignPressTimer);
+                alignPressTimer = setTimeout(() => { alignPressTimer = null; alignSuppressClick = true; haptic.ok(); cycleAlign(-1); }, 300);
+            });
+            const cancel = () => { clearTimeout(alignPressTimer); alignPressTimer = null; };
+            cyc.addEventListener('pointerup', cancel);
+            cyc.addEventListener('pointerleave', cancel);
+            cyc.addEventListener('pointercancel', cancel);
+        })();
+
+        function toggleHeading() {
+            const block = currentBlock();
+            const isH = block && /^H[1-3]$/.test(block.tagName);
+            exec('formatBlock', isH ? 'p' : 'h2');
+        }
+        function currentBlock() {
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return null;
+            let n = sel.getRangeAt(0).startContainer;
+            if (n.nodeType === 3) n = n.parentNode;
+            while (n && n !== docPage && !/^(P|DIV|H1|H2|H3|LI|BLOCKQUOTE)$/.test(n.tagName)) n = n.parentNode;
+            return (n === docPage) ? null : n;
+        }
+        function refreshToolbarState() {
+            try {
+                setBtn('[data-cmd="bold"]', document.queryCommandState('bold'));
+                setBtn('[data-cmd="italic"]', document.queryCommandState('italic'));
+                setBtn('[data-cmd="underline"]', document.queryCommandState('underline'));
+                setBtn('[data-cmd="strike"]', document.queryCommandState('strikeThrough'));
+                const al = document.queryCommandState('justifyCenter') ? 'center'
+                         : document.queryCommandState('justifyRight') ? 'right'
+                         : 'left';
+                updateAlignCycleIcon(al);                    // single align button reflects current state
+            } catch (_) {}
+        }
+        function setBtn(sel, on) { const b = document.querySelector('#dsSelBar ' + sel) || (toolbar && toolbar.querySelector(sel)); if (b) b.classList.toggle('on', !!on); }
+
+        // Top toolbar removed; the text-format bubble (#dsSelBar) appears above the
+        // SELECTION — necessary tools, only when needed. (showToolbar kept as a no-op-safe stub.)
+        function showToolbar() { if (toolbar) toolbar.classList.add('show'); }
+        const selBar = document.getElementById('dsSelBar');
+        let selBarTimer = null;
+        let lastInputAt = 0;   // while typing (even 1 char), keep the bubble hidden
+        let suppressInputHide = false;   // formatting (整列/太字等) triggers input → don't treat as typing/close
+        function hideSelBar() { selBar.classList.remove('show'); }
+        function updateSelBar() {
+            if (Date.now() - lastInputAt < 800) { hideSelBar(); return; }   // typing → no popup
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.anchorNode || !docPage.contains(sel.anchorNode)) { hideSelBar(); return; }
+            refreshToolbarState();
+            let rect; try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch (_) { hideSelBar(); return; }
+            if (!rect || (rect.width === 0 && rect.height === 0)) { hideSelBar(); return; }
+            selBar.classList.add('show');
+            const bw = selBar.offsetWidth || 280, bh = selBar.offsetHeight || 46;
+            let left = rect.left + rect.width / 2 - bw / 2;
+            let top = rect.top - bh - 10;                 // float above the selection
+            if (top < 64) top = rect.bottom + 10;         // no room above → drop below
+            left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+            top = Math.max(8, Math.min(top, window.innerHeight - bh - 8));
+            selBar.style.left = left + 'px'; selBar.style.top = top + 'px';
+        }
+        docPage.addEventListener('focus', showToolbar);
+        docPage.addEventListener('input', () => { if (!suppressInputHide) { lastInputAt = Date.now(); hideSelBar(); } stashEditor(); save(); ltScanCurrentBlock(); });
+        // Live-translate: find the block at the caret and feed its text to the suggestion bar.
+        function ltCurrentBlock() {
+            const sel = window.getSelection();
+            let n = sel && sel.anchorNode;
+            if (!n || !docPage.contains(n)) return null;
+            if (n.nodeType === 3) n = n.parentNode;
+            while (n && n.parentNode !== docPage && n !== docPage) n = n.parentNode;
+            return (n && n !== docPage) ? n : docPage;
+        }
+        function ltScanCurrentBlock() {
+            if (!window.LiveTranslateBar) return;
+            if (localStorage.getItem('ds_translate_on') !== '1') { try { LiveTranslateBar.hide(); } catch (_) {} return; }   // G1#23: 訳トグルOFFなら live-translate を出さない
+            const blk = ltCurrentBlock();
+            LiveTranslateBar.scan({ text: (blk ? blk.textContent : '') || '', anchorEl: blk,
+                blockKey: state.currentPage + ':' + state.currentLang });
+        }
+        // G1#23: 「訳」ボタン → 既存 liveTranslate のトグル（新規翻訳ロジックは無し）
+        window.addEventListener('ds:translate', function (e) {
+            var on = !!(e && e.detail && e.detail.on);
+            if (on) { try { ltScanCurrentBlock(); } catch (_) {} }                                   // ON: 現在ブロックを即スキャン
+            else if (window.LiveTranslateBar) { try { LiveTranslateBar.hide(); } catch (_) {} }       // OFF: バーを隠す
+        });
+        document.addEventListener('selectionchange', () => {
+            clearTimeout(selBarTimer);
+            selBarTimer = setTimeout(updateSelBar, 130);  // debounce → smooth, not jumpy on mobile
+        });
+        // Mac風: ドラッグ選択を離した瞬間 / ダブルクリックで単語選択した瞬間に即バブル表示
+        docPage.addEventListener('pointerup', () => { clearTimeout(selBarTimer); selBarTimer = setTimeout(updateSelBar, 0); });
+        docPage.addEventListener('dblclick', () => { clearTimeout(selBarTimer); selBarTimer = setTimeout(updateSelBar, 0); });
+        docPage.addEventListener('scroll', hideSelBar, true);
+        document.addEventListener('pointerdown', e => { if (!e.target.closest('#dsSelBar') && !e.target.closest('.doc-page')) hideSelBar(); }, true);
+        // G2#24: 入力中(0.3s後)は言語スイッチャを国旗にコンパクト化。タップ/編集終了で言語名に戻す
+        let _langTypeT = null;
+        function _exitLangTyping() { clearTimeout(_langTypeT); _langTypeT = null; langsEl.classList.remove('langs-typing'); }
+        docPage.addEventListener('input', () => {                          // 入力開始から0.3sで国旗へ（編集中は維持）
+            if (_langTypeT || langsEl.classList.contains('langs-typing')) return;
+            _langTypeT = setTimeout(() => { _langTypeT = null; langsEl.classList.add('langs-typing'); }, 300);
+        });
+        docPage.addEventListener('blur', _exitLangTyping, true);           // 編集を離れたら言語名に戻す
+        langsEl.addEventListener('pointerdown', _exitLangTyping);          // 言語スイッチャをタップ→言語名（switchLang が lang-island で名前表示）
+        setTimeout(showToolbar, 400);
+
+        // ---------------------------------------------------------------
+        // Multilingual: add-language picker + MyMemory auto-translate
+        // ---------------------------------------------------------------
+        const LANG_CHOICES = [
+            { code: 'en', label: 'English', flag: '🇬🇧', mm: 'en' },
+            { code: 'zh', label: '中文', flag: '🇨🇳', mm: 'zh-CN' },
+            { code: 'ko', label: '한국어', flag: '🇰🇷', mm: 'ko' },
+            { code: 'es', label: 'Español', flag: '🇪🇸', mm: 'es' },
+            { code: 'fr', label: 'Français', flag: '🇫🇷', mm: 'fr' },
+            { code: 'de', label: 'Deutsch', flag: '🇩🇪', mm: 'de' },
+            { code: 'it', label: 'Italiano', flag: '🇮🇹', mm: 'it' },
+            { code: 'pt', label: 'Português', flag: '🇵🇹', mm: 'pt' },
+            { code: 'ru', label: 'Русский', flag: '🇷🇺', mm: 'ru' },
+            { code: 'ar', label: 'العربية', flag: '🇸🇦', mm: 'ar' },
+            { code: 'hi', label: 'हिन्दी', flag: '🇮🇳', mm: 'hi' },
+            { code: 'th', label: 'ไทย', flag: '🇹🇭', mm: 'th' },
+            { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳', mm: 'vi' },
+            { code: 'ja', label: '日本語', flag: '🇯🇵', mm: 'ja' }
+        ];
+        function mmCode(code) { const c = LANG_CHOICES.find(x => x.code === code); return c ? c.mm : code; }
+
+        function openLangPicker() {
+            haptic.tap();
+            const existing = new Set(state.languages.map(l => l.code));
+            langGrid.innerHTML = '';
+            LANG_CHOICES.filter(c => !existing.has(c.code)).forEach(c => {
+                const o = document.createElement('button');
+                o.className = 'lang-opt'; o.type = 'button';
+                o.innerHTML = '<span class="flag">' + c.flag + '</span><span>' + c.label + '</span>';
+                o.addEventListener('click', () => addLanguage(c));
+                langGrid.appendChild(o);
+            });
+            langOverlay.classList.add('show');
+        }
+        function closeLangPicker() { langOverlay.classList.remove('show'); }
+        // backdrop tap closes — but only a tap that STARTED on the backdrop (no
+        // accidental close from a drag/select inside the sheet).
+        langOverlay.addEventListener('pointerdown', e => { langOverlay._downOnBg = (e.target === langOverlay); });
+        langOverlay.addEventListener('click', e => { if (e.target === langOverlay && langOverlay._downOnBg) closeLangPicker(); });
+
+        async function addLanguage(choice) {
+            stashEditor();
+            if (state.languages.some(l => l.code === choice.code)) { closeLangPicker(); return; }
+            state.languages.push({ code: choice.code, label: choice.label });
+            const auto = true;   // 自動翻訳トグル撤去 → 常に自動翻訳で下書き
+            closeLangPicker();
+            haptic.ok();
+            // seed content: auto-translate from current language, else copy as draft
+            const from = mmCode(state.currentLang);
+            const to = choice.mm;
+            if (auto && navigator.onLine) {
+                toast('🌐 ' + choice.label + ' に翻訳中…');
+                for (const p of state.pages) {
+                    const src = (p.content && p.content[state.currentLang]) || '';
+                    try { p.content[choice.code] = await translateHtml(src, from, to); }
+                    catch (_) { p.content[choice.code] = src; }
+                }
+                toast('✅ ' + choice.label + ' を追加');
+            } else {
+                state.pages.forEach(p => { p.content[choice.code] = (p.content && p.content[state.currentLang]) || ''; });
+                if (auto) toast('📴 オフライン — 原文を複製しました');
+            }
+            state.currentLang = choice.code;
+            renderLangs(); loadEditor(); save(); showLangIsland(choice.code);
+        }
+
+        // ---- Add-language via terrakoku globe (replaces the grid picker) ----
+        const dsLangGlobe = document.getElementById('dsLangGlobe');
+        const dsGlobeFrame = document.getElementById('dsGlobeFrame');
+        function openLangGlobe() {
+            haptic.tap();
+            // reload every open so terrakoku's boot + flag pop-in animation replays each time
+            dsGlobeFrame.src = 'terrakoku-flags.html?t=' + Date.now();
+            dsLangGlobe.classList.add('show'); dsLangGlobe.setAttribute('aria-hidden', 'false');
+            void dsLangGlobe.offsetWidth; dsLangGlobe.classList.add('in');   // 0.5s fade
+        }
+        function closeLangGlobe() {
+            dsLangGlobe.classList.remove('in'); dsLangGlobe.setAttribute('aria-hidden', 'true');
+            setTimeout(() => dsLangGlobe.classList.remove('show'), 500);
+        }
+        document.getElementById('dsGlobeClose').addEventListener('click', closeLangGlobe);
+        // terrakoku flag tap → add (auto-translate, since autoSwitch defaults on) or switch.
+        window.addEventListener('message', e => {
+            const d = e && e.data;
+            if (!d || d.type !== 'terrakoku-lang' || !d.lang) return;
+            // Live-translate bar re-picking a source/target flag → it consumes the event
+            // (re-aims its from/to without changing the document language).
+            if (window.LiveTranslateBar && LiveTranslateBar.consume(d)) { closeLangGlobe(); return; }
+            const code = String(d.lang).toLowerCase();
+            closeLangGlobe();
+            if (state.languages.some(l => l.code === code)) { switchLang(code); return; }
+            const choice = LANG_CHOICES.find(c => c.code === code) || { code, label: code.toUpperCase(), mm: code };
+            addLanguage(choice);
+        });
+
+        // ---- dynamic-island language confirmation (add/switch → name slides up) ----
+        const langIsland = document.createElement('div'); langIsland.className = 'lang-island';
+        langIsland.innerHTML = '<span class="li-name"></span>'; document.body.appendChild(langIsland);
+        (function () {
+            const st = document.createElement('style');
+            st.textContent =
+                '.lang-island{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translateX(-50%);' +
+                'background:rgba(20,20,24,.78);color:#fff;border-radius:55px;border:1px solid rgba(255,255,255,.14);z-index:99998;max-width:0;opacity:0;overflow:hidden;white-space:nowrap;' +
+                'box-shadow:0 16px 40px -12px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);' +
+                'padding:0;pointer-events:none;transition:max-width .5s cubic-bezier(.16,1,.3,1),padding .5s cubic-bezier(.16,1,.3,1),opacity .35s ease}' +
+                '.lang-island.show{max-width:70vw;opacity:1;padding:13px 26px}' +
+                '.lang-island .li-name{display:inline-block;font:700 18px/1.1 -apple-system,"Hiragino Sans",system-ui;letter-spacing:.3px;' +
+                'transform:translateY(120%);opacity:0;transition:transform .5s cubic-bezier(.16,1,.3,1),opacity .4s ease}' +
+                '.lang-island.show .li-name{transform:translateY(0);opacity:1}';
+            document.head.appendChild(st);
+        })();
+        let _liT = null;
+        function showLangIsland(code) {
+            const L = state.languages.find(l => l.code === code) || LANG_CHOICES.find(c => c.code === code) || { label: code };
+            langIsland.querySelector('.li-name').textContent = L.label || code;
+            langIsland.classList.remove('show'); void langIsland.offsetWidth;
+            langIsland.classList.add('show');
+            clearTimeout(_liT);
+            _liT = setTimeout(() => langIsland.classList.remove('show'), 1800);   // 0.5s expand → 1.3s hold → 0.5s close
+        }
+
+        // Translate an HTML fragment block-by-block, preserving alignment.
+        async function translateHtml(html, from, to) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            const blocks = Array.from(tmp.children).length ? Array.from(tmp.children) : [tmp];
+            for (const b of blocks) {
+                const text = b.textContent.trim();
+                if (!text) continue;
+                const tr = await mmTranslate(text, from, to);
+                // keep tag + alignment, replace text
+                b.textContent = tr;
+            }
+            return tmp.innerHTML || ('<p>' + escapeHtml(await mmTranslate(tmp.textContent.trim() || '', from, to)) + '</p>');
+        }
+        async function mmTranslate(text, from, to) {
+            if (!text) return '';
+            const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + encodeURIComponent(from + '|' + to);
+            const r = await fetch(url);
+            const j = await r.json();
+            return (j && j.responseData && j.responseData.translatedText) || text;
+        }
+
+        // ---- mount the shared Live-translate suggestion bar (Image #1) ----
+        if (window.LiveTranslateBar) {
+            LiveTranslateBar.mount({
+                getTarget: () => state.currentLang,
+                translateFn: (text, from, to) => mmTranslate(text, from, to),
+                openGlobe: openLangGlobe,
+                closeGlobe: closeLangGlobe,
+                anchorFor: (cur) => (cur && cur.anchorEl) ? cur.anchorEl.getBoundingClientRect() : null,
+                applyInsert: (cur) => {            // replace the typed block text with the translation
+                    if (!cur || !cur.anchorEl) return null;
+                    const old = cur.anchorEl.innerHTML;
+                    cur.anchorEl.textContent = cur.translated;
+                    stashEditor(); save();
+                    return old;
+                },
+                revert: (cur, old) => {
+                    if (!cur || !cur.anchorEl || old == null) return;
+                    cur.anchorEl.innerHTML = old;
+                    stashEditor(); save();
+                }
+            });
+        }
+
+        // ===============================================================
+        // DOCX  —  self-contained OOXML reader/writer (no external libs).
+        // Write: STORE (uncompressed) zip — valid .docx Word/Pages open.
+        // Read : parse central directory, inflate DEFLATE via
+        //        DecompressionStream('deflate-raw').
+        // ===============================================================
+        const CRC_TABLE = (function () {
+            const t = new Uint32Array(256);
+            for (let n = 0; n < 256; n++) {
+                let c = n;
+                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                t[n] = c >>> 0;
+            }
+            return t;
+        })();
+        function crc32(b) {
+            let c = 0xFFFFFFFF;
+            for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xFF] ^ (c >>> 8);
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        }
+        function zipStore(files) {
+            const enc = new TextEncoder();
+            const parts = [], central = [];
+            let offset = 0;
+            for (const f of files) {
+                const name = enc.encode(f.name);
+                const data = f.data;
+                const crc = crc32(data), size = data.length;
+                const lh = new Uint8Array(30 + name.length);
+                const dv = new DataView(lh.buffer);
+                dv.setUint32(0, 0x04034b50, true);   // local file header sig
+                dv.setUint16(4, 20, true);           // version needed
+                dv.setUint16(6, 0, true);            // flags
+                dv.setUint16(8, 0, true);            // method = STORE (0)
+                dv.setUint16(10, 0, true);           // mod time
+                dv.setUint16(12, 0x21, true);        // mod date (valid DOS date)
+                dv.setUint32(14, crc, true); dv.setUint32(18, size, true); dv.setUint32(22, size, true);
+                dv.setUint16(26, name.length, true);
+                lh.set(name, 30);
+                parts.push(lh, data);
+                const ch = new Uint8Array(46 + name.length);
+                const cv = new DataView(ch.buffer);
+                cv.setUint32(0, 0x02014b50, true);   // central dir header sig
+                cv.setUint16(4, 20, true);           // version made by
+                cv.setUint16(6, 20, true);           // version needed
+                cv.setUint16(8, 0, true);            // flags
+                cv.setUint16(10, 0, true);           // method = STORE (0)  ← key field unzip checks
+                cv.setUint16(12, 0, true);           // mod time
+                cv.setUint16(14, 0x21, true);        // mod date
+                cv.setUint32(16, crc, true); cv.setUint32(20, size, true); cv.setUint32(24, size, true);
+                cv.setUint16(28, name.length, true); // file name length
+                cv.setUint32(42, offset, true);      // local header offset
+                ch.set(name, 46);
+                central.push(ch);
+                offset += lh.length + data.length;
+            }
+            const cdStart = offset;
+            let cdSize = 0;
+            for (const c of central) { parts.push(c); cdSize += c.length; }
+            const eocd = new Uint8Array(22);
+            const ev = new DataView(eocd.buffer);
+            ev.setUint32(0, 0x06054b50, true);
+            ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+            ev.setUint32(12, cdSize, true); ev.setUint32(16, cdStart, true);
+            parts.push(eocd);
+            let total = 0; parts.forEach(p => total += p.length);
+            const out = new Uint8Array(total);
+            let o = 0; parts.forEach(p => { out.set(p, o); o += p.length; });
+            return out;
+        }
+        async function inflateRaw(bytes) {
+            if (typeof DecompressionStream === 'undefined') throw new Error('inflate-unsupported');
+            const ds = new DecompressionStream('deflate-raw');
+            const ab = await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+            return new Uint8Array(ab);
+        }
+        async function unzip(bytes) {
+            const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            let eo = -1;
+            for (let i = bytes.length - 22; i >= 0; i--) { if (dv.getUint32(i, true) === 0x06054b50) { eo = i; break; } }
+            if (eo < 0) throw new Error('not-a-zip');
+            const count = dv.getUint16(eo + 10, true);
+            let p = dv.getUint32(eo + 16, true);
+            const dec = new TextDecoder();
+            const out = {};
+            for (let n = 0; n < count; n++) {
+                if (dv.getUint32(p, true) !== 0x02014b50) break;
+                const method = dv.getUint16(p + 10, true);
+                const compSize = dv.getUint32(p + 20, true);
+                const nameLen = dv.getUint16(p + 28, true);
+                const extraLen = dv.getUint16(p + 30, true);
+                const commentLen = dv.getUint16(p + 32, true);
+                const lho = dv.getUint32(p + 42, true);
+                const name = dec.decode(bytes.subarray(p + 46, p + 46 + nameLen));
+                const lNameLen = dv.getUint16(lho + 26, true);
+                const lExtraLen = dv.getUint16(lho + 28, true);
+                const start = lho + 30 + lNameLen + lExtraLen;
+                const comp = bytes.subarray(start, start + compSize);
+                if (method === 0) out[name] = comp;
+                else if (method === 8) { try { out[name] = await inflateRaw(comp); } catch (e) { out[name] = null; } }
+                p += 46 + nameLen + extraLen + commentLen;
+            }
+            return out;
+        }
+
+        function xmlEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+        // ---- Editor DOM → block model (paragraphs / tables / images) ----
+        function editorToBlocks(rootHtml) {
+            const root = document.createElement('div');
+            root.innerHTML = rootHtml;
+            const out = [];
+            Array.from(root.childNodes).forEach(node => {
+                if (node.nodeType === 3) { if (node.textContent.trim()) out.push({ type:'p', align:'left', runs:[{ text:node.textContent }] }); return; }
+                if (node.nodeType !== 1) return;
+                const tag = node.tagName;
+                if (tag === 'TABLE') { out.push(tableBlock(node)); return; }
+                if (tag === 'UL' || tag === 'OL') {
+                    Array.from(node.children).forEach(li => {
+                        const im = li.querySelector && li.querySelector('img');
+                        if (im) out.push(imageBlock(im));
+                        if (li.textContent.trim()) out.push(Object.assign({ type:'p' }, blockToParagraph(li, '• ')));
+                    });
+                    return;
+                }
+                if (tag === 'IMG') { out.push(imageBlock(node)); return; }
+                const im = node.querySelector ? node.querySelector('img') : null;
+                if (im) {
+                    out.push(imageBlock(im));
+                    const clone = node.cloneNode(true);
+                    clone.querySelectorAll('img').forEach(x => x.remove());
+                    if (clone.textContent.trim()) out.push(Object.assign({ type:'p' }, blockToParagraph(clone, '')));
+                    return;
+                }
+                out.push(Object.assign({ type:'p' }, blockToParagraph(node, '')));
+            });
+            return out.length ? out : [{ type:'p', align:'left', runs:[] }];
+        }
+        function tableBlock(table) {
+            const rows = [];
+            table.querySelectorAll('tr').forEach(tr => {
+                const cells = [];
+                tr.querySelectorAll('td,th').forEach(td => {
+                    const kids = Array.from(td.children).filter(n => /^(P|DIV|H[1-3]|LI)$/.test(n.tagName));
+                    const paras = kids.length ? kids.map(b => blockToParagraph(b, '')) : [blockToParagraph(td, '')];
+                    cells.push({ paras });
+                });
+                if (cells.length) rows.push(cells);
+            });
+            return { type:'table', rows, cols: rows.length ? Math.max.apply(null, rows.map(r => r.length)) : 0 };
+        }
+        function imageBlock(img) {
+            const src = img.getAttribute('src') || '';
+            let w = parseInt(img.style.width, 10) || img.clientWidth || img.naturalWidth || 460;
+            const ratio = (img.naturalWidth && img.naturalHeight) ? (img.naturalHeight / img.naturalWidth) : 0.66;
+            if (w > 600) w = 600; if (w < 16) w = 200;
+            return { type:'image', dataUrl: src, w: Math.round(w), h: Math.round(w * ratio) };
+        }
+        function blockToParagraph(el, prefix) {
+            const align = (el.style.textAlign || getComputedStyle(el).textAlign || 'left');
+            const a = /center/.test(align) ? 'center' : /right/.test(align) ? 'right' : /justify/.test(align) ? 'both' : 'left';
+            const heading = /^H([1-3])$/.exec(el.tagName);
+            const runs = [];
+            collectRuns(el, { bold: !!heading, italic: false, underline: false, size: heading ? (heading[1] === '1' ? 36 : heading[1] === '2' ? 28 : 24) : 0 }, runs);
+            if (prefix && runs.length) runs[0] = { ...runs[0], text: prefix + runs[0].text };
+            return { align: a, runs };
+        }
+        function collectRuns(node, inh, out) {
+            node.childNodes.forEach(ch => {
+                if (ch.nodeType === 3) {
+                    if (ch.textContent) out.push({ text: ch.textContent, bold: inh.bold, italic: inh.italic, underline: inh.underline, size: inh.size });
+                    return;
+                }
+                if (ch.nodeType !== 1) return;
+                const t = ch.tagName;
+                const st = { ...inh };
+                if (t === 'B' || t === 'STRONG') st.bold = true;
+                if (t === 'I' || t === 'EM') st.italic = true;
+                if (t === 'U') st.underline = true;
+                const fw = ch.style.fontWeight; if (fw === 'bold' || parseInt(fw, 10) >= 600) st.bold = true;
+                if (ch.style.fontStyle === 'italic') st.italic = true;
+                if ((ch.style.textDecorationLine || ch.style.textDecoration || '').indexOf('underline') >= 0) st.underline = true;
+                const fs = parseFloat(ch.style.fontSize); if (fs) st.size = Math.round(fs * 2); // px→half-points approx (×2)
+                if (t === 'BR') { out.push({ text: '\n', bold: st.bold, italic: st.italic, underline: st.underline, size: st.size, brk: true }); return; }
+                collectRuns(ch, st, out);
+            });
+        }
+
+        // ---- block model → OOXML ----
+        const EMU_PER_PX = 9525;
+        function runXml(r) {
+            if (r.brk) return '<w:r><w:br/></w:r>';
+            if (!r.text) return '';
+            let rpr = '';
+            if (r.bold) rpr += '<w:b/>';
+            if (r.italic) rpr += '<w:i/>';
+            if (r.underline) rpr += '<w:u w:val="single"/>';
+            if (r.size) rpr += '<w:sz w:val="' + r.size + '"/><w:szCs w:val="' + r.size + '"/>';
+            if (rpr) rpr = '<w:rPr>' + rpr + '</w:rPr>';
+            return '<w:r>' + rpr + '<w:t xml:space="preserve">' + xmlEsc(r.text) + '</w:t></w:r>';
+        }
+        function paraXml(b, pageBreak) {
+            let ppr = '';
+            if (pageBreak) ppr += '<w:pageBreakBefore/>';
+            if (b.align && b.align !== 'left') ppr += '<w:jc w:val="' + b.align + '"/>';
+            let runs = ''; (b.runs || []).forEach(r => runs += runXml(r));
+            return '<w:p>' + (ppr ? '<w:pPr>' + ppr + '</w:pPr>' : '') + runs + '</w:p>';
+        }
+        function tableXml(b) {
+            const cols = b.cols || 1;
+            const colW = Math.floor(9020 / cols);
+            const border = '<w:tblBorders>' + ['top','left','bottom','right','insideH','insideV']
+                .map(s => '<w:' + s + ' w:val="single" w:sz="4" w:space="0" w:color="9aa0aa"/>').join('') + '</w:tblBorders>';
+            const grid = '<w:tblGrid>' + Array.from({ length: cols }).map(() => '<w:gridCol w:w="' + colW + '"/>').join('') + '</w:tblGrid>';
+            let trs = '';
+            b.rows.forEach(row => {
+                let tcs = '';
+                for (let c = 0; c < cols; c++) {
+                    const cell = row[c];
+                    const inner = cell && cell.paras.length ? cell.paras.map(p => paraXml(p, false)).join('') : '<w:p/>';
+                    tcs += '<w:tc><w:tcPr><w:tcW w:w="' + colW + '" w:type="dxa"/></w:tcPr>' + inner + '</w:tc>';
+                }
+                trs += '<w:tr>' + tcs + '</w:tr>';
+            });
+            return '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>' + border + '</w:tblPr>' + grid + trs + '</w:tbl>';
+        }
+        function imageXml(b, info, pageBreak) {
+            const cx = Math.max(1, b.w) * EMU_PER_PX, cy = Math.max(1, b.h) * EMU_PER_PX;
+            const ppr = pageBreak ? '<w:pPr><w:pageBreakBefore/></w:pPr>' : '';
+            return '<w:p>' + ppr + '<w:r><w:drawing>'
+                + '<wp:inline distT="0" distB="0" distL="0" distR="0">'
+                + '<wp:extent cx="' + cx + '" cy="' + cy + '"/><wp:effectExtent l="0" t="0" r="0" b="0"/>'
+                + '<wp:docPr id="' + info.seq + '" name="image' + info.seq + '"/>'
+                + '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+                + '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+                + '<pic:nvPicPr><pic:cNvPr id="' + info.seq + '" name="image' + info.seq + '"/><pic:cNvPicPr/></pic:nvPicPr>'
+                + '<pic:blipFill><a:blip r:embed="' + info.rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+                + '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
+                + '</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+        }
+        function dataUrlToBytes(dataUrl) {
+            const m = /^data:([^;]+);base64,(.*)$/.exec(dataUrl || '');
+            if (!m) return null;
+            const ctype = m[1]; const bin = atob(m[2]);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            const ext = /png/i.test(ctype) ? 'png' : /jpe?g/i.test(ctype) ? 'jpeg' : /gif/i.test(ctype) ? 'gif' : 'png';
+            return { bytes, ctype, ext };
+        }
+        // Build document.xml + the media parts + their relationships.
+        function buildDocxParts(lang, pageIdx) {
+            const media = [], rels = [];
+            let seq = 1;
+            const addImage = (dataUrl) => {
+                const d = dataUrlToBytes(dataUrl);
+                if (!d) return null;
+                const name = 'image' + seq + '.' + d.ext, rid = 'rIdImg' + seq;
+                media.push({ name: 'word/media/' + name, bytes: d.bytes, ext: d.ext });
+                rels.push('<Relationship Id="' + rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + name + '"/>');
+                return { rid, seq: seq++ };
+            };
+            let body = '';
+            pagesFor(pageIdx).forEach((p, i) => {
+                const blocks = editorToBlocks((p.content && p.content[lang]) || '');
+                blocks.forEach((b, idx) => {
+                    const pb = (i > 0 && idx === 0);
+                    if (b.type === 'table') { if (pb) body += '<w:p><w:pPr><w:pageBreakBefore/></w:pPr></w:p>'; body += tableXml(b); }
+                    else if (b.type === 'image') { const info = addImage(b.dataUrl); body += info ? imageXml(b, info, pb) : '<w:p/>'; }
+                    else body += paraXml(b, pb);
+                });
+            });
+            body += '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>';
+            const doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                + '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+                + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+                + ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"'
+                + ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+                + ' xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+                + '<w:body>' + body + '</w:body></w:document>';
+            return { doc, media, rels };
+        }
+        function buildDocxXml(lang) { return buildDocxParts(lang).doc; }  // legacy alias (round-trip tests)
+
+        function buildDocxBlob(langArg, pageIdx) {
+            stashEditor();
+            const enc = new TextEncoder();
+            const lang = langArg || state.currentLang;
+            const parts = buildDocxParts(lang, pageIdx);
+            const exts = {}; parts.media.forEach(m => { exts[m.ext] = true; });
+            const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+                '<Default Extension="xml" ContentType="application/xml"/>' +
+                (exts.png  ? '<Default Extension="png" ContentType="image/png"/>' : '') +
+                (exts.jpeg ? '<Default Extension="jpeg" ContentType="image/jpeg"/>' : '') +
+                (exts.gif  ? '<Default Extension="gif" ContentType="image/gif"/>' : '') +
+                '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+                '</Types>';
+            const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+                '</Relationships>';
+            const docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                parts.rels.join('') + '</Relationships>';
+            const files = [
+                { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
+                { name: '_rels/.rels', data: enc.encode(rels) },
+                { name: 'word/_rels/document.xml.rels', data: enc.encode(docRels) },
+                { name: 'word/document.xml', data: enc.encode(parts.doc) }
+            ];
+            parts.media.forEach(m => files.push({ name: m.name, data: m.bytes }));
+            const zip = zipStore(files);
+            const fname = 'document-' + lang + pageSuffix(pageIdx) + '.docx';
+            const blob = new Blob([zip], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+            return { blob, fname, mediaCount: parts.media.length };
+        }
+        function exportDocx(langArg, pageIdx) {
+            const { blob, fname, mediaCount } = buildDocxBlob(langArg, pageIdx);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = fname;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1500);
+            haptic.ok();
+            toast('💾 ' + fname + ' を保存しました（' + (mediaCount ? '画像' + mediaCount + '点込み' : 'テキスト') + '）');
+        }
+        function downloadBytes(bytes, name, mime) {
+            const blob = new Blob([bytes], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = name;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1500);
+        }
+
+        // ================================================================
+        // Export — HTML / PNG / PDF / DOCX, with a language picker shown only
+        // when more than one language has content (1言語のみなら選択不要).
+        // (.pages は lib 無しで正しく読める形にできないため対象外)
+        // ================================================================
+        function langsWithContent() {
+            stashEditor();
+            return state.languages.filter(l => state.pages.some(p => {
+                const h = p.content && p.content[l.code];
+                return h && h.replace(/<[^>]*>/g, '').trim();
+            }));
+        }
+        // pageIdx: 数値ならそのページだけ / undefined なら全ページ（保存・共有のページ選択用）
+        function pagesFor(pageIdx) {
+            return (typeof pageIdx === 'number' && state.pages[pageIdx]) ? [state.pages[pageIdx]] : state.pages;
+        }
+        function pageSuffix(pageIdx) { return (typeof pageIdx === 'number') ? '-p' + (pageIdx + 1) : ''; }
+        function pagesHtml(lang, pageIdx) {
+            return pagesFor(pageIdx).map(p => '<section class="page">' + ((p.content && p.content[lang]) || '') + '</section>').join('\n');
+        }
+        function buildExportHtml(lang, pageIdx) {
+            const L = state.layout;
+            const css = 'body{margin:0;background:#eceef2;font-family:-apple-system,"Hiragino Sans",system-ui;color:#16161a}' +
+                '.page{background:#fff;box-sizing:border-box;width:' + (L.landscape ? '297mm' : '210mm') + ';min-height:' + (L.landscape ? '210mm' : '297mm') + ';' +
+                'padding:' + L.mv + 'px ' + L.mh + 'px;margin:18px auto;box-shadow:0 2px 12px rgba(0,0,0,.15);line-height:1.75}img,video{max-width:100%}';
+            return '<!DOCTYPE html>\n<html lang="' + lang + '"><head><meta charset="UTF-8">' +
+                '<meta name="viewport" content="width=device-width,initial-scale=1"><title>document-' + lang + '</title>' +
+                '<style>' + css + '</style></head>\n<body>\n' + pagesHtml(lang, pageIdx) + '\n</body></html>';
+        }
+        function exportHtml(lang, pageIdx) {
+            const fname = 'document-' + lang + pageSuffix(pageIdx) + '.html';
+            downloadBytes(new TextEncoder().encode(buildExportHtml(lang, pageIdx)), fname, 'text/html');
+            haptic.ok(); toast('💾 ' + fname);
+        }
+        function nodeToCanvas(node, W, H, scale) {
+            return new Promise((resolve, reject) => {
+                const xml = new XMLSerializer().serializeToString(node);
+                const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '">' +
+                    '<foreignObject width="100%" height="100%">' + xml + '</foreignObject></svg>';
+                const img = new Image();
+                img.onload = () => {
+                    const c = document.createElement('canvas'); c.width = W * scale; c.height = H * scale;
+                    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+                    ctx.scale(scale, scale); ctx.drawImage(img, 0, 0); resolve(c);
+                };
+                img.onerror = reject;
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+            });
+        }
+        function buildPageNode(lang, idx) {
+            const L = state.layout, px = mm => Math.round(mm * 96 / 25.4);
+            const W = px(L.landscape ? 297 : 210), H = px(L.landscape ? 210 : 297);
+            const node = document.createElement('div');
+            node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+            node.style.cssText = 'width:' + W + 'px;height:' + H + 'px;box-sizing:border-box;background:#ffffff;overflow:hidden;' +
+                'padding:' + L.mv + 'px ' + L.mh + 'px;font-family:-apple-system,sans-serif;color:#16161a;line-height:1.75;font-size:16px';
+            node.innerHTML = (state.pages[idx] && state.pages[idx].content && state.pages[idx].content[lang]) || '';
+            return { node, W, H };
+        }
+        async function exportPng(lang) {
+            try {
+                const { node, W, H } = buildPageNode(lang, state.currentPage);
+                const c = await nodeToCanvas(node, W, H, 2);
+                c.toBlob(b => {
+                    if (!b) { toast('⚠️ PNG生成に失敗（外部画像のCORS?）'); return; }
+                    const u = URL.createObjectURL(b); const a = document.createElement('a');
+                    a.href = u; a.download = 'document-' + lang + '.png'; document.body.appendChild(a); a.click();
+                    setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 1500);
+                    haptic.ok(); toast('🖼 document-' + lang + '.png');
+                }, 'image/png');
+            } catch (e) { toast('⚠️ PNG生成に失敗しました'); }
+        }
+        function buildPrintHtml(lang, pageIdx) {
+            const L = state.layout;
+            const css = '@page{size:' + (L.landscape ? 'A4 landscape' : 'A4 portrait') + ';margin:0}html,body{margin:0}' +
+                '.page{box-sizing:border-box;padding:' + L.mv + 'px ' + L.mh + 'px;width:' + (L.landscape ? '297mm' : '210mm') + ';' +
+                'min-height:' + (L.landscape ? '210mm' : '297mm') + ';page-break-after:always;font-family:-apple-system,"Hiragino Sans",system-ui;color:#16161a;line-height:1.75;font-size:16px}' +
+                '.page:last-child{page-break-after:auto}img,video{max-width:100%}';
+            return '<!DOCTYPE html><html lang="' + lang + '"><head><meta charset="UTF-8"><title>document-' + lang + '</title>' +
+                '<style>' + css + '</style></head><body>' + pagesHtml(lang, pageIdx) +
+                '<' + 'script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>';
+        }
+        function openPrintWindow(lang, okMsg, pageIdx) {
+            const w = window.open('', '_blank');
+            if (!w) { toast('⚠️ ポップアップを許可してください'); return; }
+            w.document.write(buildPrintHtml(lang, pageIdx)); w.document.close(); haptic.ok(); toast(okMsg);
+        }
+        function exportPdf(lang, pageIdx) { openPrintWindow(lang, '🖨 PDF: 「PDFに保存」を選んでください', pageIdx); }
+        function printDoc(lang, pageIdx)  { openPrintWindow(lang, '🖨 印刷ダイアログを開きました', pageIdx); }
+        function ensureSheetStyle() {
+            if (document.getElementById('dsSheetStyle')) return;
+            const st = document.createElement('style'); st.id = 'dsSheetStyle';
+            st.textContent =
+                '.ds-sheet-ov{position:fixed;inset:0;z-index:99996;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.35);opacity:0;transition:opacity .25s ease}' +
+                '.ds-sheet-ov.show{opacity:1}' +
+                '.ds-sheet{width:min(420px,94vw);background:#fff;border-radius:20px;margin-bottom:max(20px,env(safe-area-inset-bottom));padding:8px;transform:translateY(16px);transition:transform .25s cubic-bezier(.16,1,.3,1)}' +
+                '.ds-sheet-ov.show .ds-sheet{transform:none}' +
+                '.ds-sheet-t{font:700 14px/1 -apple-system;color:#8e8e93;text-align:center;padding:12px}' +
+                '.ds-sheet-b{display:block;width:100%;border:none;background:#f2f2f7;border-radius:13px;margin:6px 0;padding:15px;font:600 16px/1 -apple-system;color:#1c1c1e;cursor:pointer}' +
+                '.ds-sheet-b:active{background:#e5e5ea}.ds-sheet-b.cancel{background:none;color:#5a4ad0;font-weight:700}' +
+                '.ds-sheet-ic{display:flex;align-items:center;gap:14px;text-align:left}' +
+                '.ds-sheet-ic .ds-ic{display:grid;place-items:center;width:30px;flex:0 0 auto}' +
+                '.ds-sheet-ic .ds-ic svg{width:25px;height:25px;display:block;color:#1c1c1e}';
+            document.head.appendChild(st);
+        }
+        function pickSheet(title, items) {
+            return new Promise(resolve => {
+                ensureSheetStyle();
+                const ov = document.createElement('div'); ov.className = 'ds-sheet-ov';
+                const sh = document.createElement('div'); sh.className = 'ds-sheet';
+                sh.innerHTML = '<div class="ds-sheet-t">' + title + '</div>';
+                items.forEach(it => { const b = document.createElement('button'); b.className = 'ds-sheet-b'; b.textContent = it.label; b.onclick = () => { cleanup(); resolve(it.value); }; sh.appendChild(b); });
+                const cancel = document.createElement('button'); cancel.className = 'ds-sheet-b cancel'; cancel.textContent = 'キャンセル'; cancel.onclick = () => { cleanup(); resolve(null); }; sh.appendChild(cancel);
+                ov.appendChild(sh); document.body.appendChild(ov); requestAnimationFrame(() => ov.classList.add('show'));
+                ov.addEventListener('click', e => { if (e.target === ov) { cleanup(); resolve(null); } });
+                function cleanup() { ov.classList.remove('show'); setTimeout(() => ov.remove(), 250); }
+            });
+        }
+        async function runExport(fmt) {
+            if (!fmt) return;
+            const langs = langsWithContent();
+            let lang;
+            if (langs.length <= 1) { lang = (langs[0] || { code: state.currentLang }).code; }
+            else {
+                lang = await pickSheet('保存する言語', langs.map(l => ({ label: l.label, value: l.code })));
+                if (!lang) return;
+            }
+            state.exportFmt = fmt; save();                  // 保存形式を引き継ぐ（次回タップの既定に）
+            if (fmt === 'html') exportHtml(lang);
+            else if (fmt === 'png') exportPng(lang);
+            else if (fmt === 'pdf') exportPdf(lang);
+            else if (fmt === 'docx') exportDocx(lang);
+        }
+        async function openExportSheet() {
+            haptic.tap();
+            const fmt = await pickSheet('保存形式', [
+                { label: 'HTML', value: 'html' }, { label: 'PNG 画像', value: 'png' },
+                { label: 'PDF', value: 'pdf' }, { label: 'Word (docx)', value: 'docx' }]);
+            if (!fmt) return;
+            runExport(fmt);
+        }
+        // ---- 印刷 / 共有(OS標準) / 保存 — 書類アクションシート ----
+        async function pickLang() {
+            const langs = langsWithContent();
+            if (langs.length <= 1) return (langs[0] || { code: state.currentLang }).code;
+            return await pickSheet('言語を選ぶ', langs.map(l => ({ label: l.label, value: l.code })));
+        }
+        async function shareFile(blob, fname, fallbackText) {
+            try {
+                if (navigator.canShare) {
+                    const file = new File([blob], fname, { type: blob.type });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: fname });   // OS標準の共有シート
+                        haptic.ok(); return;
+                    }
+                }
+                if (navigator.share) {       // ファイル共有不可な環境 → テキストで共有
+                    await navigator.share({ title: fname, text: fallbackText || fname });
+                    haptic.ok(); return;
+                }
+                toast('⚠️ この環境では共有できません');
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;   // ユーザーがキャンセル
+                console.error(e); toast('⚠️ 共有に失敗しました', 'err');
+            }
+        }
+        function plainText(lang, pageIdx) {
+            return pagesFor(pageIdx).map(p => ((p.content && p.content[lang]) || '').replace(/<[^>]+>/g, ' '))
+                .join('\n\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+        }
+        async function shareDoc(lang, pageIdx) {
+            const { blob, fname } = buildDocxBlob(lang, pageIdx);
+            await shareFile(blob, fname, plainText(lang, pageIdx) || 'document');
+        }
+        async function shareHtml(lang, pageIdx) {
+            const html = buildExportHtml(lang, pageIdx);
+            const fname = 'document-' + lang + pageSuffix(pageIdx) + '.html';
+            await shareFile(new Blob([html], { type: 'text/html' }), fname, plainText(lang, pageIdx) || 'document');
+        }
+        const SHEET_IC = {
+            print: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-1"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>',
+            share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M6 12H5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2h-1"/></svg>',
+            save:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M8 11l4 4 4-4"/><path d="M5 20h14"/></svg>'
+        };
+        function openShareSheet() {
+            stashEditor(); save();                 // 現在の編集を確実に保存
+            ensureSheetStyle(); haptic.tap();
+            const ov = document.createElement('div'); ov.className = 'ds-sheet-ov';
+            const sh = document.createElement('div'); sh.className = 'ds-sheet';
+            sh.innerHTML = '<div class="ds-sheet-t">書類</div>';
+            const cleanup = () => { ov.classList.remove('show'); setTimeout(() => ov.remove(), 250); };
+            const row = (icon, label, fn) => {
+                const b = document.createElement('button'); b.className = 'ds-sheet-b ds-sheet-ic';
+                b.innerHTML = '<span class="ds-ic">' + icon + '</span><span>' + label + '</span>';
+                b.onclick = () => { cleanup(); fn(); };
+                sh.appendChild(b);
+            };
+            row(SHEET_IC.print, '印刷', async () => { const l = await pickLang(); if (l) printDoc(l); });
+            row(SHEET_IC.share, '共有', () => openExportPicker('share'));   // 形式(docx/PDF/HTML)+ページ選択
+            row(SHEET_IC.save,  '保存', () => openExportPicker('save'));    // 形式(docx/PDF/HTML)+ページ選択
+            const cancel = document.createElement('button'); cancel.className = 'ds-sheet-b cancel'; cancel.textContent = 'キャンセル'; cancel.onclick = cleanup;
+            sh.appendChild(cancel);
+            ov.appendChild(sh); document.body.appendChild(ov); requestAnimationFrame(() => ov.classList.add('show'));
+            ov.addEventListener('click', e => { if (e.target === ov) cleanup(); });
+        }
+
+        // ---- 保存/共有の必須フロー: 拡張子(docx/PDF/HTML)選択 ＋ 右バーでページ選択 ----
+        let deUI = null, deMode = 'save', dePage = 0;
+        function buildExportPicker() {
+            if (deUI) return deUI;
+            const st = document.createElement('style'); st.id = 'deStyle';
+            st.textContent =
+                '.de-ov{position:fixed;inset:0;z-index:99995;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+                    'opacity:0;visibility:hidden;pointer-events:none;transition:opacity .35s ease,visibility .35s ease;' +
+                    'background:rgba(255,255,255,.97);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%)}' +
+                '.de-ov.active{opacity:1;visibility:visible;pointer-events:auto}' +
+                '.de-title{font:600 20px/1.3 -apple-system,system-ui;color:#1c1c1e;margin:0 0 36px;text-align:center;padding:0 90px 0 24px}' +
+                '.de-circles{display:flex;gap:26px;align-items:center;justify-content:center;padding:0 96px 0 24px;flex-wrap:wrap}' +
+                '.de-circle{width:128px;height:128px;border-radius:50%;background:#0b0b0d;border:none;cursor:pointer;display:grid;place-items:center;' +
+                    'color:#f2f2f2;font:100 30px/1 "SF Pro Display",-apple-system,system-ui;letter-spacing:.5px;' +
+                    'box-shadow:0 16px 40px -14px rgba(0,0,0,.5);transition:transform .18s cubic-bezier(.2,.9,.2,1.05)}' +
+                '.de-circle:active{transform:scale(.9)}' +
+                '.de-pager{display:flex;gap:8px;margin-top:30px}.de-pager .pd{width:7px;height:7px;border-radius:50%;background:#c7c7cc}' +
+                '.de-hint{font:500 13px/1.4 -apple-system;color:#8e8e93;margin-top:16px;text-align:center;padding:0 96px 0 24px}' +
+                '.de-ruler{position:absolute;right:max(14px,env(safe-area-inset-right));top:50%;transform:translateY(-50%);' +
+                    'display:flex;flex-direction:column;gap:14px;max-height:74vh;overflow:auto;padding:8px 6px}' +
+                '.de-tick{display:flex;align-items:center;gap:12px;border:none;background:none;cursor:pointer;padding:4px 2px}' +
+                '.de-tick .n{font:200 22px/1 -apple-system,system-ui;color:#b0b0b5;width:26px;text-align:right;transition:color .25s ease}' +
+                '.de-tick .ln{width:60px;height:2px;border-radius:2px;background:#d6d6db;transition:width .3s ease,background .3s ease}' +
+                '.de-tick.sel .n{color:#1c1c1e}.de-tick.sel .ln{width:88px;background:#1c1c1e}' +
+                '.de-back{position:absolute;top:50%;left:24px;transform:translateY(-50%);width:28px;height:56px;border:none;background:transparent;cursor:pointer;padding:0}' +
+                '.de-back img{width:100%;height:100%;object-fit:contain;pointer-events:none}';
+            document.head.appendChild(st);
+            const ov = document.createElement('div'); ov.className = 'de-ov';
+            ov.innerHTML =
+                '<button class="de-back" id="deBack" type="button" aria-label="戻る"><img src="backs.png" alt=""></button>' +
+                '<h2 class="de-title" id="deTitle">保存形式とページ</h2>' +
+                '<div class="de-circles">' +
+                    '<button class="de-circle" data-fmt="docx" type="button">docx</button>' +
+                    '<button class="de-circle" data-fmt="pdf" type="button">PDF</button>' +
+                    '<button class="de-circle" data-fmt="html" type="button">HTML</button>' +
+                '</div>' +
+                '<div class="de-hint">右のバーで保存するページを選択</div>' +
+                '<div class="de-ruler" id="deRuler"></div>';
+            document.body.appendChild(ov);
+            deUI = { ov: ov, title: ov.querySelector('#deTitle'), ruler: ov.querySelector('#deRuler') };
+            ov.querySelectorAll('.de-circle').forEach(c => c.addEventListener('click', () => doExportPicked(c.dataset.fmt)));
+            ov.querySelector('#deBack').addEventListener('click', closeExportPicker);
+            ov.addEventListener('click', e => { if (e.target === ov) closeExportPicker(); });
+            return deUI;
+        }
+        function renderDeRuler() {
+            const ui = deUI; ui.ruler.innerHTML = '';
+            state.pages.forEach((p, i) => {
+                const b = document.createElement('button'); b.className = 'de-tick' + (i === dePage ? ' sel' : ''); b.type = 'button';
+                b.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="ln"></span>';
+                b.addEventListener('click', () => { dePage = i; renderDeRuler(); try { haptic.tap(); } catch (_) {} });
+                ui.ruler.appendChild(b);
+            });
+        }
+        function openExportPicker(mode) {
+            buildExportPicker();
+            deMode = mode; dePage = state.currentPage;
+            deUI.title.textContent = (mode === 'share') ? '共有：形式とページ' : '保存：形式とページ';
+            renderDeRuler();
+            deUI.ov.classList.add('active');
+            try { haptic.confirm(); } catch (_) {}
+        }
+        function closeExportPicker() { if (deUI) deUI.ov.classList.remove('active'); }
+        async function doExportPicked(fmt) {
+            const lang = await pickLang(); if (!lang) return;   // 言語が複数あるときだけ訊く
+            const idx = dePage;
+            state.exportFmt = fmt; save();
+            closeExportPicker();
+            if (deMode === 'share') {
+                if (fmt === 'docx') return shareDoc(lang, idx);
+                if (fmt === 'html') return shareHtml(lang, idx);
+                if (fmt === 'pdf')  { toast('🖨 PDFは印刷画面から共有してください'); return exportPdf(lang, idx); }
+            } else {
+                if (fmt === 'docx') return exportDocx(lang, idx);
+                if (fmt === 'pdf')  return exportPdf(lang, idx);
+                if (fmt === 'html') return exportHtml(lang, idx);
+            }
+        }
+        // floating 共有/保存ボタン（右下）: タップ=印刷/共有/保存シート / 長押し・右クリック=形式を選んで書き出し
+        const exportFab = document.createElement('button');
+        exportFab.className = 'ds-export-fab'; exportFab.type = 'button';
+        exportFab.setAttribute('aria-label', '書き出し');
+        exportFab.innerHTML = '<img src="savex.png" alt="書き出し">';
+        document.body.appendChild(exportFab);
+        let exFabTimer = null, exFabSuppress = false;
+        exportFab.addEventListener('click', () => {
+            if (exFabSuppress) { exFabSuppress = false; return; }
+            openShareSheet();                           // 印刷 / 共有 / 保存
+        });
+        exportFab.addEventListener('contextmenu', e => { e.preventDefault(); openExportSheet(); });
+        exportFab.addEventListener('pointerdown', e => {
+            if (e.button === 2) return;
+            clearTimeout(exFabTimer);
+            exFabTimer = setTimeout(() => { exFabTimer = null; exFabSuppress = true; openExportSheet(); }, 450);
+        });
+        const exFabCancel = () => { clearTimeout(exFabTimer); exFabTimer = null; };
+        exportFab.addEventListener('pointerup', exFabCancel);
+        exportFab.addEventListener('pointerleave', exFabCancel);
+        exportFab.addEventListener('pointercancel', exFabCancel);
+        // clip.png = ページ設定(余白・文字幅) を開く（エディタ左下）
+        const layoutFab = document.createElement('button');
+        layoutFab.className = 'ds-layout-fab'; layoutFab.type = 'button';
+        layoutFab.setAttribute('aria-label', 'ページ設定');
+        layoutFab.innerHTML = '<img src="clip.png" alt="">';
+        document.body.appendChild(layoutFab);
+        layoutFab.addEventListener('click', () => { haptic.tap(); openPageLayout(); });
+
+        // 右ルーラーを押すと share(円)/trash(横長ピル) が出る。share→共有 / trash→0.5sでページ削除。
+        function deleteCurrentPage() {
+            if (state.pages.length <= 1) { toast('最後のページは削除できません'); return; }
+            const front = document.querySelector('.paper.front');
+            if (front) { front.style.transition = 'transform .5s cubic-bezier(.16,1,.3,1), opacity .5s'; front.style.transform = 'scale(.7)'; front.style.opacity = '0'; }
+            setTimeout(() => {
+                state.pages.splice(state.currentPage, 1);
+                state.currentPage = Math.max(0, state.currentPage - 1);
+                renderAll(); stashEditor(); save();
+                if (front) { front.style.transition = ''; front.style.transform = ''; front.style.opacity = ''; }
+            }, 500);
+        }
+        const rulerActions = document.createElement('div'); rulerActions.className = 'ds-ruler-actions';
+        rulerActions.innerHTML = '<button class="ds-ra-btn ds-ra-share" type="button" aria-label="共有"><img src="sharex.png" alt=""></button>' +
+            '<button class="ds-ra-btn ds-ra-trash" type="button" aria-label="削除"><img src="trash\'s body.png" alt=""></button>';
+        document.body.appendChild(rulerActions);
+        let raTimer = null;
+        function showRulerActions() { rulerActions.classList.add('show'); clearTimeout(raTimer); raTimer = setTimeout(() => rulerActions.classList.remove('show'), 2800); }
+        rulerEl.addEventListener('click', showRulerActions);
+        rulerActions.querySelector('.ds-ra-share').addEventListener('click', () => { haptic.tap(); rulerActions.classList.remove('show'); openShareSheet(); });
+        rulerActions.querySelector('.ds-ra-trash').addEventListener('click', () => { haptic.ok(); rulerActions.classList.remove('show'); deleteCurrentPage(); });
+
+        // ---- DOCX import (ファイル選択 or ドラッグ&ドロップ) ----
+        async function importDocxFile(file) {
+            if (!file) return;
+            try {
+                toast('📥 docx を読み込み中…');
+                const buf = new Uint8Array(await file.arrayBuffer());
+                const entries = await unzip(buf);
+                const xmlBytes = entries['word/document.xml'];
+                if (!xmlBytes) throw new Error('no document.xml');
+                const xml = new TextDecoder().decode(xmlBytes);
+                const pagesHtml = docxXmlToPages(xml);
+                if (!pagesHtml.length) throw new Error('empty');
+                stashEditor();
+                state.pages = pagesHtml.map((h, i) => {
+                    const pg = blankPage(i + 1);
+                    pg.content[state.currentLang] = h;
+                    return pg;
+                });
+                state.currentPage = 0;
+                renderRuler(); renderPill(); loadEditor(); save();
+                if (window.sfx) sfx.play('received'); else haptic.ok();
+                toast('✅ ' + file.name + ' を読み込みました（' + state.pages.length + 'ページ）');
+            } catch (err) {
+                console.error(err);
+                toast('⚠️ docx を読み込めませんでした', 'err');
+            }
+        }
+        // ── 外部フォーマット → 共通layer（#16b-e）。全て importNew/ページHTML 経由＝layer pipeline に正規化される ──
+        function sanitizeHtml(html) {   // script/style/イベント属性を除去して安全なページHTMLに
+            const d = document.implementation.createHTMLDocument('');
+            d.body.innerHTML = html;
+            d.body.querySelectorAll('script,style,link,meta,iframe,object,embed').forEach(n => n.remove());
+            d.body.querySelectorAll('*').forEach(el => {
+                [...el.attributes].forEach(a => { if (/^on/i.test(a.name) || (a.name === 'href' && /^javascript:/i.test(a.value))) el.removeAttribute(a.name); });
+            });
+            return d.body.innerHTML;
+        }
+        async function importHtmlFile(file) {   // #16c: HTML/HTM → DOM parse → 新ページ(=layer互換)
+            try {
+                toast('📥 HTML を読み込み中…');
+                const text = await file.text();
+                const m = text.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+                const html = sanitizeHtml(m ? m[1] : text);
+                if (!html.trim()) throw new Error('empty');
+                importNew(html);
+                if (window.sfx) sfx.play('received'); else haptic.ok();
+                toast('✅ ' + file.name + ' を読み込みました');
+            } catch (err) { console.error(err); toast('⚠️ HTML を読み込めませんでした', 'err'); }
+        }
+        async function importPsdFile(file) {    // #16d: PSD → ag-psd(無料CDN) で各レイヤー→画像/テキスト → 新ページ
+            try {
+                toast('📥 PSD を解析中…');
+                const mod = await import('https://esm.sh/ag-psd@25');
+                const psd = mod.readPsd(await file.arrayBuffer());
+                const parts = [];
+                const toImg = (cv) => {   // 2048px上限で dataURL 化（携帯のメモリ保護）
+                    const cap = 2048, sc = Math.min(1, cap / Math.max(cv.width, cv.height));
+                    let c = cv;
+                    if (sc < 1) { c = document.createElement('canvas'); c.width = Math.round(cv.width * sc); c.height = Math.round(cv.height * sc); c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height); }
+                    return '<p><img src="' + c.toDataURL('image/png') + '" style="max-width:100%"></p>';
+                };
+                const walk = (layers) => (layers || []).forEach(L => {
+                    if (L.children && L.children.length) { walk(L.children); return; }
+                    if (L.hidden) return;
+                    if (L.text && L.text.text) parts.push('<p>' + escapeHtml(L.text.text) + '</p>');   // テキストレイヤーは編集可能テキストに
+                    else if (L.canvas) parts.push(toImg(L.canvas));
+                });
+                walk(psd.children);
+                if (!parts.length && psd.canvas) parts.push(toImg(psd.canvas));   // レイヤー無し → 合成画像1枚
+                if (!parts.length) throw new Error('empty psd');
+                importNew(parts.join(''));
+                if (window.sfx) sfx.play('received'); else haptic.ok();
+                toast('✅ ' + file.name + ' を読み込みました（' + parts.length + 'レイヤー）');
+            } catch (err) { console.error(err); toast('⚠️ PSD を読み込めませんでした', 'err'); }
+        }
+        function routeImportFile(file) {
+            if (!file) return;
+            if (/\.docx$/i.test(file.name)) return importDocxFile(file);
+            if (/\.html?$/i.test(file.name)) return importHtmlFile(file);
+            if (/\.psd$/i.test(file.name)) return importPsdFile(file);
+            if (/\.pxd$/i.test(file.name)) return toast('⚠️ .pxd (Pixelmator) は独自形式のため非対応です — PSD/PNG で書き出してください', 'err');   // #16e: 標準パーサ無し＝明示非対応
+            toast('⚠️ 非対応の形式です (.docx / .html / .psd)', 'err');
+        }
+        docxInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            docxInput.value = '';
+            routeImportFile(file);
+        });
+        // 読み込みはドラッグで — .docx をページに落とすと取り込み、画像/動画はその場に挿入
+        ['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, (e) => {
+            if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) e.preventDefault();
+        }));
+        document.addEventListener('drop', (e) => {
+            const files = e.dataTransfer && e.dataTransfer.files;
+            if (!files || !files.length) return;
+            e.preventDefault();
+            const ext = Array.prototype.find.call(files, f => /\.(docx|html?|psd|pxd)$/i.test(f.name));
+            if (ext) { routeImportFile(ext); return; }   // #16b-e: docx/html/psd(+pxd非対応案内) を共通layerへ
+            const f = files[0];
+            if (/^image\//.test(f.type)) insertImageFromFile(f);
+            else if (/^video\//.test(f.type)) insertVideoFromFile(f);
+        });
+
+        function docxXmlToPages(xml) {
+            const doc = new DOMParser().parseFromString(xml, 'application/xml');
+            const ps = doc.getElementsByTagName('w:p');
+            const pages = [];
+            let cur = [];
+            for (let i = 0; i < ps.length; i++) {
+                const p = ps[i];
+                // page break?
+                const ppr = p.getElementsByTagName('w:pPr')[0];
+                const breakBefore = ppr && ppr.getElementsByTagName('w:pageBreakBefore').length > 0;
+                const hasPageBr = p.getElementsByTagName('w:br').length &&
+                    Array.from(p.getElementsByTagName('w:br')).some(b => b.getAttribute('w:type') === 'page');
+                if ((breakBefore || hasPageBr) && cur.length) { pages.push(cur.join('')); cur = []; }
+                const jc = ppr && ppr.getElementsByTagName('w:jc')[0];
+                const align = jc ? jc.getAttribute('w:val') : 'left';
+                const alignCss = (align === 'center' || align === 'right') ? (' style="text-align:' + align + '"') : '';
+                // runs
+                let inner = '';
+                const runs = p.getElementsByTagName('w:r');
+                for (let r = 0; r < runs.length; r++) {
+                    const run = runs[r];
+                    if (run.getElementsByTagName('w:br').length) { inner += '<br>'; }
+                    const ts = run.getElementsByTagName('w:t');
+                    if (!ts.length) continue;
+                    let txt = '';
+                    for (let k = 0; k < ts.length; k++) txt += ts[k].textContent;
+                    if (!txt) continue;
+                    const rpr = run.getElementsByTagName('w:rPr')[0];
+                    let open = '', close = '';
+                    if (rpr) {
+                        if (rpr.getElementsByTagName('w:b').length) { open += '<b>'; close = '</b>' + close; }
+                        if (rpr.getElementsByTagName('w:i').length) { open += '<i>'; close = '</i>' + close; }
+                        if (rpr.getElementsByTagName('w:u').length) { open += '<u>'; close = '</u>' + close; }
+                        const sz = rpr.getElementsByTagName('w:sz')[0];
+                        if (sz) { const px = Math.round(parseInt(sz.getAttribute('w:val'), 10) / 2); open = '<span style="font-size:' + px + 'px">' + open; close = close + '</span>'; }
+                    }
+                    inner += open + escapeHtml(txt) + close;
+                }
+                cur.push('<p' + alignCss + '>' + (inner || '<br>') + '</p>');
+            }
+            if (cur.length) pages.push(cur.join(''));
+            return pages.length ? pages : ['<p><br></p>'];
+        }
+
+        // ---------------------------------------------------------------
+        // Home button → back to launcher
+        // ---------------------------------------------------------------
+        document.getElementById('homeBtn').addEventListener('click', () => {
+            haptic.tap();
+            const goHome = () => { if (window.MotionFX) MotionFX.enter('Home', 'index.html#home', ''); else location.href = 'index.html#home'; };
+            // 上のバー(島)から戻る時は保存ダイアログを出さない。書類は入力ごとに自動保存済みなので
+            // 静かに stash & save してホームへ。明示的な保存/共有は save.png(共有シート)で行う。
+            stashEditor(); save(); goHome();
+        });
+        // sl-home-btn pill reveals the universal action bar (Image #1); Home lives inside it.
+        document.getElementById('slHomeBtn').addEventListener('click', () => {
+            if (window.OmniBar) OmniBar.toggle(); else document.getElementById('homeBtn').click();
+        });
+        if (window.OmniBar) {
+            OmniBar.mount({
+                ns: 'docstudio',
+                snapshot: () => { stashEditor(); try { return JSON.stringify(state); } catch (_) { return localStorage.getItem(STORE_KEY) || ''; } },
+                restore: (s) => { try { if (s) localStorage.setItem(STORE_KEY, s); } catch (_) {} location.reload(); },
+                save: () => { stashEditor(); save(); haptic.ok(); },   // 上のbar(island)は保存のみ。共有/保存シートは右下ボタンから
+                del: () => {
+                    if (state.pages.length <= 1) { toast('最後のページは削除できません'); return; }
+                    if (!confirm('このページを削除しますか？')) return;
+                    state.pages.splice(state.currentPage, 1);
+                    state.currentPage = Math.max(0, state.currentPage - 1);
+                    renderAll(); stashEditor(); save(); haptic.ok();
+                },
+                home: () => document.getElementById('homeBtn').click(),
+                replace: () => {}
+            });
+        }
+
+        // Prevent iOS rubber-band closing things; keep doc-page scroll natural
+        document.addEventListener('gesturestart', e => e.preventDefault());
+
+        // ================================================================
+        // Insert tools — tap an empty area → add-bar (テキスト/見出し/画像/表),
+        // plus a docked inspector (PC right · phone bottom) for image & table
+        // editing, so the page content is never hidden on tap (split-friendly).
+        // ================================================================
+        const dsImgInput = document.createElement('input');
+        dsImgInput.type = 'file'; dsImgInput.accept = '.png,.jpeg,.jpg,.gif,.bmp,.svg,.dng,.icns,image/png,image/jpeg,image/gif,image/bmp,image/svg+xml'; dsImgInput.style.display = 'none';
+        document.body.appendChild(dsImgInput);
+        const dsVidInput = document.createElement('input');
+        dsVidInput.type = 'file'; dsVidInput.accept = 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v'; dsVidInput.style.display = 'none';
+        document.body.appendChild(dsVidInput);
+
+        const dsAddBar = document.createElement('div');
+        dsAddBar.className = 'ds-addbar';
+        function abBtn(act, label, svg) {
+            return '<button class="ds-ab-btn" data-ins="' + act + '" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + svg + '</svg><span>' + label + '</span></button>';
+        }
+        dsAddBar.innerHTML =
+            // 左右中央(整列)は廃止 → 「テキスト」「見出し」のみ
+            abBtn('text', 'テキスト', '<path d="M5 6h14M5 12h14M5 18h9"/>') +
+            abBtn('h2', '見出し', '<path d="M6 5v14"/><path d="M14 5v14"/><path d="M6 12h8"/>') +
+            // 写真 + 動画 を 1 アイコン(filex.png)に統合 — タップで画像/動画どちらも選べる
+            '<button class="ds-ab-btn ds-ab-media" data-ins="media" type="button"><img src="filex.png" alt="メディア"><span>メディア</span></button>' +
+            abBtn('table', '表', '<rect x="3" y="4.5" width="18" height="15" rx="1.5"/><path d="M3 10h18M3 14.5h18M9 4.5v15M15 4.5v15"/>');
+        // combined image+video picker for the merged メディア button (and drag&drop)
+        const dsMediaInput = document.createElement('input');
+        dsMediaInput.type = 'file'; dsMediaInput.accept = 'image/*,video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v'; dsMediaInput.style.display = 'none';
+        document.body.appendChild(dsMediaInput);
+        dsMediaInput.addEventListener('change', () => {
+            const f = dsMediaInput.files && dsMediaInput.files[0]; dsMediaInput.value = ''; if (!f) return;
+            if (/^video\//.test(f.type)) insertVideoFromFile(f); else insertImageFromFile(f);
+        });
+        document.body.appendChild(dsAddBar);
+
+        let savedRange = null;
+        function saveRange() { const s = window.getSelection(); if (s && s.rangeCount && docPage.contains(s.anchorNode)) savedRange = s.getRangeAt(0).cloneRange(); }
+        function showAddBar(x, y) {
+            dsAddBar.classList.add('show');
+            const bw = dsAddBar.offsetWidth || 250, bh = dsAddBar.offsetHeight || 64;
+            let left = x - bw / 2, top = y - bh - 14;
+            left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+            top = Math.max(70, Math.min(top, window.innerHeight - bh - 8));
+            dsAddBar.style.left = left + 'px'; dsAddBar.style.top = top + 'px';
+        }
+        function hideAddBar() { dsAddBar.classList.remove('show'); }
+        // RD-22d: テキスト/見出しを追加したら「テキストと線」パネルを自動で出す(add affordance)。
+        // 直前の insertBlockHtml が新ブロックのテキストを選択済み → open() の saveSel がそれを掴む。
+        function openTextPanelOnAdd() {
+            try {
+                if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;   // A2修正: モバイルはキーボードとシートが衝突して悲惨→自動表示しない(PCのみ)
+                if (window.__dsOpenTextPanel) window.__dsOpenTextPanel();
+            } catch (_) {}
+        }
+
+        dsAddBar.addEventListener('pointerdown', e => e.preventDefault());
+        dsAddBar.addEventListener('mousedown', e => e.preventDefault());
+        dsAddBar.addEventListener('click', e => {
+            const b = e.target.closest('.ds-ab-btn'); if (!b) return;
+            e.preventDefault(); haptic.tap();
+            const ins = b.getAttribute('data-ins');
+            if (ins === 'media') dsMediaInput.click();
+            else if (ins === 'image') dsImgInput.click();
+            else if (ins === 'video') dsVidInput.click();
+            else if (ins === 'table') insertTable();
+            else if (ins === 'h2') { insertBlockHtml('<h2>見出し</h2>', true); openTextPanelOnAdd(); }
+            else { insertBlockHtml('<p>テキスト</p>', true); openTextPanelOnAdd(); }   // 'text' もここ (整列なしのプレーン段落)
+            hideAddBar();
+        });
+
+        function blockAtCaret() {
+            const s = window.getSelection(); if (!s || !s.rangeCount) return null;
+            let n = s.getRangeAt(0).startContainer; if (n.nodeType === 3) n = n.parentNode;
+            while (n && n !== docPage && n.parentNode !== docPage) n = n.parentNode;
+            return (n === docPage || !n) ? null : n;
+        }
+        function insertNode(node) {
+            docPage.focus();
+            const s = window.getSelection();
+            if (savedRange) { try { s.removeAllRanges(); s.addRange(savedRange); } catch (_) {} }
+            const blk = blockAtCaret();
+            if (blk && blk.parentNode === docPage) blk.after(node);
+            else docPage.appendChild(node);
+            stashEditor(); save();
+        }
+        function insertBlockHtml(html, selectText) {
+            const t = document.createElement('div'); t.innerHTML = html;
+            const node = t.firstChild; insertNode(node);
+            if (selectText && node) { try { const r = document.createRange(); r.selectNodeContents(node); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); } catch (_) {} }
+            haptic.tap();
+        }
+        function insertTable() {
+            const tbl = document.createElement('table');
+            for (let r = 0; r < 2; r++) { const tr = document.createElement('tr'); for (let c = 0; c < 2; c++) { const td = document.createElement('td'); td.innerHTML = '<br>'; tr.appendChild(td); } tbl.appendChild(tr); }
+            insertNode(tbl); selectEl(tbl, 'table'); haptic.ok();
+            return tbl;
+        }
+        function insertImageFromFile(f) {
+            const rd = new FileReader();
+            rd.onload = () => {
+                const img = document.createElement('img');
+                img.src = rd.result; img.style.width = '340px';
+                insertNode(img); haptic.ok(); selectEl(img, 'image');
+            };
+            rd.readAsDataURL(f);
+        }
+        function insertVideoFromFile(f) {
+            // Large videos can exceed localStorage; they still play this session (save is quota-guarded).
+            if (f.size > 4 * 1024 * 1024 && typeof toast === 'function') toast('⚠️ 大きい動画は保存されない場合があります');
+            const rd = new FileReader();
+            rd.onload = () => {
+                const v = document.createElement('video');
+                v.src = rd.result; v.controls = true; v.setAttribute('playsinline', ''); v.playsInline = true;
+                v.setAttribute('contenteditable', 'false'); v.preload = 'metadata';   // contenteditable内でも再生コントロールが効くように
+                v.style.width = '340px'; v.style.display = 'block';
+                insertNode(v); haptic.ok(); selectEl(v, 'video');
+            };
+            rd.readAsDataURL(f);
+        }
+        dsImgInput.addEventListener('change', () => {
+            const f = dsImgInput.files && dsImgInput.files[0]; dsImgInput.value = ''; if (f) insertImageFromFile(f);
+        });
+        dsVidInput.addEventListener('change', () => {
+            const f = dsVidInput.files && dsVidInput.files[0]; dsVidInput.value = ''; if (f) insertVideoFromFile(f);
+        });
+
+        // empty-area tap → add-bar; tap on image/video/table → select it
+        docPage.addEventListener('click', e => {
+            const img = e.target.closest('img'); const vid = e.target.closest('video'); const tbl = e.target.closest('table');
+            if (img) { selectEl(img, 'image'); return; }
+            if (vid) { selectEl(vid, 'video'); return; }
+            if (tbl) { selectEl(tbl, 'table'); return; }
+            clearSel();
+            saveRange();
+            const blk = blockAtCaret();
+            const emptyBlock = blk && !blk.textContent.trim() && !blk.querySelector('img,table');
+            if (e.target === docPage || emptyBlock) showAddBar(e.clientX, e.clientY);
+            else hideAddBar();
+        });
+        docPage.addEventListener('scroll', hideAddBar, true);
+        document.addEventListener('pointerdown', e => {
+            if (!e.target.closest('.ds-addbar') && !e.target.closest('.doc-page')) hideAddBar();
+            if (!e.target.closest('.ds-inspector') && !e.target.closest('.doc-page')) clearSel();
+        }, true);
+
+        // ---- inspector (docked controls for image / table) ----
+        const dsInspector = document.createElement('div');
+        dsInspector.className = 'ds-inspector';
+        document.body.appendChild(dsInspector);
+        let selEl = null, selKind = null;
+        function selectEl(el, kind) {
+            clearSel(); selEl = el; selKind = kind; el.classList.add('ds-sel');
+            buildInspector(); dsInspector.classList.add('show'); document.body.classList.add('ds-inspecting'); haptic.tap();
+        }
+        function clearSel() {
+            if (selEl) selEl.classList.remove('ds-sel');
+            selEl = null; selKind = null;
+            dsInspector.classList.remove('show'); document.body.classList.remove('ds-inspecting');
+        }
+        function inspBtn(label, act, danger) { return '<button class="ds-insp-btn' + (danger ? ' danger' : '') + '" data-act="' + act + '" type="button">' + label + '</button>'; }
+        // 削除は trash's body.png のアイコンボタンに (要素を選んで削除)
+        function inspTrashBtn() { return '<button class="ds-insp-btn danger ds-insp-trash" data-act="del" type="button" aria-label="削除" title="削除"><img src="trash\'s body.png" alt="削除"></button>'; }
+        function buildInspector() {
+            if (!selEl) return;
+            let html = '';
+            if (selKind === 'image' || selKind === 'video') {
+                html = '<div class="ds-insp-title">' + (selKind === 'video' ? '動画' : '画像') + '</div>'
+                    + '<div class="ds-insp-row">' + inspBtn('小', 'w240') + inspBtn('中', 'w360') + inspBtn('大', 'w520') + inspBtn('全幅', 'wfull') + '</div>'
+                    + '<div class="ds-insp-row">' + inspBtn('左', 'aL') + inspBtn('中央', 'aC') + inspBtn('右', 'aR') + inspTrashBtn() + '</div>'
+                    + '<div class="ds-insp-title" style="margin-top:6px">フィルター</div>'
+                    + '<div class="ds-insp-row">' + inspBtn('なし', 'f:none') + inspBtn('モノクロ', 'f:mono') + inspBtn('セピア', 'f:sepia') + inspBtn('ビビッド', 'f:vivid') + '</div>'
+                    + '<div class="ds-insp-row">' + inspBtn('明るく', 'f:bright') + inspBtn('暗く', 'f:dark') + inspBtn('反転', 'f:invert') + '</div>';
+            } else if (selKind === 'table') {
+                html = '<div class="ds-insp-title">表</div>'
+                    + '<div class="ds-insp-row">' + inspBtn('＋行', 'rowAdd') + inspBtn('－行', 'rowDel') + inspBtn('＋列', 'colAdd') + inspBtn('－列', 'colDel') + '</div>'
+                    + '<div class="ds-insp-row">' + inspTrashBtn() + inspBtn('完了', 'done') + '</div>';
+            }
+            dsInspector.innerHTML = html;
+        }
+        dsInspector.addEventListener('pointerdown', e => e.preventDefault());
+        dsInspector.addEventListener('mousedown', e => e.preventDefault());
+        dsInspector.addEventListener('click', e => {
+            const b = e.target.closest('.ds-insp-btn'); if (!b || !selEl) return;
+            const act = b.getAttribute('data-act'); haptic.tap();
+            if (selKind === 'image' || selKind === 'video') {
+                const im = selEl;
+                if (act === 'w240') im.style.width = '240px';
+                else if (act === 'w360') im.style.width = '360px';
+                else if (act === 'w520') im.style.width = '520px';
+                else if (act === 'wfull') im.style.width = '100%';
+                else if (act === 'aL') { im.style.display = 'block'; im.style.marginLeft = '0'; im.style.marginRight = 'auto'; }
+                else if (act === 'aC') { im.style.display = 'block'; im.style.marginLeft = 'auto'; im.style.marginRight = 'auto'; }
+                else if (act === 'aR') { im.style.display = 'block'; im.style.marginLeft = 'auto'; im.style.marginRight = '0'; }
+                else if (act.slice(0, 2) === 'f:') {   // filter presets (index.html を参考: grayscale 等)
+                    const FP = { none: '', mono: 'grayscale(100%)', sepia: 'sepia(80%)',
+                        vivid: 'saturate(170%) contrast(105%)', bright: 'brightness(125%)',
+                        dark: 'brightness(78%)', invert: 'invert(100%)' };
+                    im.style.filter = FP[act.slice(2)] || '';
+                }
+                else if (act === 'del') { removeSel(); return; }
+            } else if (selKind === 'table') {
+                const t = selEl;
+                if (act === 'rowAdd') { const cols = t.rows[0] ? t.rows[0].cells.length : 2; const tr = t.insertRow(-1); for (let c = 0; c < cols; c++) tr.insertCell(-1).innerHTML = '<br>'; }
+                else if (act === 'rowDel') { if (t.rows.length > 1) t.deleteRow(-1); }
+                else if (act === 'colAdd') { for (let r = 0; r < t.rows.length; r++) t.rows[r].insertCell(-1).innerHTML = '<br>'; }
+                else if (act === 'colDel') { for (let r = 0; r < t.rows.length; r++) if (t.rows[r].cells.length > 1) t.rows[r].deleteCell(-1); }
+                else if (act === 'del') { removeSel(); return; }
+                else if (act === 'done') { clearSel(); }
+            }
+            stashEditor(); save();
+        });
+        function removeSel() { if (selEl) { const el = selEl; clearSel(); el.remove(); stashEditor(); save(); haptic.ok(); } }
+
+        // ================================================================
+        // Page layout editor (Image #2): visual 余白(margins) / サイズ(knobs) /
+        // 向き(90° rotate). Applies live to the real page; persists in state.layout.
+        // ================================================================
+        const PS = () => document.getElementById('paperStack');
+        let DEFAULT_PH = 0;
+        function applyPageLayout() {
+            const L = state.layout, ps = PS();
+            docPage.style.padding = L.mv + 'px ' + L.mh + 'px';
+            docPage.style.maxWidth = L.tw ? L.tw + 'px' : '';        // 文字の幅の限界値（折返し上限）
+            docPage.style.marginInline = L.tw ? 'auto' : '';
+            if (!ps) return;
+            // measure-based ds.css sets explicit width+height, so CSS aspect-ratio is ignored.
+            // Drive the paper-stack's REAL size from orientation (書類=portrait / プレゼン=landscape), stay responsive.
+            ps.style.aspectRatio = '';
+            ps.style.transition = 'width .35s cubic-bezier(.16,1,.3,1), height .35s cubic-bezier(.16,1,.3,1)';
+            if (L.landscape) {
+                ps.style.width = 'min(92vw, calc((var(--measure) + var(--doc-margin) * 2) * 1.414))';
+                ps.style.height = 'min(72vh, 720px)';
+            } else {
+                ps.style.width = '';                                  // restore CSS measure-based portrait width
+                if (L.ph && L.ph !== 1) {
+                    if (!DEFAULT_PH) { ps.style.height = ''; DEFAULT_PH = ps.getBoundingClientRect().height || 600; }
+                    ps.style.height = Math.round(DEFAULT_PH * L.ph) + 'px';
+                } else { ps.style.height = ''; }
+            }
+        }
+
+        let dplOv = null, dplPage = null, dplVNum = null, dplHNum = null, dplBackup = null;
+        function buildPageLayoutUI() {
+            if (dplOv) return;
+            const st = document.createElement('style');
+            st.textContent =
+                '.dpl-ov{position:fixed;inset:0;z-index:99997;display:grid;place-items:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .3s ease,visibility .3s ease;' +
+                    'background-color:#8aa882;background-image:linear-gradient(rgba(255,255,255,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.18) 1px,transparent 1px);background-size:40px 40px}' +
+                '.dpl-ov.show{opacity:1;visibility:visible;pointer-events:auto}' +
+                '.dpl-page{position:relative;background:#fff;border-radius:2px;' +
+                    'box-shadow:0 0 0 16px #141414,0 34px 70px -22px rgba(0,0,0,.55);transition:width .3s ease,height .3s ease}' +
+                '.dpl-prev{position:absolute;inset:0;overflow:hidden;border-radius:2px;pointer-events:none}' +
+                '.dpl-prev-in{position:absolute;left:0;top:0;transform-origin:0 0;background:#fff;color:#111;overflow:hidden;line-height:1.75;word-break:break-word}' +
+                '.dpl-prev-in img,.dpl-prev-in video{max-width:100%}' +
+                '.dpl-guide{position:absolute;background:#f5a623;pointer-events:none}' +
+                '.dpl-guide.gv{left:0;right:0;height:2px}.dpl-guide.gh{top:0;bottom:0;width:2px}' +
+                '.dpl-knob{position:absolute;width:54px;height:54px;border-radius:50%;background:#fff;box-shadow:0 8px 22px -6px rgba(0,0,0,.45);cursor:grab;touch-action:none;transition:transform .12s ease}' +
+                '.dpl-knob:active{cursor:grabbing;transform:scale(1.12)}' +
+                '.dpl-knob.tl{left:-27px;top:-27px}.dpl-knob.tr{right:-27px;top:-27px}.dpl-knob.bl{left:-27px;bottom:-27px}.dpl-knob.br{right:-27px;bottom:-27px}' +
+                '.dpl-pill{position:absolute;display:flex;align-items:center;gap:10px;background:#fff;border-radius:999px;padding:12px 18px;' +
+                    'box-shadow:0 12px 30px -10px rgba(0,0,0,.4);font:800 20px/1 -apple-system,system-ui;color:#1c1c1e;user-select:none}' +
+                '.dpl-pill button{border:none;background:none;font:800 22px/1 -apple-system,system-ui;color:#1c1c1e;cursor:pointer;padding:2px 6px}' +
+                '.dpl-pill .num{min-width:64px;text-align:center;cursor:pointer}' +
+                '.dpl-vpill{right:max(18px,4vw);top:50%;transform:translateY(-50%)}' +
+                '.dpl-hpill{bottom:max(28px,4vh);left:50%;transform:translateX(-50%)}' +
+                '.dpl-rot{position:absolute;left:max(18px,4vw);bottom:max(28px,4vh);width:74px;height:74px;border-radius:50%;background:#fff;border:none;cursor:pointer;' +
+                    'box-shadow:0 12px 30px -10px rgba(0,0,0,.4);display:grid;place-items:center;transition:transform .3s ease}' +
+                '.dpl-rot img{width:34px;height:34px;object-fit:contain;pointer-events:none}.dpl-rot.spin{transform:rotate(90deg)}' +
+                '.dpl-done{position:absolute;right:max(18px,4vw);bottom:max(28px,4vh);width:74px;height:74px;border-radius:50%;background:#5a4ad0;color:#fff;border:none;cursor:pointer;' +
+                    'box-shadow:0 12px 30px -10px rgba(90,74,208,.6);display:grid;place-items:center}' +
+                '.dpl-done svg{width:34px;height:34px}';
+            document.head.appendChild(st);
+
+            dplOv = document.createElement('div'); dplOv.className = 'dpl-ov';
+            dplPage = document.createElement('div'); dplPage.className = 'dpl-page';
+            dplPage.innerHTML = '<div class="dpl-prev"><div class="dpl-prev-in"></div></div>' +   // A4タグは廃止＝実際の本文(文字/追加した内容)を縮小表示
+
+                '<div class="dpl-guide gv" data-g="top"></div><div class="dpl-guide gv" data-g="bottom"></div>' +
+                '<div class="dpl-guide gh" data-g="left"></div><div class="dpl-guide gh" data-g="right"></div>' +
+                '<div class="dpl-knob tl" data-c="tl"></div><div class="dpl-knob tr" data-c="tr"></div>' +
+                '<div class="dpl-knob bl" data-c="bl"></div><div class="dpl-knob br" data-c="br"></div>';
+            const vpill = document.createElement('div'); vpill.className = 'dpl-pill dpl-vpill';
+            vpill.innerHTML = '<button data-mv="-1">↓</button><span class="num" id="dplVNum">0px</span><button data-mv="1">↑</button>';
+            const hpill = document.createElement('div'); hpill.className = 'dpl-pill dpl-hpill';
+            hpill.innerHTML = '<button data-tw="-1">←</button><span class="num" id="dplHNum">—</span><button data-tw="1">→</button>';
+            const rot = document.createElement('button'); rot.className = 'dpl-rot'; rot.id = 'dplRot';
+            rot.innerHTML = '<img src="crop.rotate.png" alt="回転">';
+            const done = document.createElement('button'); done.className = 'dpl-done'; done.id = 'dplDone';
+            done.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';   // 閉じる(×)
+            dplOv.appendChild(dplPage); dplOv.appendChild(vpill); dplOv.appendChild(hpill); dplOv.appendChild(rot); dplOv.appendChild(done);
+            document.body.appendChild(dplOv);
+            dplVNum = document.getElementById('dplVNum'); dplHNum = document.getElementById('dplHNum');
+
+            // margin pills (+/- and tap-to-type px)
+            dplOv.addEventListener('click', (e) => {
+                const mvb = e.target.closest('[data-mv]'), twb = e.target.closest('[data-tw]');
+                if (mvb) { state.layout.mv = clampMargin(state.layout.mv + (+mvb.dataset.mv) * 2); commitLayout(); }
+                else if (twb) { adjustTextWidth(+twb.dataset.tw); }   // 左右バー = 文字の幅の限界値
+            });
+            dplVNum.addEventListener('click', () => { const v = parseInt(prompt('上下の余白 (px)', state.layout.mv), 10); if (!isNaN(v)) { state.layout.mv = clampMargin(v); commitLayout(); } });
+            dplHNum.addEventListener('click', () => { const r = prompt('文字の最大幅 (px・空欄=制限なし)', state.layout.tw || ''); if (r === null) return; const v = parseInt(r, 10); state.layout.tw = isNaN(v) ? null : Math.max(120, Math.min(2000, v)); commitLayout(); });
+            rot.addEventListener('click', () => {
+                haptic.tap(); state.layout.landscape = !state.layout.landscape;
+                rot.classList.remove('spin'); void rot.offsetWidth; rot.classList.add('spin');   // 0.3s ease 90° flourish
+                commitLayout();
+            });
+            done.addEventListener('click', () => { haptic.ok(); dplBackup = null; stashEditor(); save(); closePageLayout(); });
+            dplOv.addEventListener('click', (e) => { if (e.target === dplOv) { closePageLayout(); } });
+
+            // corner knobs → resize page (proportional scale)
+            dplPage.querySelectorAll('.dpl-knob').forEach(k => {
+                let sy = 0, sScale = 1, corner = k.dataset.c, dragging = false;
+                k.addEventListener('pointerdown', (e) => { dragging = true; sy = e.clientY; sScale = state.layout.ph || 1; try { k.setPointerCapture(e.pointerId); } catch (_) {} });
+                k.addEventListener('pointermove', (e) => {
+                    if (!dragging) return;
+                    let dy = e.clientY - sy; if (corner === 'tl' || corner === 'tr') dy = -dy;   // top knobs: up = bigger
+                    state.layout.ph = Math.max(0.55, Math.min(1.4, sScale + dy / 500));
+                    commitLayout();
+                });
+                const up = (e) => { dragging = false; try { k.releasePointerCapture(e.pointerId); } catch (_) {} };
+                k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
+            });
+            window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dplOv.classList.contains('show')) closePageLayout(); });
+        }
+        function clampMargin(v) { return Math.max(0, Math.min(160, v)); }
+        function adjustTextWidth(dir) {
+            let tw = state.layout.tw; if (tw == null) tw = 640;   // 初回は基準値から
+            tw += dir * 40;
+            state.layout.tw = (tw >= 1100) ? null : Math.max(200, tw);   // 上限超え → 制限なし
+            commitLayout();
+        }
+        function renderSchematic() {
+            const L = state.layout;
+            let baseH = Math.min(window.innerHeight * 0.62, window.innerWidth * 0.6 * 1.414);
+            let h = Math.max(window.innerHeight * 0.34, Math.min(baseH * (L.ph || 1), window.innerHeight * 0.78));
+            let w = h / 1.414;
+            if (L.landscape) { const t = w; w = h; h = t; }
+            dplPage.style.width = w + 'px'; dplPage.style.height = h + 'px';
+            // guide insets (scaled to a nominal A4 px reference)
+            const refW = L.landscape ? 1123 : 794, refH = L.landscape ? 794 : 1123;
+            const iv = Math.min(h * 0.45, L.mv / refH * h);
+            // 左右ガイド = 文字幅の限界（中央寄せの列幅）。tw 未設定なら端いっぱい。
+            const ih = L.tw ? Math.max(0, (w - Math.min(w, L.tw / refW * w)) / 2) : 0;
+            dplPage.querySelector('[data-g="top"]').style.top = iv + 'px';
+            dplPage.querySelector('[data-g="bottom"]').style.bottom = iv + 'px';
+            dplPage.querySelector('[data-g="left"]').style.left = ih + 'px';
+            dplPage.querySelector('[data-g="right"]').style.right = ih + 'px';
+            dplVNum.textContent = L.mv + 'px'; dplHNum.textContent = L.tw ? L.tw + 'px' : '制限なし';
+            // 本文プレビューを紙サイズに合わせて縮小（内容の差し替えは openPageLayout 時のみ＝ノブ操作中は軽い）
+            const pv = dplPage.querySelector('.dpl-prev-in');
+            if (pv) {
+                const baseW = Math.max(320, docPage.clientWidth || 640);
+                const sc = w / baseW;
+                pv.style.width = baseW + 'px';
+                pv.style.height = Math.ceil(h / sc) + 'px';
+                pv.style.transform = 'scale(' + sc + ')';
+                pv.style.padding = L.mv + 'px ' + L.mh + 'px';
+                pv.style.fontSize = (state.fontSize || 17) + 'px';
+            }
+        }
+        function fillPreview() {
+            const pv = dplPage && dplPage.querySelector('.dpl-prev-in');
+            if (!pv) return;
+            pv.innerHTML = docPage.innerHTML || '';
+            pv.querySelectorAll('video').forEach(v => { v.controls = false; v.muted = true; v.removeAttribute('autoplay'); });
+        }
+        function commitLayout() { applyPageLayout(); renderSchematic(); }
+        function openPageLayout() {
+            haptic.tap(); buildPageLayoutUI();
+            fillPreview(); renderSchematic(); dplOv.classList.add('show');
+        }
+        function closePageLayout() {           // always commit (live changes are kept)
+            if (!dplOv) return;
+            stashEditor(); save();
+            dplOv.classList.remove('show');
+        }
+
+        // Debug hooks (only when ?debug) — used for automated verification.
+        if (location.search.indexOf('debug') >= 0) {
+            window.__ds = { state, exportDocx, buildDocxXml, buildDocxParts, zipStore, unzip,
+                docxXmlToPages, editorToBlocks, addPage, switchLang, save,
+                insertTableAtCaret: function(){ return insertTable(); },
+                get docPage() { return docPage; } };
+        }
+
+        // #11 元の言語を本文の文字種から自動検出し、その言語ビューを default(表示)にする
+        function detectOriginalLang() {
+            const p = curPage(); if (!p || !p.content) return;
+            let text = '';
+            for (const k in p.content) { const t = (p.content[k] || '').replace(/<[^>]+>/g, ' '); if (t.length > text.length) text = t; }
+            if (!text.trim()) return;   // 空の新規 → 既定のまま（入力後に再判定）
+            const hasCJK = /[぀-ヿ㐀-鿿豈-﫿ｦ-ﾟ]/.test(text);
+            const want = hasCJK ? 'ja' : 'en';
+            if (state.currentLang !== want && state.languages.some(l => l.code === want)) state.currentLang = want;
+        }
+
+        // ---------------------------------------------------------------
+        // Boot
+        // ---------------------------------------------------------------
+        detectOriginalLang();
+        renderAll();
+        applyPageLayout();   // restore saved margins / orientation / size
+        window.addEventListener('beforeunload', () => { if (window.__dsSkipUnloadSave) return; stashEditor(); try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {} });   // undoImport中はスキップ(取込HTMLの他ページ上書き防止)
+
+        // ── Native Change (Phase B): publish hooks so the conversion config can reach the studio ──
+        function importNew(html) {
+            if (typeof html !== 'string') html = '';
+            try { stashEditor(); } catch (_) {}
+            addPage();                                 // new page becomes current + re-renders + focuses
+            const p = curPage();
+            if (!p.content) p.content = {};
+            state.languages.forEach(function (l) { p.content[l.code] = html; });   // same content for every language
+            loadEditor();
+            applyPageLayout();
+            try { save(); } catch (_) {}
+            try { stashEditor(); localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {}
+            return true;
+        }
+        function toggleOrientation() {                 // 書類⇄プレゼン (portrait⇄landscape)、live + responsive + persist
+            if (!state.layout) state.layout = {};
+            state.layout.landscape = !state.layout.landscape;
+            applyPageLayout();
+            try { save(); } catch (_) {}
+            try { stashEditor(); localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {}
+            return state.layout.landscape;
+        }
+        window.__ds = Object.assign(window.__ds || {}, {
+            state: state, docPage: docPage, stashEditor: stashEditor, loadEditor: loadEditor,
+            curPage: curPage, addPage: addPage, applyPageLayout: applyPageLayout, save: save,
+            importNew: importNew, toggleOrientation: toggleOrientation, STORE_KEY: STORE_KEY
+        });
+        window.__dsReady = true;
+    })();
+    </script>
+    <!-- Native Change (P2): rotate.png → "Let's change the media type" Dynamic Island -->
+    <script>
+      window.NativeChangeConfig = {
+        current: 'doc',                 // document studio; hide 書類, offer App / 動画
+        ready: function () { return window.__dsReady === true; },
+        undoImport: function () {   // F: 変換取消＝importNewが追加した「そのページ」をidで特定して削除
+          var ds = window.__ds; if (!ds || !ds.state) return false;
+          var st = ds.state;
+          var pid = null; try { pid = sessionStorage.getItem('nc_undo_doc'); } catch (_) {}
+          var idx = -1;
+          if (pid != null) idx = st.pages.findIndex(function (p) { return String(p.id) === String(pid); });
+          if (idx < 0) return false;                       // 取込ページが見つからない(手動削除済み等)→何も壊さない
+          if (st.pages.length > 1) { st.pages.splice(idx, 1); if (st.currentPage >= st.pages.length) st.currentPage = st.pages.length - 1; }
+          else { st.pages[0].content = {}; }
+          try { sessionStorage.removeItem('nc_undo_doc'); } catch (_) {}
+          try { ds.loadEditor(); } catch (_) {}            // docPageを現ページに同期(unload時のstashで取込HTMLが他ページへ漏れない)
+          window.__dsSkipUnloadSave = true;                // beforeunloadのstash+saveをこのreloadだけスキップ(上書き破壊防止)
+          try { localStorage.setItem(ds.STORE_KEY, JSON.stringify(st)); } catch (_) {}   // 直書き(saveのdebounceとreload競合を回避)
+          setTimeout(function () { location.reload(); }, 200);
+          return true;
+        },
+        extraOptions: [                 // 書類⇄プレゼン 向き変換（同一スタジオ内・遷移なし）。アイコンは Image#21 の暫定(crop.rotate.png)
+          { label: 'プレゼン⇄書類', icon: 'crop.rotate.png', action: function () { if (window.__ds && window.__ds.toggleOrientation) window.__ds.toggleOrientation(); } }
+        ],
+        exportDoc: function () {
+          var ds = window.__ds || {};
+          try { if (ds.stashEditor) ds.stashEditor(); } catch (_) {}
+          var st = ds.state, html = '';
+          if (st && st.pages && st.pages[st.currentPage]) {
+            var pg = st.pages[st.currentPage];
+            html = (pg.content && pg.content[st.currentLang]) || '';
+          }
+          if (!html && ds.docPage) html = ds.docPage.innerHTML || '';
+          var root = document.createElement('div'); root.innerHTML = html;
+          var blocks = [], layers = [];   // blocks=back-compat / layers=R1 full-fidelity
+          function styleOf(el){ var s={}; try{ var c=el.style||{}; if(c.textAlign)s.textAlign=c.textAlign;
+            var inner=el.querySelector&&el.querySelector('[style],b,strong,i,em,u,s,strike,font'); var d=(inner&&inner.style)||c;
+            if(d.fontSize)s.fontSize=d.fontSize; if(d.color)s.color=d.color; if(d.fontWeight)s.fontWeight=d.fontWeight;
+            if(d.fontStyle)s.fontStyle=d.fontStyle; var td=d.textDecorationLine||d.textDecoration; if(td)s.textDecoration=td; }catch(_){} return s; }
+          function pushText(t){ t=(t||'').replace(/\s+/g,' ').trim(); if(t) blocks.push({type:'text', text:t}); }
+          Array.prototype.forEach.call(root.childNodes, function (n) {
+            if (n.nodeType === 3) { var tt=(n.textContent||'').replace(/\s+/g,' ').trim(); if(tt){ pushText(tt); layers.push({kind:'text', text:tt, style:{}}); } return; }
+            if (n.nodeType !== 1) return;
+            var tag = n.tagName, sty = styleOf(n), outer = n.outerHTML;
+            var media = (tag==='IMG'||tag==='VIDEO') ? n : (n.querySelector ? n.querySelector('img,video') : null);
+            if (media) {
+              var src = media.getAttribute('src') || (media.querySelector && media.querySelector('source') && media.querySelector('source').getAttribute('src')) || '';
+              var mk = media.tagName==='VIDEO' ? 'video' : 'image';
+              if (src) { blocks.push({ type: mk, src: src }); layers.push({ kind: mk, src: src, style: sty }); }
+              var clone = n.cloneNode(true);
+              if (clone.querySelectorAll) Array.prototype.forEach.call(clone.querySelectorAll('img,video'), function(x){ x.remove(); });
+              var ct=(clone.textContent||'').replace(/\s+/g,' ').trim(); if(ct){ pushText(ct); layers.push({kind:'text', text:ct, style:sty}); }
+              return;
+            }
+            var h = /^H([1-6])$/.exec(tag);
+            if (h) { var ht=(n.textContent||'').trim(); if(ht){ var lv=Math.min(3, parseInt(h[1],10)); blocks.push({type:'heading', text:ht, level:lv}); layers.push({kind:'heading', text:ht, level:lv, style:sty}); } return; }
+            if (tag==='UL'||tag==='OL') { var items=[]; Array.prototype.forEach.call(n.children, function(li){ var lt=(li.textContent||'').trim(); if(lt){ pushText('• '+lt); items.push(lt); } }); if(items.length) layers.push({kind:'list', ordered:tag==='OL', items:items, style:sty}); return; }
+            var pt=(n.textContent||'').trim(); if(pt){ pushText(pt); layers.push({kind:'text', text:pt, style:sty, html:outer}); }
+          });
+          if (!blocks.length) blocks = [{ type:'text', text:'' }];
+          var pgName = (st && st.pages && st.pages[st.currentPage] && st.pages[st.currentPage].name) || '';
+          var firstH = blocks.find(function(b){ return b.type==='heading'; });
+          var firstT = blocks.find(function(b){ return b.type==='text' && b.text; });
+          var title = pgName || (firstH && firstH.text) || (firstT && firstT.text ? firstT.text.slice(0,60) : '') || 'Untitled';
+          return { title: title, html: html, blocks: blocks, layers: layers };
+        },
+        importDoc: function (ncDoc) {
+          var ds = window.__ds;
+          if (!ds || typeof ds.importNew !== 'function') return false;
+          function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+          function styAttr(s){ if(!s) return ''; var p=[];
+            if(s.fontSize)p.push('font-size:'+s.fontSize); if(s.color)p.push('color:'+s.color); if(s.fontWeight)p.push('font-weight:'+s.fontWeight);
+            if(s.fontStyle)p.push('font-style:'+s.fontStyle); if(s.textDecoration)p.push('text-decoration:'+s.textDecoration); if(s.textAlign)p.push('text-align:'+s.textAlign);
+            return p.length?(' style="'+p.join(';')+'"'):''; }
+          var html = '';
+          var layers = (ncDoc && ncDoc.layers) || [];
+          if (layers.length) {                          // R1: rebuild from full-fidelity layers (structure + style + media)
+            html = layers.map(function (L) {
+              if (!L) return '';
+              var s = styAttr(L.style);
+              if (L.kind === 'heading') { var lv=L.level||2; return '<h'+lv+s+'>'+esc(L.text||'')+'</h'+lv+'>'; }
+              if (L.kind === 'image')   return L.src ? '<p'+s+'><img src="'+L.src+'" style="max-width:100%"></p>' : '';   // 空srcで壊れ<img>(ページURL再要求)を出さない
+              if (L.kind === 'video')   return L.src ? '<p'+s+'><video src="'+L.src+'" controls style="max-width:100%"></video></p>' : '';
+              if (L.kind === 'list')    return (L.ordered?'<ol':'<ul')+s+'>'+((L.items||[]).map(function(it){return '<li>'+esc(it)+'</li>';}).join(''))+(L.ordered?'</ol>':'</ul>');
+              return '<p'+s+'>'+esc(L.text||'')+'</p>';
+            }).join('');
+          }
+          if (!html) {                                  // fallback: blocks → html
+            var blocks = (ncDoc && ncDoc.blocks) || [];
+            if (blocks.length) html = blocks.map(function (b) {
+              if (b.type === 'heading') return '<h' + (b.level || 2) + '>' + esc(b.text || '') + '</h' + (b.level || 2) + '>';
+              if (b.type === 'image')   return '<p><img src="' + (b.src || '') + '"></p>';
+              if (b.type === 'video')   return '<p><video src="' + (b.src || '') + '" controls></video></p>';
+              return '<p>' + esc(b.text || '') + '</p>';
+            }).join('');
+            if (!html && ncDoc && ncDoc.html) { var tmp = document.createElement('div'); tmp.innerHTML = ncDoc.html; var body = tmp.querySelector('body'); html = (body ? body.innerHTML : tmp.innerHTML) || ('<p>' + esc(tmp.textContent || '') + '</p>'); }
+          }
+          if (ncDoc && ncDoc.title) html = '<h1>' + esc(ncDoc.title) + '</h1>' + html;
+          var _ok = ds.importNew(html) !== false;
+          if (_ok) { try { var _p = ds.state.pages[ds.state.currentPage]; if (_p && _p.id != null) sessionStorage.setItem('nc_undo_doc', String(_p.id)); } catch (_) {} }   // F: 取消は「このページ」をidで特定
+          return _ok;
+        }
+      };
+    </script>
+    <script src="native-change.js"></script>
+    <!-- BUILD:20260613-doc-r2 -->
+    <script src="pwa-autoupdate.js"></script>
+<script>
+(function(){ try{
+  /* 書類の📎添付を廃止＝Document Studioは常にApps起動。エクスポート(=この送信ボタン)で友達選択→チャットへ送る。 */
+  function send(){ try{
+    var dp=document.getElementById('docPage'); if(!dp) return;
+    var html=dp.innerHTML||''; var txt=(dp.innerText||'').trim();
+    var name=((txt.split('\n')[0])||'書類').slice(0,40)||'書類';
+    var code = html.length>44000 ? txt.slice(0,44000) : html;
+    parent.postMessage({type:'s2s:doc', name:name, code:code}, '*');
+    try{ var b=document.getElementById('ds2chat'); if(b){ b.textContent='✓ 送信しました'; } }catch(e){}
+  }catch(e){} }
+  function add(){ if(document.getElementById('ds2chat')) return;
+    var b=document.createElement('button'); b.id='ds2chat'; b.textContent='📄 エクスポートして送信';
+    b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:99999;background:#0a84ff;color:#fff;border:none;border-radius:999px;padding:13px 26px;font:600 16px -apple-system,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer';
+    b.onclick=send; document.body.appendChild(b); }
+  if(document.readyState!=='loading') add(); else document.addEventListener('DOMContentLoaded', add);
+}catch(e){} })();
+</script>
+</body>
+</html>

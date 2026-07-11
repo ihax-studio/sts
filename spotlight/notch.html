@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Notch Words</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<style>
+/* ═══════════ BASE ═══════════ */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --en:#ffffff; --ja:rgba(255,255,255,.82); --glyph:#cfd2d6;   /* native .primary (黒pill上=白) */
+  /* deck colors（Image #11 採取） */
+  --c-pre1:linear-gradient(160deg,#9b39d4,#e0306e);
+  --c-1:#2f80ed; --c-2:#c2e23c; --c-3:#e23ba0; --c-4:#e8642b; --c-5:#56d6a0;
+}
+html,body{height:100%;margin:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif;
+  /* premium mesh wallpaper（iOS風） */
+  background:
+    radial-gradient(60% 50% at 18% 12%, rgba(255,210,170,.55), transparent 60%),
+    radial-gradient(55% 45% at 86% 8%, rgba(180,205,255,.55), transparent 62%),
+    radial-gradient(70% 60% at 50% 108%, rgba(205,185,255,.45), transparent 60%),
+    linear-gradient(170deg, #eef1f6 0%, #e4e7ee 52%, #dadfe8 100%);
+  color:#111;
+  display:flex; flex-direction:column; align-items:center;
+  padding:max(11px,env(safe-area-inset-top)) 0 0;
+  overflow:hidden; user-select:none; -webkit-user-select:none;
+  touch-action:manipulation;
+}
+@media (prefers-color-scheme:dark){
+  body{
+    background:
+      radial-gradient(60% 50% at 18% 10%, rgba(120,80,40,.40), transparent 60%),
+      radial-gradient(55% 45% at 86% 6%, rgba(40,70,130,.42), transparent 62%),
+      radial-gradient(70% 60% at 50% 110%, rgba(70,50,120,.38), transparent 60%),
+      linear-gradient(170deg, #1a1b21 0%, #131419 55%, #0b0c10 100%);
+    color:#eee;
+  }
+}
+/* ★アプリ(チャット)内に埋め込まれた時だけ壁紙を透明化＝後ろのチャットが透けて「上に重なって出る」。
+   単体で直接開いた時は従来のメッシュ壁紙のまま（.embed はホスト埋め込み検出で付与）。 */
+html.embed, html.embed body{ background:transparent !important; }
+
+/* ═══════════ DYNAMIC ISLAND ═══════════ */
+#stage{ width:100%; display:flex; flex-direction:column; align-items:center; gap:26px; }
+
+#island{
+  position:relative;
+  min-width:132px; min-height:40px;
+  max-width:min(94vw,440px);             /* 拡大しつつ iPhone 幅に収める */
+  background:#000;
+  border-radius:42px;                     /* 角丸を強めに（スーパー楕円寄り） */
+  box-shadow:
+    0 0 0 .5px rgba(0,0,0,.55),
+    0 1px 0 rgba(255,255,255,.05) inset,
+    0 26px 48px -16px rgba(20,22,30,.55),
+    0 8px 22px -6px rgba(20,22,30,.34);
+  overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  /* iOS風スプリング morph */
+  transition:width .55s cubic-bezier(.34,1.32,.5,1),
+             height .55s cubic-bezier(.34,1.32,.5,1),
+             border-radius .5s cubic-bezier(.32,.72,0,1),
+             transform .5s cubic-bezier(.34,1.5,.5,1);
+  will-change:transform;
+}
+#island::after{ /* 上部の淡いリム光（OLEDの艶） */
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,0) 30%);
+}
+body.playing #island::after{ opacity:0; }   /* 再生中は黒のみ(グラデ無し) */
+/* 語切替の弾み（DI風 content bounce） */
+@keyframes pop{ 0%{transform:scale(.965)} 60%{transform:scale(1.012)} 100%{transform:scale(1)} }
+#island.pop{ animation:pop .5s cubic-bezier(.34,1.4,.5,1); }
+
+/* layers（語 / 操作）— 重ねてクロスフェード。サイズは active を実測して #island に反映 */
+.layer{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:max-content; max-width:84vw;
+  display:flex; flex-direction:column; align-items:center;
+  text-align:center;
+  opacity:0; pointer-events:none;
+  transition:opacity .34s ease;
+}
+#island.mode-word .layer.word{ opacity:1; pointer-events:auto; }
+#island.mode-ctrl .layer.ctrl{ opacity:1; pointer-events:auto; }
+#island.mode-deck .layer.deck{ opacity:1; pointer-events:auto; }
+#island.mode-quit .layer.quit{ opacity:1; pointer-events:auto; }
+
+/* 語（iOS Dynamic Island風にたっぷり余白・拡大しつつ iPhone 幅に収める） */
+.layer.word{ padding:clamp(26px,5vw,38px) clamp(34px,8.4vw,76px); }
+.layer.word .en{
+  color:var(--en);
+  font-family:"SF Pro Display",-apple-system,sans-serif;
+  font-size:clamp(24px,7vw,31px);                            /* native 28 → 拡大 */
+  font-weight:300; letter-spacing:.2px; line-height:1.12;    /* native weight:.light（細め） */
+  white-space:nowrap;
+}
+/* 発音（Image #14：英語下に薄グレーIPA） */
+.layer.word .pr{
+  color:rgba(255,255,255,.55);                               /* native .primary.opacity(0.55) */
+  font-family:ui-monospace,"SF Mono","SFMono-Regular",Menlo,monospace;  /* native design:.monospaced */
+  font-size:12px; font-weight:200; line-height:1.2; letter-spacing:.2px;/* native .system(size:12,.ultraLight) */
+  max-height:0; opacity:0; margin-top:0; overflow:hidden; white-space:nowrap;
+  transition:max-height .42s cubic-bezier(.32,.72,0,1), opacity .3s ease, margin-top .42s cubic-bezier(.32,.72,0,1);
+}
+.layer.word.has-pr .pr{ max-height:22px; opacity:1; margin-top:8px; }
+.layer.word .ja{
+  color:var(--ja);
+  font-size:clamp(18px,5.6vw,22px);                          /* native 17→22(jaActive)・拡大 */
+  font-weight:300; line-height:1.25;                         /* native weight:.light（細め） */
+  max-height:0; opacity:0; margin-top:0;
+  transition:max-height .44s cubic-bezier(.32,.72,0,1),
+             opacity .34s ease .04s,
+             margin-top .44s cubic-bezier(.32,.72,0,1);
+  white-space:nowrap;
+}
+#island.revealed .layer.word .ja{ max-height:42px; opacity:1; margin-top:11px; }
+/* 新語の slideup（下から中央へ・scale付き iOS overshoot） */
+@keyframes enIn{ from{opacity:0; transform:translateY(16px) scale(.965)} to{opacity:1; transform:translateY(0) scale(1)} }
+.layer.word.anim .en{ animation:enIn .5s cubic-bezier(.32,1.28,.5,1) both; }
+@keyframes prIn{ from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+.layer.word.anim.has-pr .pr{ animation:prIn .46s cubic-bezier(.32,1.2,.5,1) .05s both; }
+/* 和訳の slideup */
+@keyframes jaIn{ from{opacity:0; transform:translateY(11px) scale(.97)} to{opacity:1; transform:translateY(0) scale(1)} }
+#island.revealed .layer.word.anim .ja{ animation:jaIn .46s cubic-bezier(.32,1.24,.5,1) both; }
+
+/* 操作バー（native: HStack spacing 18 / play.fill 32・他 22） */
+.layer.ctrl{ flex-direction:row; gap:18px; padding:15px 30px; }
+.ct{
+  -webkit-appearance:none; appearance:none; background:none; border:0; padding:8px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.ct img{ height:22px; width:auto; display:block;             /* native side glyph size 22 */
+  filter:invert(1); opacity:.85; pointer-events:none; }      /* native .primary.opacity(0.85) */
+#cRedo img{ opacity:.9; }                                    /* native arrow.clockwise opacity 0.9 */
+#cPlay img{ height:25px; opacity:1; }                        /* iOS26風に小さく */
+#cPlay.paused img{ display:none; }                           /* 再生中は ▶ を隠す */
+#cPlay.paused::after{ content:"||"; color:#fff; font-weight:700; font-size:27px; line-height:1;
+  font-family:-apple-system,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif; letter-spacing:.5px; }  /* SF Pro の || で一時停止（文字・絵文字でない） */
+/* タップ: 0.3s scaleup→戻る（iOS風） */
+.ct{ transition:transform .3s cubic-bezier(.22,1.2,.36,1); }
+.ct.press{ transform:scale(1.22); }
+@keyframes spin360{ to{ transform:rotate(-360deg) } }   /* やり直し＝逆回転 */
+#cRedo.spin img{ animation:spin360 .85s cubic-bezier(.22,.61,.36,1); }
+
+/* 再生中の「処理中」はリング側で表現（notchに白いシマーは置かない） */
+
+/* ═══════════ DECK（操作バー左端の枠＝現在デッキの Apple Watch リング・回転しない）═══════════ */
+.deckbtn{ width:34px; aspect-ratio:1/1; padding:0!important; flex:0 0 auto; margin-right:1px; }
+.deckbtn .dring{ position:absolute; inset:0; width:34px; height:34px; overflow:visible; transform:rotate(-90deg); }
+.deckbtn .dt{ fill:none; stroke:rgba(255,255,255,.20); stroke-width:3; }
+.deckbtn .dp{ fill:none; stroke-width:3; stroke-linecap:round;
+  transition:stroke-dashoffset .55s cubic-bezier(.32,.72,0,1), stroke .4s ease; }
+.deckbtn .dlbl{ position:relative; z-index:1; font-size:11px; font-weight:600;
+  color:#fff; letter-spacing:0; font-variant-numeric:tabular-nums; }
+
+/* deck picker = island 内の第3レイヤー（6デッキ進捗を Apple Watch リングで静的表示・notchの中に出す） */
+.layer.deck{ flex-direction:row; gap:6px; padding:14px 16px; max-width:94vw; }
+.chip{
+  position:relative; width:clamp(44px,12vw,50px); aspect-ratio:1/1; border-radius:50%; border:0; background:none; cursor:pointer; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .3s cubic-bezier(.22,1.2,.36,1);
+}
+.chip.press{ transform:scale(1.14); }
+.chip .cring{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; transform:rotate(-90deg); }
+.chip .ctk{ fill:none; stroke:rgba(255,255,255,.16); stroke-width:4; }   /* island 黒地のトラック */
+.chip .cpg{ fill:none; stroke-width:4; stroke-linecap:round;
+  transition:stroke-dashoffset .55s cubic-bezier(.32,.72,0,1); }
+@media (prefers-color-scheme:dark){ .chip .ctk{ stroke:rgba(255,255,255,.18); } }
+.chip .cdot{
+  width:72%; aspect-ratio:1/1; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-weight:700; font-size:15px; letter-spacing:-.3px;
+  box-shadow:0 2px 6px rgba(0,0,0,.20);
+}
+.chip.sel .cdot{ outline:2.5px solid rgba(255,255,255,.95); outline-offset:2px; }
+.chip .cdot[data-d="pre1"]{ background:var(--c-pre1); font-size:13px; }
+.chip .cdot[data-d="day0"]{ background:var(--c-1) } .chip .cdot[data-d="day1"]{ background:var(--c-2); color:#3a4a00 }
+.chip .cdot[data-d="day2"]{ background:var(--c-3) } .chip .cdot[data-d="day3"]{ background:var(--c-4) }
+.chip .cdot[data-d="day4"]{ background:var(--c-5); color:#0c4a32 }
+
+/* 終了/キャンセル メニュー（island 内・長押し・iOS風 0.3s scale-up） */
+.layer.quit{ flex-direction:row; gap:10px; padding:13px 16px; }
+.qbtn{ -webkit-appearance:none; appearance:none; border:0; cursor:pointer; font-family:inherit;
+  padding:9px 22px; border-radius:16px; font-size:15px; font-weight:600; letter-spacing:.3px; }
+.qbtn.cancel{ background:rgba(255,255,255,.16); color:#fff; }
+.qbtn.end{ background:#ff453a; color:#fff; }                /* iOS destructive red */
+.qbtn.press{ filter:brightness(1.2); }
+@keyframes qIn{ from{ opacity:0; transform:scale(.8) } to{ opacity:1; transform:scale(1) } }
+#island.mode-quit .qbtn{ animation:qIn .3s cubic-bezier(.32,1.3,.5,1) both; }
+/* 終了：notch を閉じる（畳んでフェードアウト） */
+body.closed #island{ opacity:0; transform:translateY(-8px) scale(.86); pointer-events:none;
+  transition:opacity .34s ease, transform .42s cubic-bezier(.32,.72,0,1); }
+
+/* 実機触覚：透明な実<input switch>を重ねて確実に system haptic（メモリ ios-web-haptics 準拠） */
+.ct,.chip{ position:relative; }
+.hsw{ position:absolute; inset:0; width:100%; height:100%; margin:0; padding:0; border:0;
+  opacity:0; cursor:pointer; z-index:6; -webkit-tap-highlight-color:transparent; }
+
+/* count（控えめに下部） */
+#count{ margin-top:2px; font-size:13px; color:#9498a0; font-variant-numeric:tabular-nums; }
+#count b{ color:#6c7079; font-weight:600 }
+@media (prefers-color-scheme:dark){ #count{ color:#7a7f87 } #count b{ color:#b9bdc4 } }
+
+/* snap mode（検証：transform回避＋アニメ停止。inactive layerは隠して active を flex中央に） */
+body.snap *{ animation:none !important; transition:none !important; }
+body.snap #island{ will-change:auto; }
+body.snap .layer{ position:static; transform:none; display:none; }
+body.snap #island.mode-word .layer.word{ display:flex; }
+body.snap #island.mode-ctrl .layer.ctrl{ display:flex; }
+body.snap #island.mode-deck .layer.deck{ display:flex; }
+body.snap #island.mode-quit .layer.quit{ display:flex; }
+</style>
+<script>/* iframe(ホストのアプリ オーバーレイ)に埋め込まれている時は壁紙を透明化＝チャットの上に重なって表示。初回描画前に付与＝壁紙のチラつき無し */try{if(window.self!==window.top)document.documentElement.classList.add("embed");}catch(_){document.documentElement.classList.add("embed");}</script>
+</head>
+<body>
+<script src="vocabx-data.js"></script>
+
+<div id="stage">
+  <!-- DYNAMIC ISLAND -->
+  <div id="island" class="mode-word">
+    <div class="layer word anim">
+      <div class="en" id="wEn">acceptable</div>
+      <div class="pr" id="wPr"></div>
+      <div class="ja" id="wJa">受け入れられる</div>
+    </div>
+    <div class="layer ctrl">
+      <button class="ct deckbtn" id="cDeck" aria-label="デッキ切替・進捗">
+        <svg class="dring" viewBox="0 0 34 34">
+          <circle class="dt" cx="17" cy="17" r="14.5"/>
+          <circle class="dp" id="cDeckRing" cx="17" cy="17" r="14.5"/>
+        </svg>
+        <span class="dlbl" id="cDeckLbl">1</span>
+      </button>
+      <button class="ct" id="cPrev" aria-label="前へ戻って再生"><img src="bf.png" alt="前"></button>
+      <button class="ct" id="cRedo" aria-label="やり直し"><img src="back.png" alt="やり直し"></button>
+      <button class="ct" id="cPlay" aria-label="再生/一時停止"><img src="play.fill.png" alt="再生"></button>
+      <button class="ct" id="cNext" aria-label="次へ"><img src="aft.png" alt="次"></button>
+      <button class="ct spdbtn" id="cSpeed" aria-label="再生速度"><span class="spdlbl" id="cSpeedLbl">1.1</span></button>
+    </div>
+    <!-- DECK レイヤー（island 内・6デッキの Apple Watch リング） -->
+    <div class="layer deck" id="deckLayer"></div>
+    <!-- 終了/キャンセル レイヤー（長押し0.3s・iOS風 0.3s scale-up） -->
+    <div class="layer quit" id="quitLayer">
+      <button class="qbtn cancel" id="qCancel">キャンセル</button>
+      <button class="qbtn end" id="qEnd">終了</button>
+    </div>
+    <!-- 再生速度スライダ（虹色・island 内） -->
+    <div class="layer speed" id="speedLayer">
+      <span class="speedVal" id="speedVal">EN 1.1× · JA 1.2×</span>
+      <input type="range" id="speedRange" class="rainbow" min="0" max="100" step="1" value="40" aria-label="再生速度">
+    </div>
+  </div>
+
+
+  <div id="count"><b>1</b> / 1</div>
+</div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const Q=new URLSearchParams(location.search);
+const SNAP=Q.has('snap'); if(SNAP) document.body.classList.add('snap');
+
+/* ═══════════ DATA ═══════════ */
+const ALL=(window.VOCABX||[]).slice();
+const SZ=Math.ceil(ALL.length/5)||1;
+const DECKS=[
+  { id:'pre1', short:'Pre1', g0:'#9b39d4', g1:'#ff4f93', list:ALL.filter(w=>w.pre1) },
+  { id:'day0', short:'1', g0:'#1c5fd0', g1:'#5aa6ff', list:ALL.slice(0*SZ,1*SZ) },
+  { id:'day1', short:'2', g0:'#9fbf1e', g1:'#dcf24a', list:ALL.slice(1*SZ,2*SZ) },
+  { id:'day2', short:'3', g0:'#c21f86', g1:'#ff63c0', list:ALL.slice(2*SZ,3*SZ) },
+  { id:'day3', short:'4', g0:'#d24a16', g1:'#ff9152', list:ALL.slice(3*SZ,4*SZ) },
+  { id:'day4', short:'5', g0:'#23b07c', g1:'#74f0b8', list:ALL.slice(4*SZ,5*SZ) },
+];
+/* 録音番号：pre1 語の出現順（1始まり）→ vocabx-audio/NNNN.mp3（英語→日本語を1ファイルに収録） */
+ALL.filter(w=>w.pre1).forEach((w,i)=>{ w._a=i+1; });
+
+/* ═══════════ STATE ═══════════ */
+let deckIdx=0, idx=0, playing=false, gen=0, userActed=false;
+try{ const t=localStorage.getItem('notch.deck'); const i=DECKS.findIndex(d=>d.id===t); if(i>=0) deckIdx=i; }catch{}
+let posMap={}; try{ posMap=JSON.parse(localStorage.getItem('notch.pos')||'{}')||{}; }catch{}
+const deck=()=>DECKS[deckIdx];
+const list=()=>deck().list;
+const cur=()=>{ const l=list(); return l.length?l[(idx%l.length+l.length)%l.length]:null; };
+if(list().length){ idx=Math.max(0,Math.min(posMap[deck().id]|0, list().length-1)); }
+
+/* ═══════════ SOUND ═══════════ */
+const _pool={};
+/* ★Pre1Notch 起動中は効果音(.caf/.wav)を一切読み込まない・鳴らさない＝軽量化＆TTSだけ流す（ユーザー指示）。
+   呼び出し箇所はそのままで no-op 化＝UIロジックは不変、音だけ出ない。TTS(speechSynthesis)は別系統で従来どおり。 */
+function snd(name,vol=.5){ /* no-op: 効果音オフ */ }
+/* 無音キープアライブ（iOSでバックグラウンドTTS安定） */
+let silent;
+function ensureSilent(){ if(silent) return silent;
+  silent=new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAA');
+  silent.loop=true; silent.volume=.001; silent.setAttribute('playsinline',''); return silent; }
+
+/* ═══════════ 読み上げ：vocabx-audio（録音）優先・無ければ TTS で代読 ═══════════ */
+/* 録音 = pre1 番号順 vocabx-audio/0001.mp3…（英語→日本語を1ファイルに収録）。
+   欠番/未生成の語のみ Web Speech（英 = Samantha / 日 = Siri 日本語“O-ren”→Kyoko）。 */
+const AUDIO_DIR='vocabx-audio/';
+const audioFail=new Set();                          // 今セッションで欠番と判明した番号
+const player=new Audio();                            // 単一要素を再利用（初回タップ後は自動再生ロック解除が持続）
+player.preload='auto'; player.setAttribute('playsinline','');
+function audioURL(n){ return AUDIO_DIR+String(n).padStart(4,'0')+'.mp3'; }
+function stopAudio(){ try{ player.onended=player.onerror=null; player.pause(); }catch{} }
+
+/* ═══════════ 再生速度（虹色スライダ）═══════════ */
+/* [最遅, 既定, 最速] を t=[0, dt, 1] に割当て。英語 0.8/1.1/1.55・日本語 0.8/1.2/1.7 */
+const SPD={ en:[1.1,1.7,2.2], ja:[1.1,1.8,2.3], dt:0.40 };   // ★速度優先でさらに底上げ（既定1.7/1.8・最速2.2/2.3）
+let speedT=0.40; try{ const s=parseFloat(localStorage.getItem('notch.speed')); if(isFinite(s)) speedT=Math.min(1,Math.max(0,s)); }catch{}
+function _lerp(a,b,u){ return a+(b-a)*u; }
+function rateFor(a){ const dt=SPD.dt; return speedT<=dt ? _lerp(a[0],a[1], dt?speedT/dt:0) : _lerp(a[1],a[2], (speedT-dt)/(1-dt)); }
+function enRate(){ return rateFor(SPD.en); }
+function jaRate(){ return rateFor(SPD.ja); }
+function fmtRate(x){ return String(Math.round(x*100)/100); }
+
+/* Web Speech 声選び：英=Samantha / 日=Siri(ja “O-ren”)→enhanced→Kyoko（メモリ eiken-apps-tts-voices 準拠） */
+let _vEn=null,_vJa=null,_vReady=false;
+function loadVoices(){
+  let vs=[]; try{ vs=speechSynthesis.getVoices()||[]; }catch{}
+  if(!vs.length) return false;
+  const tag=v=>((v.voiceURI||'')+' '+(v.name||'')).toLowerCase();
+  const isJa=v=>(v.lang||'').toLowerCase().slice(0,2)==='ja';
+  _vEn = vs.find(v=>v.name==='Samantha')
+      || vs.find(v=>/en[-_]us/i.test(v.lang||''))
+      || vs.find(v=>/^en/i.test(v.lang||'')) || null;
+  _vJa = vs.find(v=>isJa(v)&&v.name==='Kyoko')                    // ★日本語=Kyoko 優先
+      || vs.find(v=>isJa(v)&&/kyoko/.test(tag(v)))
+      || vs.find(v=>isJa(v)&&/(premium|enhanced)/.test(tag(v)))
+      || vs.find(isJa) || null;
+  _vReady=!!(_vEn||_vJa); return _vReady;
+}
+/* ★声は非同期ロード=getVoices初回空対策: 即試行＋voiceschangedで再選択(英Samantha/日Kyokoを確実に掴む) */
+try{ loadVoices(); if('speechSynthesis' in window && speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', loadVoices); }catch(_){}
+
+/* ═══════════ TTS（フォールバック）═══════════ */
+function speak(text,lang,onDone){
+  const g=gen, done=()=>{ if(g===gen) onDone&&onDone(); };
+  if(SNAP||!text||!('speechSynthesis'in window)||!userActed){ setTimeout(done, SNAP?0:Math.min(1400,500+text.length*55)); return; }
+  if(!_vReady) loadVoices();
+  try{ speechSynthesis.cancel(); }catch{}
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang=lang==='en'?'en-US':'ja-JP';
+  const v=lang==='en'?_vEn:_vJa; if(v) u.voice=v;
+  u.rate=lang==='en'?enRate():jaRate();              // 虹色スライダの速度
+  let fired=false; const fin=()=>{ if(fired)return; fired=true; done(); };
+  u.onend=fin; u.onerror=fin;
+  /* ★保険タイマーのみ。通常は onend(読み上げ完了)で進む＝読み上げは絶対に切らない。
+     保険値は「実際の読み上げ時間(速度で割る)」より少し長く＝onendが来ない端末でも途中で切れない。 */
+  var _rate=u.rate||1, _per=(lang==='en'?130:230), _est=(500+text.length*_per)/_rate;   // ★日本語は1文字≈1音節で長い＝230ms/字(英130)。保険値は実発話より必ず長く＝onendで進む＝読み終わるまで次語に行かない(2本先行バグ根治)
+  setTimeout(fin, Math.min(20000, _est*1.25));
+  try{ speechSynthesis.speak(u); try{ speechSynthesis.resume(); }catch{} }catch{ fin(); }   // ★resume()=iOSで数語後に読み上げが止まる事故を防ぐ＝次語へ自動再生が続く
+}
+
+/* ═══════════ 1語の読み上げ（録音→TTS）。rev=和訳スライドアップ / fin=完了 ═══════════ */
+const GAP_MS=0, AFTER_MS=50;                         // ★英→日の間ゼロ・読み上げ完了後 0.05秒で次語へ（進行はonend=読み上げ完了まで待つので切れない）
+function readWord(w,g,onReveal,onDone){
+  const rev=()=>{ if(g===gen) onReveal&&onReveal(); };
+  const fin=()=>{ if(g===gen) onDone&&onDone(); };
+  if(SNAP||!userActed){                              // 初回（操作前）/ snap は無音で視覚だけ流す
+    setTimeout(()=>{ rev(); setTimeout(fin, SNAP?0:820); }, SNAP?0:Math.min(1400,500+w.w.length*55));
+    return;
+  }
+  if(w._a && !audioFail.has(w._a)) playAudio(w,g,rev,fin);
+  else speakTTS(w,g,rev,fin);
+}
+function playAudio(w,g,rev,fin){
+  stopAudio();
+  let settled=false, revT=0;
+  const done=()=>{ if(settled)return; settled=true; clearTimeout(revT); stopAudio(); fin(); };
+  const fail=()=>{ if(settled)return; settled=true; clearTimeout(revT); audioFail.add(w._a); stopAudio(); if(g===gen) speakTTS(w,g,rev,fin); };
+  const sched=()=>{ if(g!==gen){ stopAudio(); return; }
+    const d=(isFinite(player.duration)&&player.duration>0)?player.duration:3.6;
+    const at=Math.min(Math.max(d*0.40,0.85),1.6)*1000;            // 英語の後に和訳を出す
+    revT=setTimeout(()=>{ if(g===gen&&!settled){ rev(); if(playing) vibe(7); } }, at); };
+  player.onended=done; player.onerror=fail;
+  try{ player.src=audioURL(w._a); player.playbackRate=enRate(); }catch{ return fail(); }
+  let p; try{ p=player.play(); }catch{ return fail(); }
+  if(p&&p.then) p.then(sched).catch(fail); else sched();
+}
+function speakTTS(w,g,rev,fin){
+  speak(w.w,'en',()=>{ if(g!==gen)return;
+    setTimeout(()=>{ if(g!==gen)return; rev(); if(playing) vibe(7);
+      speak(w.j,'ja',()=>{ if(g===gen) fin(); });
+    }, GAP_MS);
+  });
+}
+
+/* ═══════════ ISLAND SIZING ═══════════ */
+const island=$('#island');
+let _hasPr=false;
+function sizeIsland(){
+  if(SNAP) return;
+  const sel = island.classList.contains('mode-speed') ? '.layer.speed'
+            : island.classList.contains('mode-quit') ? '.layer.quit'
+            : island.classList.contains('mode-deck') ? '.layer.deck'
+            : island.classList.contains('mode-ctrl') ? '.layer.ctrl'
+            : '.layer.word';
+  const active=island.querySelector(sel);
+  const w=active.offsetWidth, h=active.offsetHeight;   // transform(scale演出)を無視した実レイアウト寸法
+  island.style.width=w+'px';
+  island.style.height=h+'px';
+  // 角丸を強めに（スーパー楕円寄りの角丸長方形）
+  island.style.borderRadius=Math.min(56, h*0.5).toFixed(1)+'px';
+}
+
+/* ═══════════ RENDER ═══════════ */
+function renderWord(){
+  const w=cur(); if(!w) return;
+  $('#wEn').textContent=w.w;
+  const pr=w.pr||''; _hasPr=!!pr;
+  $('#wPr').textContent=pr;
+  island.querySelector('.layer.word').classList.toggle('has-pr',_hasPr);
+  $('#wJa').textContent=w.j;
+}
+/* 各デッキの進捗（0..1）= (位置+1)/語数。未訪問は0。回転せず静的に表示。 */
+function deckPct(id){ const dk=DECKS.find(x=>x.id===id); if(!dk||!dk.list.length) return 0;
+  const pos=(id in posMap)?posMap[id]:(id===deck().id?idx:-1);
+  return pos<0?0:Math.min(1,(pos+1)/dk.list.length); }
+function renderDeck(){
+  const d=deck();
+  const lbl=$('#cDeckLbl'); if(lbl) lbl.textContent = d.id==='pre1'?'P':d.short;
+  const ring=$('#cDeckRing');
+  if(ring){ const R=14.5, C=2*Math.PI*R, pct=list().length?((idx+1)/list().length):0;
+    ring.setAttribute('stroke-dasharray',C.toFixed(1));
+    ring.setAttribute('stroke-dashoffset',(C*(1-pct)).toFixed(1));
+    ring.setAttribute('stroke', d.g1); }
+}
+function renderPickerRings(){
+  const R=21, C=2*Math.PI*R;
+  DECKS.forEach(d=>{ const el=deckLayer.querySelector('.cpg[data-r="'+d.id+'"]'); if(!el) return;
+    const pct=deckPct(d.id);
+    el.setAttribute('stroke-dasharray',C.toFixed(1));
+    el.setAttribute('stroke-dashoffset',(C*(1-pct)).toFixed(1));
+    el.setAttribute('stroke', d.g1); });
+}
+function renderCount(){ const l=list(); $('#count').innerHTML='<b>'+(l.length?idx+1:0)+'</b> / '+l.length; }
+
+/* ═══════════ PRESENT（英→reveal→和→次）═══════════ */
+function reveal(){ island.classList.add('revealed'); boostRAF(650); requestAnimationFrame(sizeIsland); }
+function present(){
+  const g=gen, w=cur(); if(!w) return;
+  const advance=()=>{ if(g!==gen||!playing) return; setTimeout(()=>{ if(g===gen&&playing){ idx++; show(true); } }, AFTER_MS); };
+  // 録音(vocabx-audio)で英→和を再生。無ければ TTS(英Samantha/日Siri)。初回ロードは無音で視覚のみ。
+  readWord(w, g, ()=>reveal(), ()=>{ if(g===gen) advance(); });
+}
+function show(advancing){
+  const l=list(); if(!l.length) return;
+  idx=(idx%l.length+l.length)%l.length;
+  posMap[deck().id]=idx; try{ localStorage.setItem('notch.pos',JSON.stringify(posMap)); }catch{}
+  gen++; boostRAF(820);
+  renderWord(); renderDeck(); renderCount();
+  // 英単語のみ → slideup（reveal解除して再アニメ）＋ island弾み
+  island.classList.remove('revealed');
+  const word=island.querySelector('.layer.word');
+  word.classList.remove('anim'); void word.offsetWidth; word.classList.add('anim');
+  island.classList.remove('pop'); void island.offsetWidth; island.classList.add('pop');
+  requestAnimationFrame(sizeIsland);
+  present();
+}
+
+/* ═══════════ MODE（語 ⇄ 操作）═══════════ */
+const IDLE_MS=2600; let idleT;
+const MODES=['word','ctrl','deck','quit','speed'];
+function curMode(){ for(const m of ['quit','speed','deck','ctrl']){ if(island.classList.contains('mode-'+m)) return m; } return 'word'; }
+function setMode(mode){   // 'word' | 'ctrl' | 'deck' | 'quit' | 'speed'
+  MODES.forEach(m=>island.classList.toggle('mode-'+m, mode===m));
+  boostRAF(700);
+  requestAnimationFrame(sizeIsland);
+  clearTimeout(idleT);
+  if(mode!=='word') idleT=setTimeout(()=>setMode('word'),IDLE_MS);   // 無操作で語に戻る
+}
+function bumpIdle(){ if(curMode()!=='word'){ clearTimeout(idleT); idleT=setTimeout(()=>setMode('word'),IDLE_MS); } }
+
+let lpTimer=null, lpFired=false;
+island.addEventListener('click',e=>{
+  if(e.target.closest('.ct')||e.target.closest('.chip')||e.target.closest('.qbtn')||e.target.closest('.layer.speed')||e.target.classList.contains('hsw')) return;
+  if(lpFired){ lpFired=false; return; }              // 長押し処理済みはタップ無効
+  userActed=true; vibe(8);
+  const m=curMode();
+  if(m==='quit'){ closeQuit(false); return; }        // メニュー背景タップ＝キャンセル
+  if(m==='word'){ snd('hud_open.wav',.4); setMode('ctrl'); }
+  else setMode('word');                              // ctrl / deck → 語notchに戻る
+});
+
+/* iOS風タップ: 0.3s scaleup→戻る */
+function pressFX(el){ el.classList.remove('press'); void el.offsetWidth; el.classList.add('press');
+  setTimeout(()=>el.classList.remove('press'),300); }
+/* 実機触覚：透明な実<input switch>を重ね、実タップで system haptic。clickはdebounceで二重発火防止 */
+function vibe(ms){ try{ navigator.vibrate&&navigator.vibrate(ms); }catch{} }
+/* 最大リフレッシュレート: アニメ中だけ rAF を回し ProMotion(120Hz)を引き出す（常時回さず電池配慮） */
+let _boostUntil=0,_boosting=false;
+function boostRAF(ms){ const now=performance.now(); _boostUntil=Math.max(_boostUntil, now+(ms||650));
+  if(_boosting||SNAP) return; _boosting=true;
+  const tick=()=>{ if(performance.now()<_boostUntil) requestAnimationFrame(tick); else _boosting=false; };
+  requestAnimationFrame(tick); }
+function bindTap(el, fn){
+  let last=0;
+  const run=e=>{ const t=performance.now(); if(t-last<300) return; last=t; if(e&&e.stopPropagation) e.stopPropagation(); vibe(7); fn(); };
+  if(!SNAP){ const sw=document.createElement('input'); sw.type='checkbox'; sw.setAttribute('switch',''); sw.className='hsw'; sw.tabIndex=-1; sw.setAttribute('aria-hidden','true');
+    el.appendChild(sw); sw.addEventListener('change', run); }
+  el.addEventListener('click', e=>{ if(e.target.classList.contains('hsw')) return; run(e); });   // desktop / fallback
+}
+
+/* ═══════════ TRANSPORT ═══════════ */
+bindTap($('#cPrev'),()=>{ userActed=true; pressFX($('#cPrev')); snd('tap.caf'); idx--; show(); bumpIdle(); });
+bindTap($('#cNext'),()=>{ userActed=true; pressFX($('#cNext')); snd('tap.caf'); idx++; show(); bumpIdle(); });
+bindTap($('#cRedo'),()=>{ userActed=true; const b=$('#cRedo');
+  b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin');
+  snd('NameDropConnectedSecondaryDevice.caf',.45); show(); bumpIdle(); });
+/* ⏸ 一時停止は SF Pro の文字「||」で表示（欠番PNGや絵文字⏸️は使わない＝画像割れ無し・確実に出る）。
+   再生中だけ ▶ img を隠して CSS の ::after「||」を出す（#cPlay.paused）。 */
+function setPlaying(p){ playing=p; $('#cPlay').classList.toggle('paused',p);
+  document.body.classList.toggle('playing',p); }   // 再生中=リングが処理スイープ（notchは白くしない）
+bindTap($('#cPlay'),()=>{ userActed=true; pressFX($('#cPlay')); bumpIdle();
+  if(playing){ playing=false; gen++; try{speechSynthesis.cancel();}catch{} stopAudio(); silent&&silent.pause(); setPlaying(false); snd('acknowledgment_sent.caf',.45); return; }
+  try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch{}
+  /* iOSでTTSを確実に動かす：ユーザー操作(このタップ)の中で resume＋声ロードを温めてから読み上げ開始＝
+     無音で次語だけ進む/初回が喋らない事故を防ぐ。resume()は未停止なら無害。 */
+  try{ if('speechSynthesis'in window){ speechSynthesis.resume(); if(!_vReady) loadVoices(); } }catch{}
+  ensureSilent(); silent.play().catch(()=>{}); setPlaying(true); snd('acknowledgment_received.caf',.45); show();
+});
+
+/* ═══════════ DECK PICKER ═══════════ */
+const deckLayer=$('#deckLayer');
+deckLayer.innerHTML=DECKS.map(d=>
+  '<button class="chip" data-d="'+d.id+'">'
+  + '<svg class="cring" viewBox="0 0 50 50"><circle class="ctk" cx="25" cy="25" r="21"/>'
+  +   '<circle class="cpg" data-r="'+d.id+'" cx="25" cy="25" r="21"/></svg>'
+  + '<span class="cdot" data-d="'+d.id+'">'+(d.id==='pre1'?'P':d.short)+'</span>'
+  + '</button>').join('');
+function markSel(){ deckLayer.querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',c.dataset.d===deck().id)); }
+/* デッキ切替は island 内の第3レイヤーに出す（notch の中） */
+bindTap($('#cDeck'),()=>{ userActed=true; pressFX($('#cDeck')); markSel(); renderPickerRings(); snd('hud_open.wav',.4); setMode('deck'); });
+/* 速度ボタン: 押すごとに 1.1 → 1.4 → 1.7 をサイクル(英語実速は1.1/1.4/1.6) */
+const SPD_STEPS=[{lbl:'1.7',t:0.40},{lbl:'2.0',t:0.76},{lbl:'2.2',t:1.0}];   // ★速度優先（既定1.7→2.0→2.2）
+let _spdStep=0; try{ let bi=0,bd=9; SPD_STEPS.forEach((s,i)=>{ const d=Math.abs(s.t-speedT); if(d<bd){bd=d;bi=i;} }); _spdStep=bi; }catch{}
+bindTap($('#cSpeed'),()=>{ userActed=true; pressFX($('#cSpeed')); snd('tap.caf');
+  _spdStep=(_spdStep+1)%SPD_STEPS.length; const st=SPD_STEPS[_spdStep]; speedT=st.t;
+  try{ $('#cSpeedLbl').textContent=st.lbl; }catch{}
+  try{ const sv=$('#speedVal'); if(sv) sv.textContent='EN '+enRate().toFixed(1)+'× · JA '+jaRate().toFixed(1)+'×'; }catch{}
+  try{ const sr=$('#speedRange'); if(sr) sr.value=Math.round(speedT*100); }catch{}
+  try{ player.playbackRate=enRate(); }catch{}
+  try{ localStorage.setItem('notch.speed', speedT); }catch{}
+  bumpIdle(); });
+function selectDeck(id){
+  const i=DECKS.findIndex(d=>d.id===id); if(i<0) return;
+  deckIdx=i; try{ localStorage.setItem('notch.deck',deck().id); }catch{}
+  idx=Math.max(0,Math.min(posMap[deck().id]|0, Math.max(0,list().length-1)));
+  markSel(); renderDeck(); renderPickerRings();
+  setTimeout(()=>{ setMode('word'); show(); }, 200);   // 選ぶと単語notchに戻る
+}
+deckLayer.querySelectorAll('.chip').forEach(c=>bindTap(c,()=>{ pressFX(c); snd('tap.caf'); selectDeck(c.dataset.d); }));
+
+/* ═══════════ 長押し 0.3s → 終了 / キャンセル（iOS風）═══════════ */
+function clearLP(){ if(lpTimer){ clearTimeout(lpTimer); lpTimer=null; } }
+island.addEventListener('pointerdown',e=>{
+  if(curMode()==='quit') return;
+  if(e.target.closest('.ct')||e.target.closest('.chip')||e.target.closest('.qbtn')||e.target.closest('.layer.speed')||e.target.classList.contains('hsw')) return;
+  clearLP(); lpFired=false;
+  lpTimer=setTimeout(()=>{ lpFired=true; userActed=true; vibe(14); openQuit(); }, 300);
+});
+island.addEventListener('pointerup',clearLP);
+island.addEventListener('pointercancel',clearLP);
+island.addEventListener('pointerleave',clearLP);
+function openQuit(){ snd('hud_open.wav',.5); setMode('quit'); }   // 無操作は idle で キャンセル(語) に戻る
+function closeQuit(end){ if(end) closeNotch(); else setMode('word'); }
+function closeNotch(){
+  if(playing){ playing=false; gen++; try{speechSynthesis.cancel();}catch{} stopAudio(); silent&&silent.pause(); setPlaying(false); }
+  clearTimeout(idleT); vibe(10); snd('spatial-exit.wav',.5);
+  document.body.classList.add('closed');
+}
+bindTap($('#qEnd'),()=>{ pressFX($('#qEnd')); closeQuit(true); });
+bindTap($('#qCancel'),()=>{ pressFX($('#qCancel')); snd('tap.caf'); closeQuit(false); });
+/* 閉じた notch は背景タップで再表示（語notch） */
+document.addEventListener('click',e=>{ if(document.body.classList.contains('closed') && !e.target.closest('#island')){ userActed=true; document.body.classList.remove('closed'); setMode('word'); show(); } });
+
+/* ═══════════ KEYBOARD（PC）═══════════ */
+document.addEventListener('keydown',e=>{
+  if(e.key===' '){ e.preventDefault(); $('#cPlay').click(); }
+  else if(e.key==='ArrowRight') $('#cNext').click();
+  else if(e.key==='ArrowLeft') $('#cPrev').click();
+  else if(e.key==='Enter'){ island.click(); }
+});
+
+/* ═══════════ BOOT ═══════════ */
+if('speechSynthesis'in window){ try{ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }catch{} }
+window.addEventListener('resize',()=>requestAnimationFrame(sizeIsland));
+window.addEventListener('pagehide',()=>{ try{ posMap[deck().id]=idx; localStorage.setItem('notch.pos',JSON.stringify(posMap)); }catch{} });
+
+/* snap mode（検証用に状態固定） */
+if(SNAP){
+  idx=Math.floor(list().length*0.62);   // リング進捗を可視化
+  const wq=Q.get('word'); if(wq){ const i=list().findIndex(x=>x.w===wq); if(i>=0) idx=i; }
+  renderWord(); renderDeck(); renderCount();
+  const st=Q.get('state')||'reveal';
+  if(st==='word'){ island.className='mode-word'; }
+  else if(st==='reveal'){ island.className='mode-word revealed'; }
+  else if(st==='ctrl'){ island.className='mode-ctrl'; }
+  else if(st==='play'){ island.className='mode-ctrl'; document.body.classList.add('playing'); $('#cPlay').classList.add('paused'); }
+  if(st==='deck'){ island.className='mode-deck'; markSel(); renderPickerRings(); }
+  if(st==='quit'){ island.className='mode-quit'; }
+}else{
+  renderWord(); renderDeck(); renderCount();
+  // 初回は無音で英→和を見せる（音は最初のタップ後）
+  requestAnimationFrame(()=>{ sizeIsland(); setTimeout(()=>{ reveal(); },650); });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,461 @@
+/* __STS_SWIPE_BLOCK__ */
+/* ★★ OS標準「左右スワイプで戻る/進む」を全CSS要素で完全ブロック。touch-action:pan-y=横ジェスチャ無効・縦スクロール維持。例外は末尾。 */
+*, *::before, *::after{ touch-action:pan-y !important; overscroll-behavior-x:none !important; }
+html, body{ overscroll-behavior:none !important; overscroll-behavior-x:none !important; touch-action:pan-y !important; }
+
+        :root {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            --bg-1: #8f7cf6;
+            --bg-2: #7e6bf1;
+            --ink: #1c1c1e;
+            --paper: #ffffff;
+            --radius: 26px;
+            --tb-glass: rgba(255,255,255,0.16);
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            /* document measure: 行の長さは A4 の寸法ではなく「字の幅」で決める */
+            --measure: 62ch;       /* 1行あたりの文字幅境界（読みやすい行長） */
+            --doc-margin: 54px;    /* 本文の左右マージン（紙の余白） */
+        }
+        * {touch-action:pan-y!important;overscroll-behavior-x:none!important; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            margin: 0; height: 100%; width: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+            background: linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 100%);
+            color: var(--ink);
+            -webkit-font-smoothing: antialiased;
+            touch-action: manipulation;
+        }
+        body {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; inset: 0; }
+
+        /* ===== Top toolbar (Word-like) ===== */
+        .toolbar {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%;
+            transform: translateX(-50%);
+            display: flex; align-items: center; gap: 4px;
+            padding: 6px; z-index: 40;
+            background: var(--tb-glass);
+            backdrop-filter: blur(22px) saturate(160%);
+            -webkit-backdrop-filter: blur(22px) saturate(160%);
+            border: 0.5px solid rgba(255,255,255,0.35);
+            border-radius: 18px;
+            box-shadow: 0 10px 34px rgba(40,20,90,0.22);
+            max-width: calc(100vw - 24px);
+            overflow-x: auto; overflow-y: hidden;
+            scrollbar-width: none;
+            opacity: 0; transform: translateX(-50%) translateY(-12px); pointer-events: none;
+            transition: opacity .45s var(--ease), transform .45s var(--ease);
+        }
+        .toolbar.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        .toolbar::-webkit-scrollbar {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+        /* contextual text bubble (dark glass, floats over the page near the selection) */
+        .sel-bar {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; z-index: 60; display: flex; align-items: center; gap: 3px; padding: 5px;
+            background: rgba(28,26,42,0.84);
+            backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+            border: 0.5px solid rgba(255,255,255,0.16); border-radius: 15px;
+            box-shadow: 0 16px 40px -8px rgba(20,10,50,0.55);
+            opacity: 0; transform: translateY(6px) scale(.94); pointer-events: none;
+            transition: opacity .26s var(--ease), transform .26s var(--ease);
+        }
+        .sel-bar.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; transform: none; pointer-events: auto; }
+        .sel-bar .tb-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #fff; min-width: 32px; height: 32px; padding: 0 8px; }
+        .sel-bar .tb-btn:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(255,255,255,0.14); }
+        .sel-bar .tb-btn.on {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(255,255,255,0.94); color: #5b3df0; }
+        .sel-bar .ds-gear img {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 18px; height: 18px; object-fit: contain; display: block; }
+        .sel-bar .tb-sep {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 1px; height: 20px; background: rgba(255,255,255,0.22); margin: 0 3px; flex: 0 0 auto; }
+        .sel-bar .tb-size {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #fff; font: 600 13px/1 -apple-system, system-ui; min-width: 26px; text-align: center; }
+        .tb-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            flex: 0 0 auto;
+            min-width: 34px; height: 34px; padding: 0 9px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            border: none; background: transparent; color: #fff;
+            font: 600 15px/1 -apple-system, system-ui; cursor: pointer;
+            border-radius: 11px; user-select: none;
+            transition: background .18s ease, transform .12s ease;
+        }
+        .tb-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(0.9); }
+        .tb-btn:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(255,255,255,0.14); }
+        .tb-btn.on {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(255,255,255,0.92); color: #5b3df0; }
+        .tb-btn svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 19px; height: 19px; display: block; }
+        .tb-btn.italic {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-style: italic; font-family: Georgia, serif; }
+        .tb-btn.underline {touch-action:pan-y!important;overscroll-behavior-x:none!important; text-decoration: underline; }
+        /* A3: 文字サイズ = 上下スワイプ・ピッカー + ダブルタップで数値入力 */
+        .tb-size-swipe {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; align-items: center; justify-content: center; min-width: 36px; height: 34px;
+            border-radius: 9px; cursor: ns-resize; user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent;
+            transition: background .15s ease; }
+        .tb-size-swipe:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(255,255,255,0.16); }
+        .tb-size-swipe.editing {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(255,255,255,0.94); }
+        .tb-size-swipe.editing .tb-size {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #5b3df0; outline: none; }
+        .tb-sep {touch-action:pan-y!important;overscroll-behavior-x:none!important; flex: 0 0 auto; width: 1px; height: 22px; background: rgba(255,255,255,0.3); margin: 0 3px; }
+        .tb-size {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #fff; font: 600 13px/1 -apple-system; min-width: 30px; text-align: center; }
+
+        /* ===== Back / home button ===== */
+        .home-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; top: max(16px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left));
+            width: 42px; height: 42px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.18); backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 0.5px solid rgba(255,255,255,0.4);
+            cursor: pointer; z-index: 45; color: #fff;
+            transition: transform .2s var(--ease), background .2s ease;
+        }
+        .home-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(0.88); }
+        .home-btn svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 22px; height: 22px; }
+
+        /* ===== Stage / real-document sheet ===== */
+        .stage {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            padding: 96px 18vw 96px 18vw;
+        }
+        .paper-stack {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: relative;
+            /* A4 の縦横比ではなく「字の幅境界」で横幅を決める実際の書類 */
+            font-size: 16px;       /* ch を本文サイズに固定（文字幅境界を安定させる） */
+            width: min(calc(var(--measure) + var(--doc-margin) * 2), 92vw);
+            height: min(84vh, 920px);
+            max-width: 92vw;
+        }
+        .paper {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: absolute; inset: 0;
+            border-radius: var(--radius);
+            background: var(--paper);
+        }
+        .paper.back2 {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            background: rgba(255,255,255,0.20);
+            transform: rotate(5deg) translate(4%, 2%) scale(0.985);
+            filter: blur(0.3px);
+        }
+        .paper.back1 {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            background: rgba(255,255,255,0.30);
+            transform: rotate(-4deg) translate(-3%, 1%) scale(0.99);
+        }
+        .paper.front {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            /* borderless · shadow · liquid glass (still fully readable) */
+            background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.78));
+            backdrop-filter: blur(32px) saturate(1.5);
+            -webkit-backdrop-filter: blur(32px) saturate(1.5);
+            border: none;
+            box-shadow: 0 36px 74px -18px rgba(60,30,120,0.48),
+                        0 0 64px 8px rgba(255,255,255,0.30),
+                        inset 0 1px 0 rgba(255,255,255,0.9);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            animation: paperIn .55s var(--ease) both;
+        }
+        @keyframes paperIn { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+        @keyframes cardSwap { from { opacity: .25; transform: translateY(12px) scale(.975); } to { opacity: 1; transform: none; } }
+        .binding {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            flex: 0 0 auto;
+            display: flex; gap: 12px; justify-content: center;
+            padding: 26px 0 14px;
+        }
+        .binding i {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            width: 9px; height: 9px; border-radius: 50%;
+            background: #111; display: block;
+        }
+        .doc-page {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            /* real Word margins (no notepad dots) */
+            flex: 1 1 auto; min-height: 0;
+            overflow-y: auto; overflow-x: hidden;
+            padding: clamp(42px, 7.5%, 68px) var(--doc-margin) 64px;
+            outline: none;
+            font-size: 16px; line-height: 1.75; color: #16161a;
+            -webkit-overflow-scrolling: touch;
+        }
+        .doc-page:empty::before {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            content: attr(data-placeholder);
+            color: #b7b7c2; pointer-events: none;
+        }
+        .doc-page p, .doc-page div, .doc-page h1, .doc-page h2, .doc-page h3 {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin: 0 0 0.6em; }
+        .doc-page h1 {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 1.9em; font-weight: 800; margin: 0.2em 0 0.5em; }
+        .doc-page h2 {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 1.45em; font-weight: 700; }
+        .doc-page h3 {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 1.2em; font-weight: 700; }
+        .doc-page ul, .doc-page ol {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin: 0 0 0.6em; padding-left: 1.4em; }
+        .doc-page:focus {touch-action:pan-y!important;overscroll-behavior-x:none!important; }
+
+        /* ===== Left language switcher (multilingual view) ===== */
+        .langs {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 30px;
+            padding-left: max(6px, env(safe-area-inset-left));
+            z-index: 30;
+            animation: dsLangsIn .5s cubic-bezier(.16,1,.3,1) both;
+        }
+        @keyframes dsLangsIn { from { opacity: 0; transform: translate(-16px, -50%); } to { opacity: 1; transform: translate(0, -50%); } }
+        .lang {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            display: flex; align-items: center; gap: 16px;
+            cursor: pointer; border: none; background: transparent;
+            color: rgba(255,255,255,0.5);
+            font: 600 22px/1 -apple-system, "Hiragino Sans", system-ui;
+            padding: 4px 0; user-select: none; text-align: left;
+            transition: color .3s var(--ease), transform .25s var(--ease);
+        }
+        /* 左のアクセント線(bar) — 右ルーラーの .tick .line と同じ挙動（アクティブで伸びて白く）*/
+        .lang .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: block; flex: 0 0 auto; height: 2px; width: 26px; background: rgba(255,255,255,0.4); border-radius: 2px; transition: width .3s var(--ease), background .3s ease; }
+        .lang.active .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 48px; background: #fff; }
+        .lang:active .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 40px; }
+        .lang.active {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #fff; font-size: 34px; font-weight: 700; }
+        .lang-slide {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+        .lang:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: translateX(3px); }
+        .lang-add {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: rgba(255,255,255,0.82); font-size: 18px; font-weight: 600; }
+        .lang-add .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 20px; }
+        .lang-add .spark {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 15px; opacity: 0.9; }
+        /* G2#24: 入力中は言語名→国旗にコンパクト化（タップで言語名は switchLang→lang-island が担当） */
+        .lang .lang-flag {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; font-size: 22px; line-height: 1; }
+        #langs.langs-typing .lang[data-code] .lbl {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+        #langs.langs-typing .lang[data-code] .lang-flag {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: inline-block; }
+        #langs.langs-typing .lang.active .lang-flag {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 28px; }
+        #langs.langs-typing .lang-add .lng-long {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+
+        /* ===== Right page ruler ===== */
+        .ruler {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; align-items: flex-end; gap: 0;
+            padding-right: max(8px, env(safe-area-inset-right));
+            z-index: 30;
+        }
+        .ruler-label {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #fff; font: 600 22px/1 -apple-system; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; }
+        .ruler-label .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 40px; height: 2px; background: #fff; border-radius: 2px; }
+        .tick {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            display: flex; align-items: center; gap: 12px;
+            height: 34px; cursor: pointer; border: none; background: transparent;
+            padding: 0; justify-content: flex-end; width: 120px;
+        }
+        .tick .line {touch-action:pan-y!important;overscroll-behavior-x:none!important; height: 2px; width: 26px; background: rgba(255,255,255,0.4); border-radius: 2px; transition: width .3s var(--ease), background .3s ease; }
+        .tick .num {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: rgba(255,255,255,0); font: 600 12px/1 -apple-system; width: 30px; text-align: left; transition: color .3s ease; }
+        .tick.active .line {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 48px; background: #fff; }
+        .tick.active .num {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #fff; }
+        .tick:active .line {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 40px; }
+        .tick-add .line {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+        .tick-add {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: rgba(255,255,255,0.85); margin-top: 4px; }
+        .tick-add .plus {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: rgba(255,255,255,0.85); font: 300 24px/1 -apple-system; width: 30px; text-align: left; }
+        .lng-short {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+
+        /* ===== Bottom page pill ===== */
+        .page-pill {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.28));
+            backdrop-filter: blur(22px) saturate(1.7); -webkit-backdrop-filter: blur(22px) saturate(1.7);
+            color: #2a2540; font: 200 19px/1 -apple-system, "SF Pro Display", system-ui;
+            border: none; padding: 13px 32px; border-radius: 999px;
+            box-shadow: 0 10px 30px -8px rgba(40,20,90,0.35), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.4);
+            z-index: 35; cursor: pointer; user-select: none;
+            display: flex; align-items: center; gap: 10px;
+            transition: transform .2s var(--ease);
+        }
+        .page-pill:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: translateX(-50%) scale(0.95); }
+
+        /* ===== Toast ===== */
+        .toast {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; top: calc(env(safe-area-inset-top) + 24px); left: 50%; transform: translateX(-50%) scale(0.85);
+            background: rgba(20,18,40,0.78); color: #fff; backdrop-filter: blur(22px) saturate(1.8);
+            -webkit-backdrop-filter: blur(22px) saturate(1.8);
+            border: 1px solid rgba(255,255,255,.14); box-shadow: 0 16px 40px -12px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
+            padding: 13px 26px; border-radius: 55px; font: 600 14px/1.4 -apple-system;
+            z-index: 90; opacity: 0; pointer-events: none; max-width: 80vw; text-align: center;
+            transition: opacity .35s var(--ease), transform .35s var(--ease);
+        }
+        .toast.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; transform: translateX(-50%) scale(1); }
+
+        /* ===== Overlay (add language) ===== */
+        .overlay {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; inset: 0; z-index: 80;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(30,20,70,0.42); backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            opacity: 0; pointer-events: none;
+            transition: opacity .4s var(--ease);
+        }
+        .overlay.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; pointer-events: auto; }
+        .sheet {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            width: min(420px, 88vw); max-height: 76vh; overflow-y: auto;
+            background: rgba(255,255,255,0.96); border-radius: 24px;
+            padding: 22px; box-shadow: 0 24px 70px rgba(30,15,70,0.4);
+            transform: scale(0.94) translateY(10px); transition: transform .42s var(--ease);
+        }
+        .overlay.show .sheet {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: none; }
+        .sheet h3 {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin: 0 0 4px; font-size: 18px; color: #1c1c1e; }
+        .sheet p.sub {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin: 0 0 16px; font-size: 13px; color: #8a8a94; }
+        .lang-grid {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .lang-opt {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            display: flex; align-items: center; gap: 10px;
+            padding: 13px 14px; border-radius: 14px; cursor: pointer;
+            background: rgba(120,110,240,0.08); border: 1px solid transparent;
+            font: 600 15px/1 -apple-system; color: #2a2540;
+            transition: background .18s ease, transform .12s ease;
+        }
+        .lang-opt:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(0.96); }
+        .lang-opt:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(120,110,240,0.16); }
+        .lang-opt .flag {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 20px; }
+        .sheet .auto-row {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            display: flex; align-items: center; justify-content: space-between;
+            margin: 16px 2px 4px; font: 600 14px/1 -apple-system; color: #3c3c43;
+        }
+        .switch {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: relative; width: 50px; height: 30px; border-radius: 999px; background: #d6d4e2; cursor: pointer; transition: background .25s ease; flex: 0 0 auto; }
+        .switch.on {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: #6b53f0; }
+        .switch i {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform .25s var(--ease); }
+        .switch.on i {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: translateX(20px); }
+        .sheet .close-x {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; }
+
+        /* ===== Responsive: phone ===== */
+        @media (max-width: 760px) {
+            /* Phone: give the side rails their own columns so the white labels
+               never overlap (and vanish behind) the white A4 card. */
+            .stage {touch-action:pan-y!important;overscroll-behavior-x:none!important; padding: 84px 58px 96px 74px; }
+            /* 実際の書類: 画面幅いっぱい＝字の幅境界、縦に伸びてスクロール */
+            .paper-stack {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 100%; height: 74vh; max-width: 100%; }
+            .doc-page {touch-action:pan-y!important;overscroll-behavior-x:none!important; padding-left: clamp(20px, 7vw, 54px); padding-right: clamp(20px, 7vw, 54px); }
+            .langs {touch-action:pan-y!important;overscroll-behavior-x:none!important; gap: 17px; max-width: 72px; padding-left: 4px; }
+            .lang {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 13px; gap: 6px; }
+            .lang.active {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 16px; }
+            .lang .lbl {touch-action:pan-y!important;overscroll-behavior-x:none!important; white-space: nowrap; }
+            .lang .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 12px; }
+            .lang.active .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 24px; }
+            .lng-long {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+            .lng-short {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: inline; font-size: 18px; }
+            .lang-add {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 15px; }
+            .lang-add .spark {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+            .ruler {touch-action:pan-y!important;overscroll-behavior-x:none!important; max-width: 52px; padding-right: 4px; }
+            .ruler-label {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 13px; margin-bottom: 12px; }
+            .ruler-label .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+            .tick {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 46px; height: 30px; gap: 7px; }
+            .tick .line {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 12px; }
+            .tick.active .line {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 24px; }
+            .tick .num, .tick-add .plus {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 14px; font-size: 12px; }
+            .tick-add .plus {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 22px; }
+            .page-pill {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 15px; padding: 11px 24px; }
+        }
+
+        /* ===== insert add-bar (tap empty → like app mode) ===== */
+        .ds-addbar {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; z-index: 50; display: flex; gap: 3px; padding: 6px;
+            max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none;
+            background: linear-gradient(180deg, rgba(255,255,255,.68), rgba(255,255,255,.42));
+            backdrop-filter: blur(24px) saturate(1.7); -webkit-backdrop-filter: blur(24px) saturate(1.7);
+            border-radius: 16px;
+            box-shadow: 0 14px 36px -10px rgba(40,20,90,.42), inset 0 1px 0 rgba(255,255,255,.92), inset 0 0 0 1px rgba(255,255,255,.45);
+            opacity: 0; transform: scale(.86) translateY(6px); pointer-events: none;
+            transition: opacity .26s var(--ease), transform .26s var(--ease);
+        }
+        .ds-addbar::-webkit-scrollbar {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+        .ds-addbar.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; transform: none; pointer-events: auto; }
+        .ds-ab-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; flex: 0 0 auto; border: none; background: transparent; cursor: pointer; border-radius: 11px; padding: 8px 11px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px; color: #4a3f78; min-width: 50px;
+            font: 600 11px/1 -apple-system, "Hiragino Sans", system-ui; transition: background .16s ease, transform .12s ease; -webkit-tap-highlight-color: transparent; }
+        .ds-ab-btn:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(124,92,255,.12); }
+        .ds-ab-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.9); }
+        .ds-ab-btn svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 22px; height: 22px; }
+
+        /* ===== editable content: images + tables ===== */
+        .doc-page img {touch-action:pan-y!important;overscroll-behavior-x:none!important; max-width: 100%; height: auto; border-radius: 6px; cursor: pointer; vertical-align: bottom; }
+        .doc-page img.ds-sel {touch-action:pan-y!important;overscroll-behavior-x:none!important; outline: 3px solid rgba(124,92,255,.75); outline-offset: 2px; }
+        .doc-page table {touch-action:pan-y!important;overscroll-behavior-x:none!important; border-collapse: collapse; width: 100%; margin: 12px 0; }
+        .doc-page td, .doc-page th {touch-action:pan-y!important;overscroll-behavior-x:none!important; border: 1px solid #c8ccd6; padding: 7px 10px; min-width: 28px; vertical-align: top; }
+        .doc-page table.ds-sel {touch-action:pan-y!important;overscroll-behavior-x:none!important; outline: 3px solid rgba(124,92,255,.6); outline-offset: 3px; }
+
+        /* ===== inspector — docked (PC right / phone bottom): the page is never hidden ===== */
+        .ds-inspector {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; z-index: 46; display: none; gap: 12px; padding: 16px;
+            background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.52));
+            backdrop-filter: blur(26px) saturate(1.7); -webkit-backdrop-filter: blur(26px) saturate(1.7);
+            box-shadow: 0 18px 50px -12px rgba(40,20,90,.42), inset 0 0 0 1px rgba(255,255,255,.5);
+        }
+        .ds-inspector.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; flex-direction: column; }
+        @media (min-width: 761px) { .ds-inspector {touch-action:pan-y!important;overscroll-behavior-x:none!important; right: 18px; top: 50%; transform: translateY(-50%); width: 232px; border-radius: 22px; } }
+        @media (max-width: 760px) {
+            .ds-inspector.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; left: 0; right: 0; bottom: 0; border-radius: 22px 22px 0 0; flex-direction: row; flex-wrap: wrap; padding: 14px 14px max(18px, env(safe-area-inset-bottom)); justify-content: center; }
+            body.ds-inspecting .page-pill {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 0; pointer-events: none; }
+        }
+        .ds-insp-title {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 700 13px/1 -apple-system, system-ui; color: #6a6a76; letter-spacing: .3px; width: 100%; }
+        .ds-insp-row {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; gap: 8px; flex-wrap: wrap; }
+        .ds-insp-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; border: none; cursor: pointer; border-radius: 12px; padding: 9px 13px; font: 600 13px/1 -apple-system, "Hiragino Sans", system-ui; color: #3a3458;
+            background: rgba(124,92,255,.13); transition: background .16s ease, transform .12s ease; -webkit-tap-highlight-color: transparent; }
+        .ds-insp-btn:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: rgba(124,92,255,.24); }
+        .ds-insp-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.92); }
+        .ds-insp-btn.danger {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #d23b5b; background: rgba(210,59,91,.13); }
+        /* trash's body.png 削除アイコンボタン */
+        .ds-insp-trash {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: inline-flex; align-items: center; justify-content: center; padding: 7px 12px; }
+        .ds-insp-trash img {touch-action:pan-y!important;overscroll-behavior-x:none!important; height: 20px; width: auto; object-fit: contain; pointer-events: none; display: block; }
+        @media (max-width: 760px) {
+            .toolbar {touch-action:pan-y!important;overscroll-behavior-x:none!important; gap: 2px; padding: 5px; max-width: calc(100vw - 14px); }
+            .tb-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; min-width: 30px; height: 32px; padding: 0 6px; font-size: 14px; }
+            .lang-grid {touch-action:pan-y!important;overscroll-behavior-x:none!important; grid-template-columns: 1fr; }
+        }
+        @media (max-width: 380px) {
+            .stage {touch-action:pan-y!important;overscroll-behavior-x:none!important; padding: 80px 52px 90px 66px; }
+            .langs {touch-action:pan-y!important;overscroll-behavior-x:none!important; max-width: 64px; }
+        }
+
+
+/* ===== Extracted from document-studio.html inline <style> ===== */
+/* === document-studio.html inline block (orig line 24) === */
+.sl-home-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; top: max(env(safe-area-inset-top, 0px) + 14px, 22px); left: 50%;
+            transform: translateX(-50%); transition: all .3s ease;
+            width: 72px; height: 12px; border-radius: 50px; display: flex; align-items: center; justify-content: center;
+            background: none; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: none; box-shadow: 0 6px 18px rgb(40 30 90 / 39%), inset -1px 1px 0 rgba(255,255,255,.9), inset 1px -1px 0 rgba(255,255,255,.9);
+            z-index: 9000; cursor: pointer; color: inherit; -webkit-tap-highlight-color: transparent; }
+        .sl-home-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; height: 22px; width: 90px; transform: translateX(-50%) scale(1.2);
+            box-shadow: 0 6px 18px rgb(40 30 90 / 39%), inset -1px -1px 0 rgba(255,255,255,.9), inset 1px 1px 0 rgba(255,255,255,.9); }
+
+        /* merged 写真+動画 button — uses the filex.png glyph */
+        .ds-ab-media img {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 24px; height: 24px; object-fit: contain; display: block; }
+        /* single align button shows the motion.png "Aa" glyph (wide) */
+        .ds-align-cycle {touch-action:pan-y!important;overscroll-behavior-x:none!important; padding: 0 6px; }
+        .ds-align-cycle img {touch-action:pan-y!important;overscroll-behavior-x:none!important; height: 20px; width: auto; max-width: 38px; object-fit: contain; display: block; pointer-events: none; }
+        /* the affected block slides 0.3s when its alignment changes */
+        .doc-page .ds-align-move {touch-action:pan-y!important;overscroll-behavior-x:none!important; transition: transform .3s cubic-bezier(.16, 1, .3, 1); }
+        /* floating docx export button (bottom-right). tap=書き出し / 長押し・右クリック=形式選択 */
+        .ds-export-fab {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(22px, env(safe-area-inset-bottom));
+            width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer; z-index: 9200;
+            background: rgba(255,255,255,.72); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6);
+            box-shadow: 0 14px 34px -10px rgba(40,30,90,.5), inset 0 1px 0 rgba(255,255,255,.7);
+            display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
+            transition: transform .18s cubic-bezier(.2,.9,.2,1.05); }
+        .ds-export-fab:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.88); }
+        .ds-export-fab img {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 30px; height: 30px; object-fit: contain; pointer-events: none; }
+        body.ds-inspecting .ds-export-fab {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 0; pointer-events: none; }
+        /* clip.png = ページ設定(余白・文字幅)を開く 左下フローティング */
+        .ds-layout-fab {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; left: max(18px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom));
+            width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer; z-index: 9200;
+            background: rgba(255,255,255,.72); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6);
+            box-shadow: 0 14px 34px -10px rgba(40,30,90,.5), inset 0 1px 0 rgba(255,255,255,.7);
+            display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
+            transition: transform .18s cubic-bezier(.2,.9,.2,1.05); }
+        .ds-layout-fab:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.88); }
+        .ds-layout-fab img {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 30px; height: 30px; object-fit: contain; pointer-events: none; }
+        body.ds-inspecting .ds-layout-fab {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 0; pointer-events: none; }
+        /* 右ルーラー押下で出る共有(円)/削除(横長ピル) */
+        .ds-ruler-actions {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; right: 64px; top: 50%; transform: translateY(-50%) scale(.6); z-index: 9300;
+            display: flex; gap: 14px; align-items: center; opacity: 0; visibility: hidden; pointer-events: none;
+            transition: opacity .3s ease, transform .3s cubic-bezier(.2,.9,.2,1.05), visibility .3s; }
+        .ds-ruler-actions.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(-50%) scale(1); }
+        .ds-ra-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; border: none; cursor: pointer; background: #fff; box-shadow: 0 10px 26px -8px rgba(0,0,0,.4);
+            display: grid; place-items: center; height: 56px; -webkit-tap-highlight-color: transparent; transition: transform .15s ease; }
+        .ds-ra-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.88); }
+        .ds-ra-share {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 56px; border-radius: 50%; }
+        .ds-ra-trash {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 80px; border-radius: 30px; }
+        .ds-ra-btn img {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 26px; height: 26px; object-fit: contain; pointer-events: none; }
+
+/* === document-studio.html inline block (orig line 133) === */
+.ds-lang-globe {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; inset: 0; z-index: 99999; display: none; background: #000; opacity: 0; transition: opacity .5s ease; }
+        .ds-lang-globe.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: block; }
+        .ds-lang-globe.in {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; }
+        .ds-lang-globe iframe {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
+        .ds-globe-close {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; top: max(env(safe-area-inset-top, 0px) + 8px, 18px); right: 18px; width: 40px; height: 40px;
+            border-radius: 50%; border: none; background: rgba(255,255,255,.16); color: #fff; font-size: 22px; cursor: pointer;
+            display: grid; place-items: center; z-index: 3; backdrop-filter: blur(10px); }
+
+/* B1: モバイル/タッチ操作性 — 44px則(操作子を指サイズに) */
+@media (pointer: coarse) {
+    #dsSelBar .tb-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; min-width: 42px; min-height: 42px; }
+    .dtp-fmt button, .dtp-hr button {touch-action:pan-y!important;overscroll-behavior-x:none!important; min-height: 44px; }
+    .dtp-seg button {touch-action:pan-y!important;overscroll-behavior-x:none!important; min-height: 40px; }
+    input[type="range"] {touch-action:pan-y!important;overscroll-behavior-x:none!important; min-height: 32px; }
+}
+
+/* ★ touch-action 例外: 横操作が必須の要素のみ native 動作へ。戻る/進むは JS の端ガード＋履歴トラップで封殺するので安全。 */
+canvas, video, model-viewer, input[type="range"], input[type="color"], [contenteditable], [contenteditable] *, [data-hswipe], [data-hscroll], .hscroll, .h-scroll, .carousel, .swiper, .swiper-wrapper, .timeline, .timeline *{ touch-action:auto !important; }

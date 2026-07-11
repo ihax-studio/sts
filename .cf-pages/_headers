@@ -1,0 +1,54 @@
+# Cloudflare Pages 用ヘッダ定義（netlify.toml の [[headers]] と同内容・Pages形式）。
+# デプロイ時に .github/workflows/deploy-pages.yml が ルートへ _headers としてコピーして反映する
+# （リポジトリ直下に置くと Netlify も _headers を読んで netlify.toml と二重適用になるため、ここに隔離）。
+# ★netlify.toml の CSP を変更したら、このファイルも同じ内容に更新すること。
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(self), interest-cohort=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://itunes.apple.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; media-src 'self' blob: https://audio-ssl.itunes.apple.com https://video-ssl.itunes.apple.com https://*.mzstatic.com; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://itunes.apple.com https://rss.applemarketingtools.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.workers.dev https://content-firebaseappcheck.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://api.mymemory.translated.net https://api.open-meteo.com https://ja.wikipedia.org https://threejs.org https://flagcdn.com https://api.song.link https://corsproxy.io https://api.allorigins.win https://esm.sh https://*.skyway.ntt.com wss://*.skyway.ntt.com; frame-src 'self' https://www.google.com https://open.spotify.com https://w.soundcloud.com https://embed.music.apple.com https://www.youtube.com https://music.youtube.com https://*.trycloudflare.com; worker-src 'self' blob: data:; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'
+
+# spotlight は外部CDNを使う自己完結ページ → このサブツリーだけ緩いCSPに差し替え（!で一旦外す）
+/spotlight/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data: blob:; media-src 'self' https: data: blob:; connect-src 'self' https:; frame-ancestors 'self'; base-uri 'self'
+  X-Frame-Options: SAMEORIGIN
+
+# Aero LEAP も同様に緩いCSPへ差し替え
+/apps/aero-leap/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data: blob:; media-src 'self' https: data: blob:; connect-src 'self' https:; frame-ancestors 'self'; base-uri 'self'
+
+# StS CLI一式のzip: どこから開いても必ずダウンロード
+/apps/stscli.zip
+  Content-Type: application/zip
+  Content-Disposition: attachment; filename="StS-CLI.zip"
+
+# Service Worker / メインHTML は常に最新を取りに行かせる
+/gc-sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+/app.js
+  Cache-Control: no-cache
+/spotlight-tpl.js
+  Cache-Control: no-cache
+
+# CSS も常に再検証（Pagesは /*.css のような拡張子ワイルドカード非対応のため明示列挙）
+/globe.css
+  Cache-Control: no-cache
+/index-extras.css
+  Cache-Control: no-cache
+/index-s2s.css
+  Cache-Control: no-cache
+/search-deck.css
+  Cache-Control: no-cache
+/shaketoshake.css
+  Cache-Control: no-cache
+/sts-Golden-gate.css
+  Cache-Control: no-cache

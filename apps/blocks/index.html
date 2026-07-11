@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Story Dock — Visual Blocks</title>
+<link rel="stylesheet" href="styles.css" />
+<script type="importmap">
+{
+  "imports": {
+    "ios-haptics": "https://esm.sh/ios-haptics@latest"
+  }
+}
+</script>
+<script type="module" src="haptic.js"></script>
+</head>
+<body>
+  <div class="bg-aura" aria-hidden="true"></div>
+
+  <main class="layout">
+
+    <aside class="palette glass" aria-label="ブロックパレット">
+      <div class="palette__search">
+        <input id="palette-search" type="search" placeholder="ブロックを検索..." autocomplete="off" />
+      </div>
+      <nav class="palette__cats" id="palette-cats" aria-label="カテゴリ"></nav>
+      <div class="palette__list" id="palette-list" role="listbox"></div>
+    </aside>
+
+    <section class="canvas-wrap">
+      <div class="canvas glass" id="canvas">
+        <div class="canvas__empty" id="canvas-empty">
+          <div class="empty-illustration">
+            <span class="card card--ghost"></span>
+            <span class="card card--ghost"></span>
+            <span class="card card--ghost"></span>
+          </div>
+          <p>左から最初のブロックをタップして追加</p>
+        </div>
+        <ol class="stack" id="stack" aria-label="ブロックのスタック"></ol>
+      </div>
+    </section>
+
+    <aside class="inspector glass" aria-label="コードプレビュー / インスペクタ">
+      <div class="inspector__tabs">
+        <button class="itab is-on" data-itab="code" aria-label="Code" title="Code">
+          <img src="assets/cmds.png" alt="" draggable="false">
+        </button>
+        <button class="itab" data-itab="vars" aria-label="Vars" title="Vars">
+          <img src="assets/vars.png" alt="" draggable="false">
+        </button>
+        <button class="itab" data-itab="issues" aria-label="Issues" title="Issues">
+          <img src="assets/issuesx.png" alt="" draggable="false">
+          <span class="badge" id="issues-badge">0</span>
+        </button>
+        <button class="itab" data-itab="console" aria-label="Console" title="Console">
+          <img src="assets/log.png" alt="" draggable="false">
+          <span class="badge" id="console-badge" data-zero="1">0</span>
+        </button>
+      </div>
+      <div class="inspector__panes">
+        <div class="inspector__pane is-on" data-pane="code">
+          <div class="code__head">
+            <div class="seg seg--mini" role="tablist" aria-label="target language">
+              <button class="seg__btn is-on" data-lang="js" role="tab" aria-selected="true">JS</button>
+              <button class="seg__btn" data-lang="swift" role="tab">Swift</button>
+            </div>
+          </div>
+          <pre class="codeview"><code id="code-output"></code></pre>
+        </div>
+        <div class="inspector__pane" data-pane="vars">
+          <ul class="varlist" id="varlist"></ul>
+        </div>
+        <div class="inspector__pane" data-pane="issues">
+          <div class="pane__scroll" data-scroll="issues"><ul class="issuelist" id="issuelist"></ul></div>
+          <div class="clear-tray" data-clear-for="issues"><div class="clear-tray__inner">もっとスワイプで削除。</div></div>
+        </div>
+        <div class="inspector__pane" data-pane="console">
+          <div class="console__head">
+            <span class="console__hint" id="console-hint">Runtime: JS sandbox</span>
+            <button class="tbtn tbtn--ghost" id="btn-clearlog">clear</button>
+          </div>
+          <div class="console__log" id="console-log"></div>
+          <div class="clear-tray" data-clear-for="log"><div class="clear-tray__inner">もっとスワイプで削除。</div></div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- popover for inline param editing -->
+  <div class="popover" id="popover" aria-hidden="true">
+    <div class="popover__inner" id="popover-inner"></div>
+  </div>
+
+  <!-- floating action circles (Share + Play), bottom-right above dock -->
+  <div class="float-actions" id="float-actions">
+    <button class="circle-btn circle-btn--share" id="btn-export" title="共有 / Export" aria-label="共有">
+      <img src="assets/share-x.png" alt="" draggable="false">
+    </button>
+    <button class="circle-btn circle-btn--play" id="btn-run" title="実行 (⌘R)" aria-label="実行">
+      <img src="assets/play.png" alt="" draggable="false">
+    </button>
+  </div>
+
+  <!-- floating dock (issues / console pill) -->
+  <div class="dock" id="dock" data-state="hidden" aria-live="polite">
+    <button class="dock__pill dock__pill--console" id="dock-console" aria-label="コンソールを開く">
+      <span>console</span>
+    </button>
+    <button class="dock__pill dock__pill--issues" id="dock-issues" aria-label="エラーを開く">
+      <img class="dock__icon" src="assets/issuesx.png" alt="" draggable="false">
+      <span class="dock__label">There are <em id="dock-issues-count">0</em> issues</span>
+    </button>
+  </div>
+
+  <!-- mobile bottom sheet (issues + console) -->
+  <div class="sheet" id="sheet" aria-hidden="true">
+    <div class="sheet__scrim" id="sheet-scrim"></div>
+    <div class="sheet__body glass">
+      <div class="sheet__grab"></div>
+      <div class="sheet__tabs">
+        <button class="itab is-on" data-stab="issues" aria-label="Issues" title="Issues">
+          <img src="assets/issuesx.png" alt="" draggable="false">
+          <span class="badge" id="sheet-issues-badge" data-zero="1">0</span>
+        </button>
+        <button class="itab" data-stab="console" aria-label="Console" title="Console">
+          <img src="assets/log.png" alt="" draggable="false">
+          <span class="badge" id="sheet-console-badge" data-zero="1">0</span>
+        </button>
+      </div>
+      <div class="sheet__pane is-on" data-spane="issues">
+        <div class="pane__scroll" data-scroll="sheet-issues"><ul class="issuelist" id="sheet-issuelist"></ul></div>
+        <div class="clear-tray" data-clear-for="sheet-issues"><div class="clear-tray__inner">もっとスワイプで削除。</div></div>
+      </div>
+      <div class="sheet__pane" data-spane="console">
+        <div class="console__log" id="sheet-console-log"></div>
+        <div class="clear-tray" data-clear-for="sheet-log"><div class="clear-tray__inner">もっとスワイプで削除。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <iframe id="runner"
+          sandbox="allow-scripts allow-same-origin allow-modals allow-popups"
+          allow="microphone; camera; geolocation; clipboard-write; accelerometer; gyroscope; magnetometer; autoplay; midi; display-capture; xr-spatial-tracking"
+          title="sandbox" aria-hidden="true"></iframe>
+
+  <script src="catalog.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

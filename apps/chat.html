@@ -1,0 +1,1299 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#f2f2f7" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Chat" />
+<link rel="manifest" href="./chat-manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<link rel="icon" href="./favicon-192.png" />
+<title>Chat</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-home: #d2d2d7;
+    --fg: #1c1c1e;
+    --fg-mid: #8e8e93;
+    --fg-soft: #c7c7cc;
+    --hairline: rgba(60,60,67,0.12);
+    --tool-bg: #1c1c1e;
+    --tool-track: rgba(118,118,128,0.18);
+    --pill-bg: rgba(255,255,255,0.78);
+    --pill-stroke: rgba(255,255,255,0.7);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+    --row-h: 44px;
+    --rows-visible: 7;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, "SF Pro Display", "SF Pro Text",
+      "Hiragino Sans", "ヒラギノ角ゴシック", system-ui, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  body { font-weight: 300; }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .5s ease;
+    overflow: hidden;
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ============================================
+     STEP 1 — Name canvas
+     ============================================ */
+  #screenName { background: #ffffff; }
+  #nameCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .name-bottom {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: calc(28px + var(--safe-bot));
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .name-bottom > * { pointer-events: auto; }
+
+  /* expandable thickness pill */
+  .thickness-pill {
+    height: 56px;
+    min-width: 0;
+    flex: 0 1 0;
+    opacity: 0;
+    background: var(--tool-track);
+    border-radius: 36px;
+    position: relative;
+    overflow: visible;
+    transition:
+      flex-basis .42s cubic-bezier(.62,0,.4,1),
+      opacity .35s ease;
+    display: none;
+    align-items: center;
+  }
+  .name-bottom.pill-open .thickness-pill {
+    display: flex;
+    flex: 1 1 auto;
+    opacity: 1;
+  }
+
+  /* dark fill from left */
+  .thickness-fill {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    width: calc(52px + (100% - 56px) * var(--pct, 0.25));
+    background: var(--tool-bg);
+    border-radius: 36px;
+    z-index: 0;
+    transition: width .12s linear;
+  }
+  /* knob (the inactive-tool icon) */
+  .thickness-knob {
+    position: absolute;
+    top: 4px;
+    left: calc(4px + (100% - 56px) * var(--pct, 0.25));
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--tool-bg);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+    transition: left .12s ease, background .2s;
+    cursor: pointer;
+  }
+  .thickness-knob img { width: 26px; height: 26px; filter: invert(1); pointer-events: none; }
+  .thickness-knob .pen-color-ring {
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: conic-gradient(from 220deg, #ff453a, #ff9f0a, #ffd60a, #30d158, #5ac8fa, #5856d6, #ff2d55, #ff453a);
+    -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
+            mask: radial-gradient(circle, transparent 58%, #000 60%);
+    pointer-events: none;
+  }
+
+  /* active tool circle */
+  .tool-active {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--tool-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.14);
+    transition: transform .15s ease;
+  }
+  .tool-active:active { transform: scale(0.94); }
+  .tool-active img { width: 30px; height: 30px; filter: invert(1); pointer-events: none; }
+
+  /* closed mode: show left circle, hide right one */
+  .tool-active.right { display: none; }
+  .name-bottom.pill-open .tool-active.left { display: none; }
+  .name-bottom.pill-open .tool-active.right { display: flex; }
+
+  .label-center {
+    flex: 1;
+    text-align: center;
+    color: var(--fg);
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: 0.2px;
+    transition: opacity .3s ease;
+    pointer-events: none;
+  }
+  .label-center.hidden { opacity: 0; }
+  .name-bottom.pill-open .label-center { display: none; }
+
+  .arrow-next {
+    width: 44px; height: 44px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity .3s ease, transform .3s ease;
+    cursor: pointer;
+    color: var(--fg);
+  }
+  .arrow-next.show {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .arrow-next:active { transform: translateX(2px); }
+  .arrow-next svg { width: 32px; height: 32px; stroke: currentColor; stroke-width: 1; fill: none; }
+
+  /* color palette (above the pill, only when pen active) */
+  .color-palette {
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: calc(96px + var(--safe-bot));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 30px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+    transform: translateY(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s ease, transform .3s cubic-bezier(.62,0,.4,1);
+    z-index: 4;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .color-palette.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .color-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform .12s ease, border-color .12s;
+  }
+  .color-dot.active {
+    transform: scale(1.18);
+    border-color: rgba(255,255,255,0.95);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.2);
+  }
+
+  /* ============================================
+     STEP 2 — Birthday + Emoji
+     ============================================ */
+  #screenBirth {
+    background:
+      radial-gradient(900px 700px at 12% -10%, #5ac8fa22, transparent 60%),
+      radial-gradient(900px 700px at 105% 110%, #af52de22, transparent 60%),
+      linear-gradient(180deg, #ffffff, #f2f2f7);
+    padding: calc(60px + var(--safe-top)) 24px calc(28px + var(--safe-bot));
+    display: flex;
+    flex-direction: column;
+  }
+  .birth-title {
+    font-size: 56px;
+    line-height: 1.05;
+    font-weight: 600;
+    letter-spacing: -1.5px;
+    color: var(--fg);
+    margin: 0 0 8px;
+  }
+  .birth-sub {
+    font-size: 26px;
+    line-height: 1.2;
+    font-weight: 500;
+    color: var(--fg);
+    margin: 0 0 32px;
+  }
+
+  .picker-card {
+    width: 100%;
+    max-width: 408px;
+    margin: 0 auto;
+    padding: 14px 6px 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.55));
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 20px;
+    box-shadow: 0 14px 40px rgba(60,60,67,0.10);
+    overflow: hidden;
+    position: relative;
+  }
+  .picker {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    height: calc(var(--row-h) * var(--rows-visible));
+    align-items: stretch;
+  }
+  .picker::before, .picker::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    height: calc(var(--row-h) * 3);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .picker::before {
+    top: 0;
+    background: linear-gradient(180deg, rgba(247,247,250,0.95) 10%, rgba(247,247,250,0));
+  }
+  .picker::after {
+    bottom: 0;
+    background: linear-gradient(0deg, rgba(247,247,250,0.95) 10%, rgba(247,247,250,0));
+  }
+  .selection-bar {
+    position: absolute;
+    left: 10px; right: 10px;
+    top: calc(var(--row-h) * 3);
+    height: var(--row-h);
+    background: rgba(118,118,128,0.12);
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .col {
+    position: relative;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    z-index: 2;
+  }
+  .col.animating { scroll-snap-type: none; }
+  .col::-webkit-scrollbar { display: none; }
+  .col .pad { height: calc(var(--row-h) * 3); }
+  .col .item {
+    height: var(--row-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--fg-soft);
+    scroll-snap-align: center;
+    transition: color .15s ease, font-weight .15s, opacity .15s;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  .col .item.selected { color: var(--fg); font-weight: 600; }
+  .col .item.invalid { opacity: 0.3; pointer-events: none; }
+
+  .birth-foot {
+    text-align: center;
+    color: var(--fg-mid);
+    font-size: 14px;
+    line-height: 1.55;
+    margin-top: 18px;
+    padding: 0 4px;
+  }
+  .birth-foot strong { color: var(--fg); font-weight: 600; }
+  .birth-foot .gap { display:block; height: 12px; }
+
+  /* emoji bar (bottom) */
+  .birth-bottom {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 18px;
+  }
+  .ico-btn {
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    color: var(--fg);
+    transition: transform .15s ease, opacity .15s;
+  }
+  .ico-btn:active { transform: scale(0.92); }
+  .ico-btn svg { width: 32px; height: 32px; stroke: currentColor; stroke-width: 1; fill: none; }
+
+  /* emoji liquid-glass bar */
+  .emoji-bar {
+    flex: 1;
+    min-width: 0;
+    height: 56px;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.78);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.55);
+    box-shadow:
+      inset 1px -1px 1px rgba(255,255,255,0.6),
+      inset -2px 1px 3px rgba(255,255,255,0.64),
+      0 6px 18px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    padding-left: 6px;
+    overflow: hidden;
+  }
+  .cat-selector {
+    display: flex;
+    align-items: center;
+    padding-right: 8px;
+    border-right: 1px solid rgba(60,60,67,0.18);
+    transition: all .5s ease;
+  }
+  .cat-icon {
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px 7px;
+    border-radius: 22px;
+    transition: background-color .25s ease, opacity .4s, width .4s ease, padding .4s ease;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .cat-icon.active { background-color: rgba(60,60,67,0.10); }
+  .cat-selector.collapsed { padding-right: 4px; }
+  .cat-selector.collapsed .cat-icon:not(.active) {
+    width: 0; padding-left: 0; padding-right: 0; opacity: 0;
+  }
+  .emoji-scroll {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .emoji-scroll::-webkit-scrollbar { display: none; }
+  .emoji-item {
+    font-size: 28px;
+    padding: 0 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform .15s ease, filter .15s;
+    line-height: 1.6;
+    filter: grayscale(0%);
+  }
+  .emoji-item:hover { transform: scale(1.16); }
+  .emoji-item.selected {
+    transform: scale(1.22);
+  }
+
+  .check-btn {
+    width: 56px; height: 56px;
+    flex-shrink: 0;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .15s ease, opacity .25s;
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .check-btn.ready { opacity: 1; pointer-events: auto; }
+  .check-btn:active { transform: scale(0.93); }
+  .check-btn img { width: 56px; height: 56px; pointer-events: none; }
+
+  /* ============================================
+     STEP 3 — Check transition
+     ============================================ */
+  #screenCheck {
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .check-anim {
+    width: 220px; height: 220px;
+    transform: scale(0.6);
+    opacity: 0;
+    transition: transform .5s cubic-bezier(.34,1.56,.64,1), opacity .5s ease;
+  }
+  #screenCheck.active .check-anim {
+    transform: scale(1);
+    opacity: 1;
+  }
+  .check-anim img { width: 100%; height: 100%; }
+
+  /* ============================================
+     STEP 4 — Home
+     ============================================ */
+  #screenHome {
+    background:
+      radial-gradient(900px 700px at 12% -10%, #5ac8fa22, transparent 60%),
+      radial-gradient(900px 700px at 105% 110%, #af52de22, transparent 60%),
+      linear-gradient(180deg, #e9e9ee, #d2d2d7);
+    padding: calc(60px + var(--safe-top)) 24px calc(20px + var(--safe-bot));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .home-butterfly {
+    font-size: 36px;
+    line-height: 1;
+    margin-top: 16px;
+  }
+  .home-title {
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--fg);
+    margin-top: 28px;
+    text-align: center;
+  }
+  .qr-plate {
+    width: min(58vw, 280px);
+    aspect-ratio: 1/1;
+    margin: 40px auto 0;
+    border-radius: 18px;
+    border: 1.5px solid #ffb24a;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    font-weight: 300;
+    letter-spacing: -2px;
+    color: var(--fg);
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+  }
+  .qr-plate.blur {
+    filter: blur(8px);
+  }
+  .home-sub {
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--fg);
+    text-align: center;
+    margin-top: 36px;
+  }
+  .home-sub2 {
+    font-size: 14px;
+    color: var(--fg);
+    text-align: center;
+    margin-top: 8px;
+    line-height: 1.45;
+    max-width: 320px;
+  }
+
+  .home-bottom {
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 8px;
+  }
+  .home-fab {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(60,60,67,0.18);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--fg);
+    transition: transform .15s ease;
+  }
+  .home-fab:active { transform: scale(0.93); }
+  .home-fab svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 1.4; fill: none; }
+  .home-fab.search { color: #c7c7cc; }
+
+  .home-tabs {
+    flex: 0 1 auto;
+    height: 44px;
+    padding: 4px;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.75);
+    border: 1px solid rgba(60,60,67,0.18);
+    box-shadow: inset 0 0 0 1.5px rgba(193,82,222,0.35);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .home-tab {
+    height: 36px;
+    padding: 0 18px;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fg);
+    font-size: 15px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: background .2s ease;
+  }
+  .home-tab.on { background: rgba(255,255,255,0.95); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+  /* small utility */
+  .hidden-init { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ========== Step 1: Name ========== -->
+<div class="screen" id="screenName">
+  <canvas id="nameCanvas"></canvas>
+
+  <div class="color-palette" id="colorPalette" aria-hidden="true"></div>
+
+  <div class="name-bottom" id="nameBottom">
+    <!-- closed: tool on left -->
+    <div class="tool-active left" id="toolActiveLeft" aria-label="ツールを開く">
+      <img id="toolActiveLeftIcon" src="./penx.png" alt="ペン" />
+    </div>
+
+    <!-- open: pill expands here -->
+    <div class="thickness-pill" id="thicknessPill" aria-hidden="true">
+      <div class="thickness-fill" id="thicknessFill"></div>
+      <div class="thickness-knob" id="thicknessKnob">
+        <img id="thicknessKnobIcon" alt="" />
+        <div class="pen-color-ring" id="penColorRing" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="label-center" id="nameLabel">名前を書いて。</div>
+
+    <!-- open: tool on right of pill -->
+    <div class="tool-active right" id="toolActiveRight" aria-label="ツールを閉じる">
+      <img id="toolActiveRightIcon" src="./penx.png" alt="ペン" />
+    </div>
+
+    <div class="arrow-next" id="arrowName" role="button" aria-label="次へ">
+      <svg viewBox="0 0 32 32" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="12,7 22,16 12,25" />
+        <line x1="6" y1="16" x2="22" y2="16" />
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Step 2: Birthday + Emoji ========== -->
+<div class="screen" id="screenBirth">
+  <h1 class="birth-title">よろしくね。</h1>
+  <p class="birth-sub">誕生日とEmojiを選択。👀</p>
+
+  <div class="picker-card">
+    <div class="picker" id="dobPicker">
+      <div class="selection-bar"></div>
+      <div class="col" data-col="y"></div>
+      <div class="col" data-col="m"></div>
+      <div class="col" data-col="d"></div>
+    </div>
+  </div>
+
+  <div class="birth-foot">
+    引き継ぎや<strong>Invitation</strong>などでユーザを保護するために使用。<br/>
+    Emojiは忘れないでおくと安全。
+    <span class="gap"></span>
+    年齢制限はないけど、適当にやると<strong>Generative Activation</strong><br/>
+    (本人確認）が正しく行えなくなる可能性があります
+  </div>
+
+  <div class="birth-bottom">
+    <div class="ico-btn" id="backBirth" role="button" aria-label="戻る">
+      <svg viewBox="0 0 32 32" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20,7 10,16 20,25" />
+        <line x1="10" y1="16" x2="26" y2="16" />
+      </svg>
+    </div>
+    <div class="emoji-bar">
+      <div class="cat-selector" id="catSelector"></div>
+      <div class="emoji-scroll" id="emojiScroll"></div>
+    </div>
+    <button class="check-btn" id="checkBirth" aria-label="次へ">
+      <img src="./check.png" alt="" />
+    </button>
+  </div>
+</div>
+
+<!-- ========== Step 3: Check transition ========== -->
+<div class="screen" id="screenCheck">
+  <div class="check-anim"><img src="./check.png" alt="" /></div>
+</div>
+
+<!-- ========== Step 4: Home ========== -->
+<div class="screen" id="screenHome">
+  <div class="home-butterfly">🦋</div>
+  <div class="home-title">まずはつながる。</div>
+  <div class="qr-plate blur" id="qrPlate">QR</div>
+  <div class="home-sub">使ったことない人でも大丈夫。</div>
+  <div class="home-sub2">近くにデバイスがある場合はApp<br/>を開いて近づけてつながるよ👋</div>
+
+  <div class="home-bottom">
+    <div class="home-fab" id="homeAdd" role="button" aria-label="友達を追加">
+      <svg viewBox="0 0 32 32" stroke-linecap="round">
+        <line x1="16" y1="8" x2="16" y2="24" />
+        <line x1="8" y1="16" x2="24" y2="16" />
+      </svg>
+    </div>
+    <div class="home-tabs">
+      <div class="home-tab" data-tab="activity">アクティビティ</div>
+      <div class="home-tab on" data-tab="launchpad">Launchpad</div>
+    </div>
+    <div class="home-fab search" id="homeSearch" role="button" aria-label="検索">
+      <svg viewBox="0 0 32 32" stroke-linecap="round">
+        <circle cx="14" cy="14" r="7" />
+        <line x1="19" y1="19" x2="25" y2="25" />
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   helpers
+   ============================================================ */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const today = new Date();
+const TODAY_Y = today.getFullYear();
+const TODAY_M = today.getMonth() + 1;
+const TODAY_D = today.getDate();
+
+const STORAGE_KEY = 'chat.onb.v1';
+
+function loadState(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function saveState(patch){
+  const cur = loadState();
+  const next = { ...cur, ...patch };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+/* light haptic abstraction (no-op if not available) */
+function tap(){ if (navigator.vibrate) try{ navigator.vibrate(8); }catch(e){} }
+function softTap(){ if (navigator.vibrate) try{ navigator.vibrate(4); }catch(e){} }
+
+/* ============================================================
+   screen switching
+   ============================================================ */
+const Screens = {
+  current: null,
+  go(name, opts = {}){
+    if (this.current === name) return;
+    const prev = this.current;
+    this.current = name;
+    $$('.screen').forEach(s => s.classList.remove('active'));
+    requestAnimationFrame(() => {
+      $('#screen' + name).classList.add('active');
+    });
+    if (typeof Screens['on' + name] === 'function') {
+      Screens['on' + name](opts);
+    }
+  },
+
+  onName(){
+    nameCanvasReset();
+  },
+
+  onBirth(){
+    DobPicker.ensureBuilt();
+    EmojiBar.ensureBuilt();
+    EmojiBar.refreshCheckState();
+  },
+
+  onCheck(){
+    /* play once and auto-advance */
+    setTimeout(() => { Screens.go('Home'); }, 850);
+  },
+
+  onHome(){ /* nothing yet */ }
+};
+
+/* ============================================================
+   Step 1 — Name canvas
+   ============================================================ */
+const NameState = {
+  tool: 'pen',        // 'pen' | 'eraser'
+  color: '#1c1c1e',
+  penW: 4,
+  eraserW: 28,
+  hasInk: false,
+  strokes: [],
+  expandedFor: null,  // 'pen' | 'eraser' | null  — when slider is showing
+};
+
+const PEN_COLORS = [
+  '#1c1c1e', '#ff453a', '#ff9f0a', '#ffd60a',
+  '#30d158', '#5ac8fa', '#5856d6', '#ff2d55', '#8e8e93'
+];
+
+const canvas = $('#nameCanvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: false });
+let dpr = Math.max(1, window.devicePixelRatio || 1);
+
+function resizeCanvas(){
+  dpr = Math.max(1, window.devicePixelRatio || 1);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  repaintAll();
+}
+window.addEventListener('resize', resizeCanvas);
+
+function repaintAll(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.clearRect(0,0,w,h);
+  for (const s of NameState.strokes){
+    if (s.tool === 'eraser') ctx.globalCompositeOperation = 'destination-out';
+    else ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.width;
+    ctx.beginPath();
+    const pts = s.points;
+    if (!pts.length) continue;
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i=1; i<pts.length; i++){
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+let drawing = false;
+let curStroke = null;
+function pointerXY(e){
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  // close any open slider if user starts drawing
+  closeSliderUI();
+  canvas.setPointerCapture(e.pointerId);
+  drawing = true;
+  const p = pointerXY(e);
+  curStroke = {
+    tool: NameState.tool,
+    color: NameState.tool === 'pen' ? NameState.color : '#000',
+    width: NameState.tool === 'pen' ? NameState.penW : NameState.eraserW,
+    points: [p],
+  };
+  NameState.strokes.push(curStroke);
+  ctx.globalCompositeOperation = curStroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = curStroke.color;
+  ctx.lineWidth = curStroke.width;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!drawing || !curStroke) return;
+  const p = pointerXY(e);
+  curStroke.points.push(p);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+});
+function endStroke(e){
+  if (!drawing) return;
+  drawing = false;
+  curStroke = null;
+  ctx.globalCompositeOperation = 'source-over';
+  if (!NameState.hasInk){
+    NameState.hasInk = true;
+    $('#nameLabel').classList.add('hidden');
+    $('#arrowName').classList.add('show');
+  }
+}
+canvas.addEventListener('pointerup', endStroke);
+canvas.addEventListener('pointercancel', endStroke);
+canvas.addEventListener('pointerleave', endStroke);
+
+function nameCanvasReset(){
+  NameState.strokes = [];
+  NameState.hasInk = false;
+  $('#nameLabel').classList.remove('hidden');
+  $('#arrowName').classList.remove('show');
+  resizeCanvas();
+}
+
+/* tool UI */
+const nameBottom = $('#nameBottom');
+const toolActiveLeft = $('#toolActiveLeft');
+const toolActiveLeftIcon = $('#toolActiveLeftIcon');
+const toolActiveRight = $('#toolActiveRight');
+const toolActiveRightIcon = $('#toolActiveRightIcon');
+const thicknessPill = $('#thicknessPill');
+const thicknessFill = $('#thicknessFill');
+const thicknessKnob = $('#thicknessKnob');
+const thicknessKnobIcon = $('#thicknessKnobIcon');
+const penColorRing = $('#penColorRing');
+const colorPalette = $('#colorPalette');
+
+function buildPalette(){
+  colorPalette.innerHTML = '';
+  for (const c of PEN_COLORS){
+    const d = document.createElement('div');
+    d.className = 'color-dot' + (c === NameState.color ? ' active' : '');
+    d.style.background = c;
+    d.dataset.c = c;
+    d.addEventListener('click', () => {
+      NameState.color = c;
+      $$('.color-dot', colorPalette).forEach(x => x.classList.toggle('active', x.dataset.c === c));
+      penColorRing.style.background = c;
+      penColorRing.style.borderColor = c;
+      softTap();
+    });
+    colorPalette.appendChild(d);
+  }
+}
+buildPalette();
+
+function setActiveTool(t){
+  NameState.tool = t;
+  const activeSrc = (t === 'pen') ? './penx.png' : './eraser.png';
+  toolActiveLeftIcon.src = activeSrc;
+  toolActiveRightIcon.src = activeSrc;
+  /* knob shows the OTHER (inactive) tool */
+  thicknessKnobIcon.src = (t === 'pen') ? './eraser.png' : './penx.png';
+  penColorRing.style.display = (t === 'eraser') ? 'block' : 'none';
+  /* thickness fill width reflects current tool width */
+  syncThicknessFill();
+  /* palette only when pen tool is the active one AND pill is open */
+  colorPalette.classList.toggle('show', t === 'pen' && NameState.expandedFor !== null);
+}
+
+function syncThicknessFill(){
+  const isPen = NameState.tool === 'pen';
+  const w = isPen ? NameState.penW : NameState.eraserW;
+  const min = isPen ? 1 : 8;
+  const max = isPen ? 18 : 60;
+  const pct = Math.max(0.02, Math.min(1, (w - min) / (max - min)));
+  thicknessPill.style.setProperty('--pct', pct);
+}
+
+function openSlider(){
+  NameState.expandedFor = NameState.tool;
+  nameBottom.classList.add('pill-open');
+  $('#nameLabel').classList.add('hidden');
+  // wait for layout then position the knob
+  requestAnimationFrame(() => requestAnimationFrame(syncThicknessFill));
+  if (NameState.tool === 'pen') colorPalette.classList.add('show');
+  else colorPalette.classList.remove('show');
+  tap();
+}
+function closeSliderUI(){
+  if (NameState.expandedFor === null) return;
+  NameState.expandedFor = null;
+  nameBottom.classList.remove('pill-open');
+  colorPalette.classList.remove('show');
+  if (!NameState.hasInk) $('#nameLabel').classList.remove('hidden');
+}
+
+/* tap left tool circle (closed) → open slider */
+toolActiveLeft.addEventListener('click', () => {
+  if (NameState.expandedFor === null) openSlider();
+});
+/* tap right tool circle (open) → close slider */
+toolActiveRight.addEventListener('click', () => {
+  closeSliderUI();
+});
+
+/* drag inside the pill (anywhere — including knob drag) → set thickness */
+let pillDrag = false;
+let pillDragMoved = false;
+let pillDragStartX = 0;
+function pillThicknessFromX(clientX){
+  const r = thicknessPill.getBoundingClientRect();
+  const px = Math.max(0, Math.min(1, (clientX - r.left - 28) / (r.width - 56)));
+  const isPen = NameState.tool === 'pen';
+  const min = isPen ? 1 : 8;
+  const max = isPen ? 18 : 60;
+  const w = min + (max - min) * px;
+  if (isPen) NameState.penW = w; else NameState.eraserW = w;
+  syncThicknessFill();
+}
+thicknessPill.addEventListener('pointerdown', (e) => {
+  pillDrag = true;
+  pillDragMoved = false;
+  pillDragStartX = e.clientX;
+  thicknessPill.setPointerCapture(e.pointerId);
+});
+thicknessPill.addEventListener('pointermove', (e) => {
+  if (!pillDrag) return;
+  if (Math.abs(e.clientX - pillDragStartX) > 4) {
+    pillDragMoved = true;
+    pillThicknessFromX(e.clientX);
+  }
+});
+thicknessPill.addEventListener('pointerup', (e) => {
+  pillDrag = false;
+  // tap on knob (no movement) → switch tool
+  if (!pillDragMoved && (e.target === thicknessKnob || thicknessKnob.contains(e.target))) {
+    const next = NameState.tool === 'pen' ? 'eraser' : 'pen';
+    setActiveTool(next);
+    tap();
+  }
+});
+thicknessPill.addEventListener('pointercancel', () => { pillDrag = false; });
+
+/* arrow → next step */
+$('#arrowName').addEventListener('click', () => {
+  if (!NameState.hasInk) return;
+  const png = canvas.toDataURL('image/png');
+  saveState({ namePng: png });
+  tap();
+  Screens.go('Birth');
+});
+
+setActiveTool('pen');
+
+/* ============================================================
+   Step 2 — DOB wheel picker
+   ============================================================ */
+const DOB_MIN_Y = 1900;
+const DOB_MAX_Y = TODAY_Y; // today must be the latest selectable year
+const ROW_H = 44;
+
+const dobState = (() => {
+  const s = loadState().dob;
+  if (s && s.y && s.m && s.d) return { ...s };
+  return { y: TODAY_Y - 20, m: 1, d: 1 };
+})();
+
+function daysInMonth(y, m){
+  return new Date(y, m, 0).getDate();
+}
+function easeOutBack(t){ const c1=1.70158, c3=c1+1; return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2); }
+function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+
+function springScroll(col, target, dur = 600, ease = easeOutCubic){
+  if (col._raf) cancelAnimationFrame(col._raf);
+  const start = col.scrollTop;
+  const delta = target - start;
+  if (Math.abs(delta) < 0.5) { col.scrollTop = target; return; }
+  const t0 = performance.now();
+  col.classList.add('animating');
+  col._animating = true;
+  const step = (now) => {
+    const t = Math.min(1, (now - t0)/dur);
+    col.scrollTop = start + delta * ease(t);
+    if (t < 1) col._raf = requestAnimationFrame(step);
+    else { col._animating = false; col.classList.remove('animating'); }
+  };
+  col._raf = requestAnimationFrame(step);
+}
+
+const DobPicker = {
+  built: false,
+  ensureBuilt(){ if (!this.built){ this.build(); this.built = true; } },
+  build(){
+    const cols = $$('.col', $('#dobPicker'));
+    cols.forEach(col => this.buildCol(col));
+    this.markInvalid();
+  },
+  buildCol(col){
+    const key = col.dataset.col;
+    let list = [];
+    if (key === 'y'){
+      for (let y = DOB_MAX_Y; y >= DOB_MIN_Y; y--) list.push(y);
+    } else if (key === 'm'){
+      for (let i=1; i<=12; i++) list.push(i);
+    } else {
+      const days = daysInMonth(dobState.y, dobState.m);
+      for (let i=1; i<=days; i++) list.push(i);
+    }
+    col.innerHTML = '';
+    const top = document.createElement('div'); top.className='pad'; col.appendChild(top);
+    for (const v of list){
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.dataset.val = v;
+      row.textContent = (key === 'y' && v >= 2000 && v < 2100) ? ('20' + String(v).slice(2)) : String(v);
+      if (v === dobState[key]) row.classList.add('selected');
+      col.appendChild(row);
+    }
+    const bot = document.createElement('div'); bot.className='pad'; col.appendChild(bot);
+
+    // initial scrollTop to current value
+    const idx = list.indexOf(dobState[key]);
+    col.scrollTop = Math.max(0, idx) * ROW_H;
+
+    let snapId;
+    col.addEventListener('scroll', () => {
+      const idx = Math.round(col.scrollTop / ROW_H);
+      const items = col.querySelectorAll('.item');
+      if (items[idx]){
+        const v = +items[idx].dataset.val;
+        if (v !== dobState[key]){
+          dobState[key] = v;
+          this.markSelected(col);
+          if (key === 'y' || key === 'm') this.rebuildDays();
+          this.markInvalid();
+          saveState({ dob: { ...dobState } });
+        }
+      }
+      if (col._animating) return;
+      clearTimeout(snapId);
+      snapId = setTimeout(() => {
+        const target = Math.round(col.scrollTop / ROW_H) * ROW_H;
+        if (Math.abs(col.scrollTop - target) > 0.5){
+          springScroll(col, target, 400);
+        }
+      }, 80);
+    });
+
+    col.addEventListener('click', (e) => {
+      const row = e.target.closest('.item');
+      if (!row) return;
+      const v = +row.dataset.val;
+      const items = [...col.querySelectorAll('.item')];
+      const idx = items.findIndex(it => +it.dataset.val === v);
+      if (idx >= 0) springScroll(col, idx * ROW_H, 600);
+    });
+  },
+  markSelected(col){
+    const key = col.dataset.col;
+    col.querySelectorAll('.item').forEach(it => {
+      it.classList.toggle('selected', +it.dataset.val === dobState[key]);
+    });
+  },
+  rebuildDays(){
+    const col = $('.col[data-col="d"]', $('#dobPicker'));
+    const days = daysInMonth(dobState.y, dobState.m);
+    if (dobState.d > days) dobState.d = days;
+    this.buildCol(col);
+  },
+  /* gray out future dates */
+  markInvalid(){
+    // year col
+    const yCol = $('.col[data-col="y"]', $('#dobPicker'));
+    yCol.querySelectorAll('.item').forEach(it => {
+      it.classList.toggle('invalid', +it.dataset.val > TODAY_Y);
+    });
+    const mCol = $('.col[data-col="m"]', $('#dobPicker'));
+    mCol.querySelectorAll('.item').forEach(it => {
+      const m = +it.dataset.val;
+      const future = (dobState.y > TODAY_Y) || (dobState.y === TODAY_Y && m > TODAY_M);
+      it.classList.toggle('invalid', future);
+    });
+    const dCol = $('.col[data-col="d"]', $('#dobPicker'));
+    dCol.querySelectorAll('.item').forEach(it => {
+      const d = +it.dataset.val;
+      const future =
+        (dobState.y > TODAY_Y) ||
+        (dobState.y === TODAY_Y && dobState.m > TODAY_M) ||
+        (dobState.y === TODAY_Y && dobState.m === TODAY_M && d >= TODAY_D);
+      it.classList.toggle('invalid', future);
+    });
+  },
+  isValid(){
+    const { y, m, d } = dobState;
+    const sel = new Date(y, m-1, d);
+    const todayD = new Date(TODAY_Y, TODAY_M-1, TODAY_D);
+    return sel < todayD;
+  }
+};
+
+/* ============================================================
+   Step 2 — Emoji bar
+   ============================================================ */
+const EMOJI_FALLBACK = {
+  'Smileys & Emotion': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','😎','🥳','🤠','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','🤗','🤥','😏','😶','😐','😑','😯','😲','😴','🤤','🥱','🤓','🧐','🤡','👻','💀','👽','🤖'],
+  'People & Body': ['👋','🤚','🖐','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','💅','🤳','💪','🦾','🦵','🦶','👂','🦻','👃','🧠','🦷','🦴','👀','👁','👅','👄','🧑','👶','👦','👧','👨','👩','🧓','👴','👵'],
+  'Animals & Nature': ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐽','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪲','🐛','🦋','🐌','🐞','🐜','🪰','🪱','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🌱','🌲','🌳','🌴','🌵','🌷','🌸','🌹','🌺','🌻'],
+  'Food & Drink': ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🥞','🧇','🥓','🍔','🍟','🍕','🌭','🥪','🌮','🌯','🥙','🧆','🥘','🍝','🍜','🍲','🍣','🍱','🍙','🍚','🍘','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪'],
+  'Travel & Places': ['🚗','🚕','🚙','🚌','🚎','🏎','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🛵','🏍','🛺','🚲','🛴','🚂','🚆','🚄','🚅','🚈','🚞','🚝','🚇','🚊','🚉','✈️','🛫','🛬','🚀','🛸','🚁','🛶','⛵️','🚤','🛥','🛳','⛴','🚢','🏠','🏡','🏘','🏚','🏗','🏭','🏢','🏬','🏣','🏤','🏥','🏦','🏪','🏫','🏩','💒','🏛','⛪️','🕌','🕍','🛕','🗽','🗼','🏰','🏯','🏟','🎡','🎢','🎠','⛲️','🌋','🗻','🏕','⛺️'],
+  'Activities': ['⚽️','🏀','🏈','⚾️','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🥍','🏒','🏑','🥌','🛷','⛷','🏂','🪂','🏋️','🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖','🏵','🎗','🎫','🎟','🎪','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸','🪕','🎻','🎲','🎯','🎳','🎮','🕹','🎰','🧩'],
+  'Objects': ['⌚️','📱','📲','💻','⌨️','🖥','🖨','🖱','🖲','🕹','🗜','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽','🎞','📞','☎️','📟','📠','📺','📻','🎙','🎚','🎛','🧭','⏱','⏲','⏰','🕰','⌛️','⏳','📡','🔋','🪫','🔌','💡','🔦','🕯','🪔','🧯','🛢','💸','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒','🛠','⛏','🔩','⚙️','🪤','🧱','⛓','🧲','🔫','💣','🧨','🪃','🏹','🛡','🪚','🔪','🗡','⚔️','💉','🩸','🩹','🩺','🔬','🔭','📡','💊','🪥','🧴'],
+};
+
+const EmojiBar = {
+  built: false,
+  selected: null,
+  ensureBuilt(){
+    if (this.built) return;
+    this.built = true;
+    const persisted = loadState().emoji;
+    if (persisted) this.selected = persisted;
+    this.render();
+  },
+  render(){
+    const catSel = $('#catSelector');
+    const scroll = $('#emojiScroll');
+    catSel.innerHTML = '';
+    const cats = {
+      'Smileys & Emotion': '😀',
+      'People & Body': '👋',
+      'Animals & Nature': '🐶',
+      'Food & Drink': '🍎',
+      'Travel & Places': '🚗',
+      'Activities': '⚽️',
+      'Objects': '💡',
+    };
+    let activeCat = 'Smileys & Emotion';
+    Object.entries(cats).forEach(([cat, ico]) => {
+      const el = document.createElement('div');
+      el.className = 'cat-icon' + (cat === activeCat ? ' active' : '');
+      el.textContent = ico;
+      el.dataset.cat = cat;
+      el.addEventListener('click', () => {
+        softTap();
+        if (el.classList.contains('active')){
+          // toggle expanded/collapsed
+          catSel.classList.toggle('collapsed');
+          return;
+        }
+        $$('.cat-icon', catSel).forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        activeCat = cat;
+        this.renderEmojis(cat);
+        catSel.classList.add('collapsed'); // collapse so emojis fit
+      });
+      catSel.appendChild(el);
+    });
+    this.renderEmojis(activeCat);
+  },
+  renderEmojis(cat){
+    const scroll = $('#emojiScroll');
+    scroll.innerHTML = '';
+    scroll.scrollLeft = 0;
+    const list = EMOJI_FALLBACK[cat] || [];
+    for (const ch of list){
+      const e = document.createElement('span');
+      e.className = 'emoji-item' + (ch === this.selected ? ' selected' : '');
+      e.textContent = ch;
+      e.addEventListener('click', () => {
+        $$('.emoji-item', scroll).forEach(x => x.classList.remove('selected'));
+        e.classList.add('selected');
+        this.selected = ch;
+        saveState({ emoji: ch });
+        softTap();
+        this.refreshCheckState();
+      });
+      scroll.appendChild(e);
+    }
+  },
+  refreshCheckState(){
+    const ok = !!this.selected && DobPicker.isValid();
+    $('#checkBirth').classList.toggle('ready', ok);
+  }
+};
+
+/* DOB picker dispatches → also refresh check state */
+const _origMarkInvalid = DobPicker.markInvalid.bind(DobPicker);
+DobPicker.markInvalid = function(){
+  _origMarkInvalid();
+  EmojiBar.refreshCheckState && EmojiBar.refreshCheckState();
+};
+
+$('#backBirth').addEventListener('click', () => { tap(); Screens.go('Name'); });
+$('#checkBirth').addEventListener('click', () => {
+  if (!$('#checkBirth').classList.contains('ready')) return;
+  saveState({ dob: { ...dobState }, emoji: EmojiBar.selected, onboarded: true });
+  tap();
+  Screens.go('Check');
+});
+
+/* ============================================================
+   Step 4 — Home (minimal placeholder interactions)
+   ============================================================ */
+$('#homeAdd').addEventListener('click', () => { tap(); /* TODO: friend flow */ });
+$('#homeSearch').addEventListener('click', () => { tap(); /* TODO: search */ });
+$$('.home-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    $$('.home-tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    softTap();
+  });
+});
+
+/* ============================================================
+   boot
+   ============================================================ */
+function boot(){
+  resizeCanvas();
+  const s = loadState();
+  if (s.onboarded){
+    Screens.go('Home');
+  } else {
+    Screens.go('Name');
+  }
+}
+boot();
+
+/* register service worker (best effort) */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./chat-sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

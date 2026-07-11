@@ -1,0 +1,20 @@
+# S2S スケジュール通知 Worker（worker/s2s-push.js 用）
+# 既存の shake-toshake（telegram-storage.js）とは「別Worker」として立てる。
+#
+# デプロイ手順（worker/ ディレクトリで実行。! を付けてこのセッションで打ってもOK）:
+#   cd ~/work/Shake-to-Shake/worker
+#   npx wrangler deploy -c wrangler-s2s.toml
+#   npx wrangler secret put FIREBASE_DB_URL -c wrangler-s2s.toml   # https://ichat-pwa-default-rtdb.asia-southeast1.firebasedatabase.app
+#   npx wrangler secret put FIREBASE_SECRET -c wrangler-s2s.toml   # RTDB「データベースシークレット」(レガシートークン)
+#   npx wrangler secret put PUSH_URL        -c wrangler-s2s.toml   # https://shake-push.s-users15.workers.dev/push
+#
+# 動作確認: デプロイ後の Worker URL に  ?force=1  を付けて GET すると、窓判定を無視して即送信テストできる。
+
+name = "s2s-push"
+main = "s2s-push.js"
+compatibility_date = "2024-11-01"
+
+# 15分毎に起動 → 「シェイクタイムの窓が今開いたか」だけ判定し、開いた回(1日3-5回)だけ送信。
+# s2s-push.js の INTERVAL=15 と必ず一致させること。
+[triggers]
+crons = ["*/15 * * * *"]

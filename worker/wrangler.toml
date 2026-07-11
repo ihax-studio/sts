@@ -1,0 +1,43 @@
+# Cloudflare Worker 設定（画像中継 ＋ empty mode の50分自動削除）
+# デプロイ:  npx wrangler deploy
+# ※ ダッシュボードでデプロイしている場合は、Worker → Settings → Triggers → Cron Triggers に
+#    下の crons を1行足すだけでもOK（コード側の scheduled() が動きます）。
+
+name = "shake-toshake"
+main = "telegram-storage.js"
+compatibility_date = "2024-11-01"
+
+# 10分ごとに起動して期限切れ会話を掃除。
+#  ・1日144回＝Cloudflare無料枠(10万/日)の約0.14%。実質ゼロ負荷。
+#  ・最後のメッセージから50分の「次の10分刻み」で消えます（最大10分の遅延）。
+#  ・もっと厳密に消したいなら "*/5 * * * *"（288回/日＝0.29%）でも余裕。
+[triggers]
+crons = ["0 * * * *"]   # 毎時1回（10時間TTLに対し十分・リクエスト削減: 144回/日→24回/日）
+
+# --- 画像/動画を R2 に保存したい場合だけ下3行のコメントを外す（要: ダッシュボードでR2有効化＋バケット作成）---
+# この binding があると /up /dl は R2 を使う（Telegram不要）。無ければ Telegram を使う。
+# [[r2_buckets]]
+# binding = "MEDIA"
+# bucket_name = "s2s-media"
+
+# --- 環境変数は wrangler secret か ダッシュボードで設定（ここに秘密は書かない）---
+# 必須(画像):     TG_TOKEN, TG_CHAT
+# 任意(empty用):  FB_URL, FB_SECRET, EMPTY_MIN(=50)
+# 例:
+#   npx wrangler secret put TG_TOKEN
+#   npx wrangler secret put TG_CHAT
+#   npx wrangler secret put FB_URL       # https://ichat-pwa-default-rtdb.asia-southeast1.firebasedatabase.app
+#   npx wrangler secret put FB_SECRET    # RTDB データベースシークレット
+#   npx wrangler secret put EMPTY_MIN    # 50
+
+# --- P13: Cloudflare R2 バックアップ（任意・Firebaseを「正」に保ったまま二重化） ---
+# 1) バケット作成:  npx wrangler r2 bucket create s2s-backup
+# 2) 下2行のコメントを外して再デプロイ → 日次バックアップが R2(env.BACKUP_BUCKET) にも保存される
+#    （/backup-latest で最新を取得可能）。テキストのみ・直近2年・画像inlineは除外で ~10MB を維持。
+# [[r2_buckets]]
+# binding = "BACKUP_BUCKET"
+# bucket_name = "s2s-backup"
+#
+# バックアップ用 env（ダッシュボード or secret）:
+#   FB_URL, FB_SECRET … RTDB読取(REST)。BACKUP_HOUR(UTC,既定18=JST3時) / BACKUP_OFF=1 で停止。
+# ★Firebase本体のpurge(古いデータ削除)は、R2への往復(バックアップ→復元)が検証で通るまで有効化しない。

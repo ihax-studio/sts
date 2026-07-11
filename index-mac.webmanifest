@@ -1,0 +1,30 @@
+{
+  "name": "Shake to Shake",
+  "short_name": "StS",
+  "id": "/",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "mac-dock.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "mac-dock.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "mac-dock.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

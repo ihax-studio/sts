@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>入退室ボード</title>
+<style>
+  :root{
+    --ink:#41455c;
+    --line: rgba(120,124,170,0.20);
+    --radius:18px;
+    --green:#30c46a; --gray:#9aa0bd; --blue:#4a90ff;
+    --spring: cubic-bezier(.34,1.56,.64,1);
+    --glide: cubic-bezier(.22,.61,.36,1);
+    --cubic: cubic-bezier(.4,0,.2,1);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Helvetica Neue",system-ui,sans-serif;
+    color:var(--ink); min-height:100vh;
+    background:
+      radial-gradient(1200px 800px at 12% 8%,  #eef0fb 0%, rgba(238,240,251,0) 60%),
+      radial-gradient(1000px 900px at 88% 95%, #f3eef8 0%, rgba(243,238,248,0) 60%),
+      linear-gradient(135deg,#eef1f8 0%, #e7ebf4 100%);
+  }
+  .blobs{ position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; filter:blur(60px); }
+  .blob{ position:absolute; border-radius:50%; opacity:.34; animation:drift 22s ease-in-out infinite; }
+  .b1{ width:420px;height:420px; left:6%;  top:8%;  background:#a4b6ff; }
+  .b2{ width:460px;height:460px; right:4%; top:4%;  background:#ffc3e0; animation-direction:reverse; }
+  .b3{ width:520px;height:420px; left:18%; bottom:-8%; background:#b7f3c9; }
+  @keyframes drift{
+    0%{transform:translate(0,0) scale(1);} 50%{transform:translate(40px,-30px) scale(1.08);} 100%{transform:translate(0,0) scale(1);}
+  }
+
+  .page{ position:relative; z-index:1; max-width:880px; margin:0 auto; padding:max(24px,env(safe-area-inset-top)) 20px 80px; }
+
+  /* ── ヘッダー ── */
+  .top{ display:flex; align-items:center; gap:14px; margin:8px 4px 18px; }
+  .top h1{ font-size:22px; font-weight:800; margin:0; letter-spacing:.4px; }
+  .top .spacer{ flex:1; }
+
+  /* ── 在籍リング（pre1 notch風） ── */
+  .ring-widget{
+    position:relative; display:flex; align-items:center; height:64px; flex-shrink:0;
+    background:rgba(255,255,255,.5); border:1px solid rgba(255,255,255,.7); border-radius:999px;
+    padding:6px; max-width:64px; overflow:hidden; cursor:pointer;
+    box-shadow:0 14px 30px -16px rgba(64,68,120,.4), inset 0 1px 0 rgba(255,255,255,.7);
+    transition:max-width .3s var(--cubic), background .3s var(--cubic);
+    -webkit-tap-highlight-color:transparent;
+  }
+  .ring-widget.expanded{ max-width:340px; }
+  .ring-core{ position:relative; width:52px; height:52px; flex-shrink:0; }
+  .ring{ width:52px; height:52px; display:block; transform:rotate(-90deg); }
+  .ring-bg{ fill:none; stroke:rgba(120,124,170,.18); stroke-width:6; }
+  .ring-fg{ fill:none; stroke:url(#attGrad); stroke-width:6; stroke-linecap:round;
+    transition:stroke-dashoffset .3s cubic-bezier(.33,1,.68,1); }
+  .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring-num{ font-size:19px; font-weight:900; line-height:1; }
+  .ring-lbl{ font-size:8px; font-weight:800; color:#8a8eb0; letter-spacing:.5px; margin-top:1px; }
+  .ring-expand{ display:flex; align-items:center; padding:0 6px 0 4px; white-space:nowrap; }
+  .glass-btn{
+    display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+    font-size:13px; font-weight:800; color:#1f7a4d; padding:10px 18px; border-radius:999px;
+    background:rgba(255,255,255,.45); border:1px solid rgba(255,255,255,.85);
+    backdrop-filter:blur(8px) saturate(150%); -webkit-backdrop-filter:blur(8px) saturate(150%);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.95), 0 8px 18px -8px rgba(0,0,0,.25);
+    opacity:0; transform:translateX(10px); transition:opacity .3s var(--cubic), transform .3s var(--cubic);
+  }
+  .ring-widget.expanded .glass-btn{ opacity:1; transform:none; }
+  .glass-btn:active{ transform:scale(.95); }
+
+  /* ── 大カード（座席表） ── */
+  .card{
+    position:relative;
+    background:rgba(255,255,255,0.5);
+    border:1px solid rgba(255,255,255,0.6);
+    border-radius:26px;
+    backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
+    box-shadow:0 40px 80px -34px rgba(64,68,120,0.42), inset 0 1px 0 rgba(255,255,255,0.6);
+    padding:22px; margin-bottom:22px;
+  }
+  .card .cap{ font-size:12px; font-weight:700; color:#8a8eb0; letter-spacing:.6px; text-transform:uppercase; margin:0 0 14px 2px; }
+  /* 座席表を長押しで削除（iOS風ジグル＋赤い「−」） */
+  .tbl-hint{ display:none; font-size:11px; color:#aeb2cc; font-weight:600; margin:-8px 0 12px 2px; }
+  .card.has-table .tbl-hint{ display:block; }
+  .tbl-del{
+    position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%;
+    background:linear-gradient(180deg,#ff5566,#ff2d44); color:#fff; z-index:30;
+    display:none; align-items:center; justify-content:center; font-weight:900; font-size:21px; line-height:1;
+    box-shadow:0 6px 14px -3px rgba(255,45,68,.6), inset 0 0 0 2px #fff; cursor:pointer;
+    transform:scale(.4); transition:transform .25s var(--spring);
+  }
+  .card.tdel .tbl-del{ display:flex; transform:scale(1); }
+  .card.tdel .seat-table-wrap table.seat{ animation:jiggle .28s ease-in-out infinite; }
+
+  .seat-table-wrap{ width:100%; overflow:auto; display:flex; justify-content:center; }
+  table.seat{ border-collapse:separate; border-spacing:0; table-layout:fixed; border-radius:14px; overflow:hidden;
+    box-shadow:0 18px 40px -26px rgba(64,68,120,.4); border:1px solid rgba(255,255,255,.5); }
+  table.seat th, table.seat td{
+    padding:8px 10px; text-align:center; vertical-align:middle; font-size:13px; line-height:1.3;
+    border-right:1px solid var(--line); border-bottom:1px solid var(--line);
+    background:rgba(255,255,255,0.5); position:relative; overflow:hidden; word-break:break-word;
+  }
+  table.seat th{ background:rgba(126,118,214,0.16); font-weight:700; color:#5b5790; }
+  table.seat tr td:last-child, table.seat tr th:last-child{ border-right:none; }
+  table.seat tr:last-child td, table.seat tr:last-child th{ border-bottom:none; }
+  td.seat .lbl{ color:rgba(65,69,92,.5); font-size:11px; }
+  td.seat.occupied{ color:#fff; }
+  td.seat.occupied .lbl{ color:rgba(255,255,255,.8); }
+  .occ{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .occ .ic{ font-size:20px; line-height:1; }
+  .occ .ic img{ width:20px; height:20px; vertical-align:middle; }
+  .occ .nm{ font-weight:800; font-size:12.5px; }
+  .occ .badge{ font-size:9px; font-weight:800; letter-spacing:.4px; opacity:.92; }
+
+  .empty{ text-align:center; color:#9498ba; font-size:14px; line-height:1.8; padding:30px 10px; }
+  .empty a{ color:#5b6dff; font-weight:700; text-decoration:none; }
+
+  /* ── 入退室リスト ── */
+  .list-cap{ font-size:12px; font-weight:700; color:#8a8eb0; letter-spacing:.6px; text-transform:uppercase; margin:0 0 12px 6px; }
+  .list-hint{ font-size:11px; color:#aeb2cc; font-weight:600; margin:0 0 12px 6px; }
+  .row{
+    position:relative;
+    display:flex; align-items:center; gap:14px; padding:14px 18px; margin-bottom:12px;
+    background:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.6); border-radius:20px;
+    backdrop-filter:blur(16px) saturate(150%); -webkit-backdrop-filter:blur(16px) saturate(150%);
+    box-shadow:0 18px 40px -28px rgba(64,68,120,0.4), inset 0 1px 0 rgba(255,255,255,0.6);
+    animation:rowIn .45s var(--spring) both;
+  }
+  @keyframes rowIn{ from{opacity:0; transform:translateY(12px) scale(.97); filter:blur(6px);} to{opacity:1; transform:none; filter:none;} }
+  .row .avatar{
+    width:46px; height:46px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff;
+    box-shadow:0 8px 18px -8px rgba(0,0,0,.3), inset 0 1px 4px rgba(255,255,255,.4);
+  }
+  .row .avatar img{ width:26px; height:26px; }
+  .row .info{ flex:1; min-width:0; }
+  .row .info .nm{ font-weight:800; font-size:16px; }
+  .row .info .sub{ font-size:12.5px; color:#8085a6; font-weight:600; margin-top:2px; }
+  .row .right{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
+  /* 入退室を 1:1 の丸枠バッジで表示 */
+  .row .act-dot{ width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:17px; }
+  .row .act-dot.in{ background:linear-gradient(135deg,#3ddc74,#1fae6f); color:#fff;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.7), 0 6px 16px -6px rgba(31,174,111,.5); }
+  .row .act-dot.out{ background:#eceef5; color:#9398b6;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.95), inset 0 0 0 3px rgba(120,124,170,.16), 0 6px 16px -8px rgba(0,0,0,.18); }
+  .row .time{ font-size:12px; color:#9498ba; font-weight:600; }
+
+  /* ── 削除（iOS風ジグル）モード ── */
+  @keyframes jiggle{ 0%{transform:rotate(-.55deg);} 50%{transform:rotate(.55deg);} 100%{transform:rotate(-.55deg);} }
+  #logHost.jiggle .row{ animation:jiggle .26s ease-in-out infinite; }
+  #logHost.jiggle .row:nth-child(2n){ animation-duration:.3s; animation-delay:-.13s; }
+  #logHost.jiggle .row:nth-child(3n){ animation-duration:.28s; animation-delay:-.07s; }
+  .del-badge{
+    position:absolute; top:-8px; left:-8px; width:28px; height:28px; border-radius:50%;
+    background:linear-gradient(180deg,#ff5566,#ff2d44); color:#fff; z-index:30;
+    display:none; align-items:center; justify-content:center; font-weight:900; font-size:20px; line-height:1;
+    box-shadow:0 6px 14px -3px rgba(255,45,68,.6), inset 0 0 0 2px #fff; cursor:pointer;
+    transform:scale(.4); transition:transform .25s var(--spring);
+  }
+  #logHost.jiggle .del-badge{ display:flex; transform:scale(1); }
+  .del-badge:active{ transform:scale(.85); }
+  .row.removing{ animation:rowOut .3s var(--glide) forwards; pointer-events:none; }
+  @keyframes rowOut{ to{ transform:translateX(-120%); opacity:0; height:0; margin-top:0; margin-bottom:0;
+    padding-top:0; padding-bottom:0; filter:blur(4px); } }
+
+  /* ── 編集パネル（ForceTouch1.8 / 0.3s長押しで開く） ── */
+  .edit-scrim{ position:fixed; inset:0; z-index:40; background:rgba(40,44,70,.28);
+    backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+    opacity:0; pointer-events:none; transition:opacity .3s var(--cubic); }
+  .edit-scrim.open{ opacity:1; pointer-events:auto; }
+  .edit-sheet{
+    position:fixed; top:0; left:50%; width:min(92vw,560px); z-index:50;
+    transform:translateX(-50%) translateY(-110%) scale(.95);
+    transform-origin:50% 0;
+    background:rgba(255,255,255,.72); border:1px solid rgba(255,255,255,.8);
+    border-radius:0 0 28px 28px;
+    backdrop-filter:blur(26px) saturate(180%); -webkit-backdrop-filter:blur(26px) saturate(180%);
+    box-shadow:0 40px 80px -24px rgba(40,44,70,.5);
+    padding:max(18px,env(safe-area-inset-top)) 22px 24px;
+    opacity:0;
+    /* 枠が0.5sで広がり＋スライドダウン（cubic） */
+    transition:transform .5s var(--cubic), opacity .4s var(--cubic);
+  }
+  .edit-sheet.open{ transform:translateX(-50%) translateY(0) scale(1); opacity:1; }
+  .edit-grip{ width:42px; height:5px; border-radius:3px; background:rgba(120,124,170,.4); margin:0 auto 14px; }
+  .edit-title{ font-size:17px; font-weight:800; text-align:center; margin-bottom:16px; }
+  .edit-act{
+    display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink);
+    padding:16px 18px; border-radius:18px; font-size:15px; font-weight:700; margin-bottom:10px;
+    background:rgba(255,255,255,.7); border:1px solid rgba(255,255,255,.9);
+    box-shadow:0 10px 24px -14px rgba(64,68,120,.5);
+    transition:transform .15s var(--cubic), background .2s;
+  }
+  .edit-act .em{ font-size:22px; }
+  .edit-act:active{ transform:scale(.97); background:#fff; }
+  .edit-close{ display:block; width:100%; margin-top:6px; border:0; background:transparent;
+    color:#8a8eb0; font-size:14px; font-weight:700; padding:10px; cursor:pointer; font-family:inherit; }
+</style>
+</head>
+<body>
+  <div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+  <!-- SVG グラデ定義（リング用） -->
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <linearGradient id="attGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3ddc74"/><stop offset="1" stop-color="#1fae6f"/>
+    </linearGradient>
+  </defs></svg>
+
+  <div class="page">
+    <div class="top">
+      <div>
+        <h1 id="title">入退室ボード</h1>
+      </div>
+      <div class="spacer"></div>
+      <div class="ring-widget" id="ringWidget" title="タップで先生を追加">
+        <div class="ring-core">
+          <svg class="ring" viewBox="0 0 74 74">
+            <circle class="ring-bg" cx="37" cy="37" r="33"/>
+            <circle class="ring-fg" id="attRing" cx="37" cy="37" r="33" stroke-dasharray="207.3" stroke-dashoffset="207.3"/>
+          </svg>
+          <div class="ring-center"><span class="ring-num" id="attNum">0</span><span class="ring-lbl">在室</span></div>
+        </div>
+        <div class="ring-expand"><a class="glass-btn" href="card.html">＋ 先生を追加する</a></div>
+      </div>
+    </div>
+
+    <div class="card" id="seatCard">
+      <div class="cap">座席表</div>
+      <div class="tbl-hint">座席表を長押しで削除できます</div>
+      <div class="tbl-del" id="tblDel" title="この座席表を削除">−</div>
+      <div id="seatHost" class="seat-table-wrap"></div>
+    </div>
+
+    <div class="list-cap">入退室状況（最新）</div>
+    <div class="list-hint">長押しで削除モード ・ 何もない所を長押し / 強く押す（Mac）で座席表を編集</div>
+    <div id="logHost"></div>
+  </div>
+
+  <!-- 編集パネル -->
+  <div class="edit-scrim" id="editScrim"></div>
+  <div class="edit-sheet" id="editSheet">
+    <div class="edit-grip"></div>
+    <div class="edit-title">座席表の編集</div>
+    <a class="edit-act" href="table.html"><span class="em">🗂️</span> 座席表エディタを開く</a>
+    <a class="edit-act" href="card.html"><span class="em">🪪</span> IDカードを作成する</a>
+    <button class="edit-close" id="editClose">閉じる</button>
+  </div>
+
+<!-- Firebase RTDB 同期（chat-app と共通の設定・匿名認証）。同一オリジンの iframe で動作 -->
+<script src="../../lib/firebase-app-compat.js"></script>
+<script src="../../lib/firebase-auth-compat.js"></script>
+<script src="../../lib/firebase-database-compat.js"></script>
+<script src="../../lib/firebase-app-check-compat.js"></script>
+<script src="../../firebase-config.js"></script>
+<script src="seat-sync.js"></script>
+
+<script>
+const STORE_KEY = 'seatingApp_v1';
+const COLORS = [
+  ['#ffffff','#f0f0f5'],['#ff3d8a','#b829ff'],['#ff8a3d','#ff3d8a'],['#ffd23d','#ff8a3d'],
+  ['#4cd964','#2eb6ff'],['#2eb6ff','#5856d6'],['#5856d6','#b829ff'],['#ff453a','#ff9f0a'],
+  ['#30d158','#0a84ff'],['#bf5af2','#ff375f']
+];
+function gradStr(i){ const c = COLORS[i] || COLORS[0]; return 'linear-gradient(135deg,'+c[0]+','+c[1]+')'; }
+function isLight(hex){ const c=hex.replace('#',''); const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16); return (0.299*r+0.587*g+0.114*b)>200; }
+function fgFor(i){ const c=COLORS[i]||COLORS[0]; return (isLight(c[0])&&isLight(c[1]))?'#0c0c0e':'#ffffff'; }
+function loadStore(){ try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){ return {}; } }
+function saveStore(s){ localStorage.setItem(STORE_KEY, JSON.stringify(s)); try { bc && bc.postMessage({t:'sync'}); } catch(e){} }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function iconHTML(icon){
+  if(!icon) return '😀';
+  if(icon.type==='img') return '<img src="'+icon.src+'" alt="">';
+  return icon.value || '😀';
+}
+function fmtTime(t){
+  if(!t) return '';
+  const d=new Date(t), now=new Date();
+  const diff=Math.floor((now-d)/1000);
+  const hm=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+  if(diff<60) return 'たった今 ・ '+hm;
+  if(diff<3600) return Math.floor(diff/60)+'分前 ・ '+hm;
+  const sameDay = d.toDateString()===now.toDateString();
+  if(sameDay) return hm;
+  return (d.getMonth()+1)+'/'+d.getDate()+' '+hm;
+}
+
+let jiggleMode = false;
+
+function setRing(inCount, registered){
+  const C = 2 * Math.PI * 33;
+  const pct = registered > 0 ? Math.min(1, inCount / registered) : 0;
+  const ring = document.getElementById('attRing');
+  ring.setAttribute('stroke-dasharray', C.toFixed(1));
+  ring.setAttribute('stroke-dashoffset', (C * (1 - pct)).toFixed(1));
+  document.getElementById('attNum').textContent = inCount;
+}
+
+function render(){
+  const store = loadStore();
+  const table = store.table;
+  const persons = store.persons || [];
+  const log = store.log || [];
+
+  const occ = {}; // seatId -> person(in)
+  persons.forEach(p=>{ if(p.status==='in' && p.seatId) occ[p.seatId]=p; });
+
+  document.getElementById('title').textContent = (table && table.name) ? table.name : '入退室ボード';
+  document.getElementById('seatCard').classList.toggle('has-table', !!(table && table.grid));
+  if(!(table && table.grid)) document.getElementById('seatCard').classList.remove('tdel');
+  const inCount = persons.filter(p=>p.status==='in').length;
+  setRing(inCount, persons.length);
+
+  /* 座席表 */
+  const host = document.getElementById('seatHost');
+  if(!table || !table.grid){
+    host.innerHTML = '<div class="empty">座席表がまだありません。<br>何もない所を長押し / 強く押して <a href="table.html">座席表エディタ</a> を開いてください。</div>';
+  } else {
+    const {rows,cols,grid,colW,rowH} = table;
+    let html='<table class="seat"><colgroup>';
+    for(let c=0;c<cols;c++) html += '<col style="width:'+((colW&&colW[c])||120)+'px">';
+    html+='</colgroup><tbody>';
+    for(let r=0;r<rows;r++){
+      html+='<tr style="height:'+((rowH&&rowH[r])||56)+'px">';
+      for(let c=0;c<cols;c++){
+        const cell=grid[r][c];
+        if(!cell || cell.kind==='c') continue;
+        const span=(cell.rs>1?' rowspan="'+cell.rs+'"':'')+(cell.cs>1?' colspan="'+cell.cs+'"':'');
+        if(cell.header){
+          html+='<th'+span+'>'+escapeHtml(cell.text||'')+'</th>';
+        } else {
+          const seatId=r+'_'+c;
+          const p=occ[seatId];
+          const lbl=(cell.text&&cell.text.trim())||seatId;
+          if(p){
+            const fg=fgFor(p.meta&&p.meta.color||0);
+            html+='<td class="seat occupied"'+span+' style="background:'+gradStr(p.meta&&p.meta.color||0)+';color:'+fg+'">'
+                + '<div class="occ"><span class="ic">'+iconHTML(p.meta&&p.meta.icon)+'</span>'
+                + '<span class="nm">'+escapeHtml(p.name||'')+'</span>'
+                + '<span class="badge">● 在室</span></div></td>';
+          } else {
+            html+='<td class="seat"'+span+'><span class="lbl">'+escapeHtml(lbl)+'</span></td>';
+          }
+        }
+      }
+      html+='</tr>';
+    }
+    html+='</tbody></table>';
+    host.innerHTML=html;
+  }
+
+  /* 入退室リスト（人ごとに「最新の入退室」だけ） */
+  const lhost = document.getElementById('logHost');
+  if(!log.length){
+    lhost.innerHTML = '<div class="empty">まだ入退室の記録はありません。<br>各自の <a href="card.html">IDカード</a> のスイッチを切り替えると、ここに表示されます。</div>';
+    jiggleMode = false;
+  } else {
+    const seen = new Set(), latest = [];
+    for(const e of log){
+      const key = e.personId || (e.name + '|' + e.seatId);
+      if(seen.has(key)) continue;
+      seen.add(key); latest.push(e);
+    }
+    lhost.innerHTML = latest.slice(0,80).map(e=>{
+      const color=(e.color!=null)?e.color:0;
+      const fg=fgFor(color);
+      const isIn = e.action==='in';
+      const pid = e.personId || (e.name+'|'+e.seatId);
+      const sub=[e.dept, e.seatLabel?('座席 '+e.seatLabel):''].filter(Boolean).join(' ・ ');
+      return '<div class="row" data-pid="'+escapeHtml(pid)+'">'
+        + '<div class="del-badge" data-pid="'+escapeHtml(pid)+'">−</div>'
+        + '<div class="avatar" style="background:'+gradStr(color)+';color:'+fg+'">'+iconHTML(e.icon)+'</div>'
+        + '<div class="info"><div class="nm">'+escapeHtml(e.name||'')+'</div>'
+        + (sub?'<div class="sub">'+escapeHtml(sub)+'</div>':'')+'</div>'
+        + '<div class="right">'
+        +   '<div class="act-dot '+(isIn?'in':'out')+'" title="'+(isIn?'入室':'退室')+'">'+(isIn?'入':'退')+'</div>'
+        +   '<div class="time">'+fmtTime(e.t)+'</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+  lhost.classList.toggle('jiggle', jiggleMode);
+}
+
+/* ════ 在籍リング: タップで横長展開 → 「先生を追加する」 / 1.5sで戻る ════ */
+(function(){
+  const w = document.getElementById('ringWidget');
+  let t = null;
+  document.getElementById('ringWidget').addEventListener('click', e=>{
+    if(e.target.closest('.glass-btn')) return;   // ボタンはそのまま遷移
+    w.classList.toggle('expanded');
+    clearTimeout(t);
+    if(w.classList.contains('expanded')) t = setTimeout(()=> w.classList.remove('expanded'), 1500);
+  });
+})();
+
+/* ════ 削除モード（行 長押し → ジグル → 右上「−」で slide削除 / 3s無操作で戻る）════ */
+(function(){
+  const lhost = document.getElementById('logHost');
+  let idleT = null;
+  function resetIdle(){ clearTimeout(idleT); idleT = setTimeout(exitJiggle, 3000); }
+  function enterJiggle(){ if(jiggleMode) return; jiggleMode = true; lhost.classList.add('jiggle'); resetIdle(); }
+  function exitJiggle(){ jiggleMode = false; lhost.classList.remove('jiggle'); clearTimeout(idleT); }
+  window.__exitJiggle = exitJiggle;
+
+  function deletePerson(pid){
+    const s = loadStore();
+    s.persons = (s.persons||[]).filter(p => (p.id||'') !== pid && (p.name+'|'+p.seatId) !== pid);
+    s.log = (s.log||[]).filter(e => (e.personId||'') !== pid && (e.name+'|'+e.seatId) !== pid);
+    saveStore(s);
+    try { if(window.SeatSync) SeatSync.removePerson(pid); } catch(e){}   // Firebase: 別端末からも削除
+    render();
+    if(!(s.log||[]).length) exitJiggle(); else resetIdle();
+  }
+
+  /* 長押し検出（行）→ ジグルモード */
+  let lpT=null, armed=false, x0=0, y0=0;
+  lhost.addEventListener('pointerdown', e=>{
+    const row = e.target.closest('.row');
+    if(!row || e.target.closest('.del-badge')) return;
+    if(jiggleMode){ resetIdle(); return; }
+    x0=e.clientX; y0=e.clientY; armed=true;
+    lpT = setTimeout(()=>{ if(armed) enterJiggle(); }, 450);
+  });
+  lhost.addEventListener('pointermove', e=>{
+    if(armed && (Math.abs(e.clientX-x0)+Math.abs(e.clientY-y0))>10){ armed=false; clearTimeout(lpT); }
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>
+    lhost.addEventListener(ev, ()=>{ armed=false; clearTimeout(lpT); }));
+
+  /* 「−」タップ → slide削除 */
+  lhost.addEventListener('click', e=>{
+    const b = e.target.closest('.del-badge');
+    if(!b) return;
+    e.stopPropagation();
+    if(!jiggleMode) return;
+    resetIdle();
+    const pid = b.dataset.pid;
+    const row = b.closest('.row');
+    if(row){ row.classList.add('removing'); setTimeout(()=> deletePerson(pid), 300); }
+    else deletePerson(pid);
+  });
+
+  /* 何もない所をタップ → 削除モード解除 */
+  document.addEventListener('click', e=>{
+    if(!jiggleMode) return;
+    if(e.target.closest('.row') || e.target.closest('.del-badge') || e.target.closest('.ring-widget') || e.target.closest('.edit-sheet')) return;
+    exitJiggle();
+  });
+})();
+
+/* ════ 編集パネル（ForceTouch≥1.8(Mac) / 0.3s長押し on 何もない所）════ */
+(function(){
+  const scrim = document.getElementById('editScrim');
+  const sheet = document.getElementById('editSheet');
+  function blocked(t){
+    if(!t || !t.closest) return true;
+    if(t.closest('.ring-widget, .row, a, button, .edit-sheet, .del-badge, .glass-btn, .tbl-del')) return true;
+    if(t.closest('#seatCard') && loadStore().table) return true;   // 座席表あり→長押しは「削除モード」用（編集パネルは出さない）
+    return false;
+  }
+  function openEdit(){ scrim.classList.add('open'); requestAnimationFrame(()=> sheet.classList.add('open')); }
+  function closeEdit(){ scrim.classList.remove('open'); sheet.classList.remove('open'); }
+  scrim.addEventListener('click', closeEdit);
+  document.getElementById('editClose').addEventListener('click', closeEdit);
+
+  /* 0.3s 長押し（何もない所） */
+  let lpT=null, armed=false, x0=0, y0=0;
+  document.addEventListener('pointerdown', e=>{
+    if(jiggleMode || blocked(e.target) || sheet.classList.contains('open')) return;
+    x0=e.clientX; y0=e.clientY; armed=true;
+    lpT = setTimeout(()=>{ if(armed) openEdit(); }, 300);
+  });
+  document.addEventListener('pointermove', e=>{
+    if(armed && (Math.abs(e.clientX-x0)+Math.abs(e.clientY-y0))>10){ armed=false; clearTimeout(lpT); }
+  });
+  ['pointerup','pointercancel'].forEach(ev=> document.addEventListener(ev, ()=>{ armed=false; clearTimeout(lpT); }));
+
+  /* macOS Force Touch（webkitForce ≥ 1.8） */
+  let forceLatch=false;
+  document.addEventListener('webkitmouseforcechanged', e=>{
+    const f = e.webkitForce || 0;
+    if(f >= 1.8 && !forceLatch && !blocked(e.target) && !jiggleMode){ forceLatch=true; armed=false; clearTimeout(lpT); openEdit(); }
+    else if(f < 1.2){ forceLatch=false; }
+  });
+})();
+
+/* ════ 座席表の削除（座席表を長押し → ジグル → 右上「−」で削除）════ */
+(function(){
+  const card = document.getElementById('seatCard');
+  const seatHost = document.getElementById('seatHost');
+  const tblDel = document.getElementById('tblDel');
+  let idleT = null;
+  function hasTable(){ return !!loadStore().table; }
+  function resetIdle(){ clearTimeout(idleT); idleT = setTimeout(exitTDel, 3000); }
+  function enterTDel(){ if(!hasTable()) return; card.classList.add('tdel'); resetIdle(); }
+  function exitTDel(){ card.classList.remove('tdel'); clearTimeout(idleT); }
+
+  /* 長押し検出（座席表）→ 削除モード */
+  let lpT=null, armed=false, x0=0, y0=0;
+  seatHost.addEventListener('pointerdown', e=>{
+    if(!hasTable()) return;
+    if(card.classList.contains('tdel')){ resetIdle(); return; }
+    x0=e.clientX; y0=e.clientY; armed=true;
+    lpT = setTimeout(()=>{ if(armed) enterTDel(); }, 450);
+  });
+  seatHost.addEventListener('pointermove', e=>{
+    if(armed && (Math.abs(e.clientX-x0)+Math.abs(e.clientY-y0))>10){ armed=false; clearTimeout(lpT); }
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>
+    seatHost.addEventListener(ev, ()=>{ armed=false; clearTimeout(lpT); }));
+
+  /* 「−」タップ → 確認 → 座席表を削除 */
+  tblDel.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(!card.classList.contains('tdel')) return;
+    if(!confirm('この座席表を削除しますか？')){ resetIdle(); return; }
+    const s = loadStore(); delete s.table; saveStore(s);
+    try { if(window.SeatSync && SeatSync.removeTable) SeatSync.removeTable(); } catch(e){}  // Firebase: 別端末からも削除
+    exitTDel(); render();
+  });
+
+  /* 何もない所をタップ → 削除モード解除 */
+  document.addEventListener('click', e=>{
+    if(!card.classList.contains('tdel')) return;
+    if(e.target.closest('#seatHost') || e.target.closest('.tbl-del')) return;
+    exitTDel();
+  });
+})();
+
+/* ── ライブ更新 ── */
+window.addEventListener('storage', e=>{ if(e.key===STORE_KEY) render(); });
+window.addEventListener('seat-remote-sync', ()=> render());   // Firebase: 別端末の変更を反映
+const bc = ('BroadcastChannel' in window) ? new BroadcastChannel('seatingApp_v1') : null;
+if(bc) bc.onmessage = ()=> render();
+
+/* ── URL #room=CODE で同じ教室に参加（共有リンクを開いた別端末が join）── */
+(function(){
+  try{
+    const src = (location.hash||'') + '&' + (location.search||'');
+    const m = src.match(/(?:^|[#&?])room=([A-Za-z0-9_-]+)/);
+    if(m && m[1] && window.SeatSync && SeatSync.roomId() !== m[1]) SeatSync.setRoom(m[1]);
+  }catch(e){}
+})();
+
+setInterval(render, 30000);
+render();
+</script>
+
+<!-- 触覚Ultra（自己完結・import不要）: 各ボタンに“本物の”透明スイッチを重ね、実タップで iOS の触覚を確実発火（iOS26.5でも 1タップ=1発の床を保証）。Android は navigator.vibrate を type 別パターンで。 -->
+<script>
+(function(){
+  var PAT = { tap:12, confirm:[10,32,10], heavy:[16,28,16,28,16] };   // 的確なタイプ別
+  function typeOf(el){
+    if(el.hasAttribute('data-haptic')) return el.getAttribute('data-haptic') || 'tap';
+    if(el.matches('.del-badge,.tbl-del,[data-act="delRow"],[data-act="delCol"]')) return 'heavy';
+    if(el.matches('.save,[data-act="save"],[data-act="share"]')) return 'confirm';
+    return 'tap';
+  }
+  function overlay(el){
+    if(el.__hpt) return; el.__hpt = 1;
+    if(getComputedStyle(el).position === 'static') el.style.position = 'relative';
+    var sw = document.createElement('input');
+    sw.type='checkbox'; sw.setAttribute('switch',''); sw.tabIndex=-1; sw.setAttribute('aria-hidden','true');
+    // opacity:0 のみ（display/visibility/appearance での非表示は“本物のスイッチ”でなくなり触覚が出ない）
+    sw.style.cssText='position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;pointer-events:auto;cursor:inherit;z-index:4;';
+    var pat = PAT[typeOf(el)] || 12;
+    sw.addEventListener('change', function(){
+      try{ navigator.vibrate && navigator.vibrate(pat); }catch(e){}   // Android
+      sw.checked = false;   // 戻して次タップも必ず“変化”=確実に鳴る
+    });
+    el.appendChild(sw);
+  }
+  function auto(){
+    document.querySelectorAll('button, a.tb, .tb, .del-badge, .tbl-del, .edit-act, .glass-btn, [data-haptic]').forEach(overlay);
+  }
+  window.HapticUltra = { bind: overlay, auto: auto };
+  var pending = 0;
+  function schedule(){ if(pending) return; pending = 1; Promise.resolve().then(function(){ pending = 0; auto(); }); }
+  if(document.readyState !== 'loading') auto(); else document.addEventListener('DOMContentLoaded', auto);
+  try{ new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true}); }catch(e){}   // 削除モードで後から増える行ボタンも拾う
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+/* __STS_SWIPE_BLOCK__ */
+/* ★★ OS標準「左右スワイプで戻る/進む」を全CSS要素で完全ブロック。touch-action:pan-y=横ジェスチャ無効・縦スクロール維持。例外は末尾。 */
+*, *::before, *::after{ touch-action:pan-y !important; overscroll-behavior-x:none !important; }
+html, body{ overscroll-behavior:none !important; overscroll-behavior-x:none !important; touch-action:pan-y !important; }
+/* Extracted from index.html inline <style> blocks */
+
+/* === index.html inline block (orig line 202) === */
+.ci-overlay.code-overlay {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: fixed; inset: 0; z-index: 3000;
+            display: flex; align-items: center; justify-content: center;
+            padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+            background: radial-gradient(150% 120% at 50% -10%, #fbfbfd 0%, #eceef3 55%, #e3e5ec 100%);
+            backdrop-filter: none; -webkit-backdrop-filter: none;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: opacity .45s cubic-bezier(.22,1,.36,1), visibility .45s;
+        }
+        .ci-overlay.code-overlay.active {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; visibility: visible; pointer-events: auto; }
+
+        /* ---- white card surface (AppClip / AirPods pop) ---- */
+        .ci-card {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+            position: relative; width: min(560px, 92vw); height: min(620px, 82vh);
+            background: #fff; border-radius: 34px;
+            box-shadow: 0 40px 90px -30px rgba(40,40,70,.45), 0 8px 24px rgba(40,40,70,.10),
+                        inset 0 1px 0 rgba(255,255,255,.9);
+            transform: translateY(46px) scale(.92); opacity: 0;
+            transition: transform .6s cubic-bezier(.16,1,.3,1), opacity .5s ease,
+                        width .55s cubic-bezier(.16,1,.3,1), height .55s cubic-bezier(.16,1,.3,1),
+                        border-radius .55s ease, filter .5s ease;
+            overflow: hidden;
+        }
+        .ci-overlay.active .ci-card {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: none; opacity: 1; }
+        .ci-overlay[data-mode="full"] .ci-card {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 100vw; height: 100vh; border-radius: 0; }
+        .ci-overlay[data-mode="full"] .ci-island {touch-action:pan-y!important;overscroll-behavior-x:none!important; top: max(env(safe-area-inset-top, 0px) + 16px, 16px); }
+        .ci-overlay.ci-clipon .ci-card {touch-action:pan-y!important;overscroll-behavior-x:none!important; filter: blur(16px) brightness(.97); }
+
+        /* ---- Dynamic Island ---- */
+        .ci-island {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 7px; z-index: 6; }
+        .ci-knob {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 40px; height: 5px; border-radius: 3px; background: rgba(0,0,0,.15);
+            cursor: grab; touch-action: none;
+            transition: transform .25s cubic-bezier(.16,1,.3,1), background .2s, width .25s; }
+        .ci-knob:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; cursor: grabbing; background: rgba(0,0,0,.3); transform: scaleX(1.15); }
+
+        /* Image #5 pill: white neumorphic capsule, 3 glossy circles — ✕ / ＋ / green */
+        .ci-pill {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; align-items: center; gap: 16px; padding: 11px 15px; border-radius: 60px;
+            background: linear-gradient(180deg,#fff,#f4f5f8);
+            box-shadow: 0 20px 40px -14px rgba(40,40,70,.36), 0 5px 12px rgba(40,40,70,.12),
+                        inset 0 1.5px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(0,0,0,.04); }
+        .ci-icon {touch-action:pan-y!important;overscroll-behavior-x:none!important; flex: 0 0 auto; border: none; cursor: pointer; padding: 0; color: #fff;
+            display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%;
+            transition: transform .14s ease, filter .2s ease; }
+        .ci-icon:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.9); filter: brightness(.96); }
+        .ci-icon svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 24px; height: 24px; }
+        .ci-close  {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: radial-gradient(circle at 38% 30%, #ff5cae, #ec0a78 78%); box-shadow: 0 5px 12px rgba(236,10,120,.42), inset 0 1.5px 2px rgba(255,255,255,.55), inset 0 -3px 6px rgba(150,0,70,.3); }
+        .ci-plus   {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: radial-gradient(circle at 38% 30%, #54bcff, #1d97ec 78%); box-shadow: 0 5px 12px rgba(29,151,236,.42), inset 0 1.5px 2px rgba(255,255,255,.55), inset 0 -3px 6px rgba(0,80,150,.3); }
+        .ci-expand {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: radial-gradient(circle at 38% 30%, #57f08f, #15cf5f 80%); box-shadow: 0 5px 12px rgba(21,207,95,.42), inset 0 1.5px 2px rgba(255,255,255,.55), inset 0 -3px 6px rgba(0,120,50,.3); }
+
+        /* clip fab — top-left of the card, appears once code is shown */
+        .ci-clipfab {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; top: 22px; left: 22px; width: 44px; height: 44px; border-radius: 50%;
+            border: none; cursor: pointer; background: rgba(255,255,255,.92); display: grid; place-items: center; z-index: 7;
+            box-shadow: 0 10px 22px -8px rgba(40,40,70,.34), inset 0 0 0 1px rgba(0,0,0,.05);
+            opacity: 0; pointer-events: none; transform: scale(.82);
+            transition: opacity .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1); }
+        .ci-clipfab img {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 22px; height: 22px; object-fit: contain; pointer-events: none; }
+        .ci-clipfab:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.88); }
+        .ci-overlay.ci-code .ci-clipfab, .ci-overlay[data-mode="expanded"] .ci-clipfab,
+        .ci-overlay[data-mode="full"] .ci-clipfab {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; pointer-events: auto; transform: scale(1); }
+
+        /* ---- Resource / Style switch ---- */
+        .ci-sections {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; left: 30px; bottom: 64px; display: flex; flex-direction: column; gap: 28px; z-index: 5;
+            opacity: 0; transform: translateY(14px); pointer-events: none;
+            transition: opacity .4s ease, transform .45s cubic-bezier(.16,1,.3,1); }
+        .ci-overlay[data-mode="expanded"] .ci-sections, .ci-overlay[data-mode="full"] .ci-sections {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; transform: none; pointer-events: auto; }
+        .ci-sec {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; align-items: center; gap: 18px; background: transparent; border: none; cursor: pointer; padding: 0; }
+        .ci-sec-bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 132px; height: 8px; border-radius: 6px; background: #cccdd4; transition: width .3s, background .3s; }
+        .ci-sec-label {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 800 clamp(28px,6vw,42px)/1 -apple-system,"SF Pro Display","Hiragino Sans",system-ui; color: #c2c2ca; letter-spacing: -.6px; transition: color .3s; }
+        .ci-sec:not(.is-on) {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: .85; }
+        .ci-sec.is-on[data-sec="resource"] .ci-sec-bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: linear-gradient(90deg,#22d3ee,#7c4dff); width: 150px; }
+        .ci-sec.is-on[data-sec="resource"] .ci-sec-label {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: linear-gradient(90deg,#ff2db7,#ff6a00); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .ci-sec.is-on[data-sec="style"] .ci-sec-bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: #3a3a3c; width: 150px; }
+        .ci-sec.is-on[data-sec="style"] .ci-sec-label {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #1c1c1e; }
+
+        /* ---- Monaco body ---- */
+        .ci-body {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; inset: 88px 16px 16px; border-radius: 18px; overflow: hidden; background: #1e1e1e;
+            opacity: 0; pointer-events: none; transition: opacity .5s ease, inset .5s cubic-bezier(.16,1,.3,1); }
+        .ci-overlay.ci-code .ci-body {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; pointer-events: auto; }
+        .ci-overlay[data-mode="full"] .ci-body {touch-action:pan-y!important;overscroll-behavior-x:none!important; inset: 84px 0 0 200px; border-radius: 0; }
+        .ci-fallback {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; inset: 0; width: 100%; height: 100%; box-sizing: border-box;
+            border: none; outline: none; resize: none; background: #1e1e1e; color: #e6e6e6;
+            font: 13px/1.6 ui-monospace,"SF Mono",Menlo,Consolas,monospace; padding: 14px 16px;
+            -webkit-user-select: text; user-select: text; tab-size: 2; }
+        .ci-overlay[data-mode="full"] .ci-sections {touch-action:pan-y!important;overscroll-behavior-x:none!important; left: 24px; bottom: auto; top: 120px; }
+
+        /* ---- intro flourish ("Style" word) ---- */
+        .ci-intro {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-44%);
+            font: 800 clamp(40px,11vw,72px)/1 -apple-system,"SF Pro Display","Hiragino Sans",system-ui; color: #d8d8df;
+            opacity: 0; pointer-events: none; z-index: 4; }
+        .ci-intro.play {touch-action:pan-y!important;overscroll-behavior-x:none!important; animation: ciIntro 1.5s cubic-bezier(.16,1,.3,1) forwards; }
+        @keyframes ciIntro {
+            0%   { opacity: 0; transform: translate(-50%,-42%); }
+            22%  { opacity: 1; transform: translate(-50%,-50%); }
+            66%  { opacity: 1; transform: translate(-50%,-50%); }
+            100% { opacity: 0; transform: translate(-50%,-54%) scale(.97); }
+        }
+
+        /* ---- Clip history sheet (frameless, slides up) ---- */
+        .ci-clipsheet {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; left: 0; right: 0; bottom: 0; max-height: 74%;
+            background: rgba(255,255,255,.82); backdrop-filter: blur(34px) saturate(1.7); -webkit-backdrop-filter: blur(34px) saturate(1.7);
+            border-radius: 30px 30px 0 0; box-shadow: 0 -18px 44px -18px rgba(40,40,70,.34);
+            transform: translateY(102%); transition: transform .5s cubic-bezier(.16,1,.3,1);
+            padding: 14px 18px calc(24px + env(safe-area-inset-bottom)); overflow: auto; z-index: 9; }
+        .ci-overlay.ci-clipon .ci-clipsheet {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: none; }
+        .ci-clip-handle {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 40px; height: 5px; border-radius: 3px; background: rgba(0,0,0,.16); margin: 0 auto 14px; }
+        .ci-clip-empty {touch-action:pan-y!important;overscroll-behavior-x:none!important; text-align: center; color: #9a9aa6; font: 600 14px/1.5 -apple-system,"Hiragino Sans",system-ui; padding: 30px 0; }
+        .ci-clip-item {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: relative; padding: 13px 15px; border-radius: 15px; background: rgba(255,255,255,.72);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); margin-bottom: 10px; cursor: pointer;
+            font: 500 12px/1.55 ui-monospace,"SF Mono",Menlo,monospace; color: #1c1c1e;
+            white-space: pre-wrap; word-break: break-word; max-height: 92px; overflow: hidden; }
+        .ci-clip-item:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.985); }
+        .ci-clip-item .ci-clip-when {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: block; font: 600 11px/1 -apple-system,system-ui; color: #8e8e93; margin-bottom: 6px; }
+
+        /* keep the launcher vs.png entry above everything but below the overlay */
+        body.ci-open .code-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 0 !important; pointer-events: none !important; }
+
+/* === index.html inline block (orig line 13205) === */
+.app-langbar {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; left: 0; top: 50%;
+            display: flex; flex-direction: column; gap: 20px; padding-left: max(8px, env(safe-area-inset-left)); z-index: 60;
+            opacity: 0; transform: translate(-16px, -50%); pointer-events: none;
+            transition: opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1); }
+        /* app: the language bar slides in smoothly (0.5s) on long-press page-switch (preview) */
+        body.launched.preview-active:not(.page-3d) .app-langbar {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; transform: translate(0, -50%); pointer-events: auto; }
+        .app-lang {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; align-items: center; gap: 11px; cursor: pointer; border: none; background: transparent;
+            color: rgba(60,58,84,0.5); font: 600 17px/1 -apple-system, "Hiragino Sans", system-ui; padding: 3px 0; user-select: none;
+            transition: color .3s var(--ease, ease), transform .25s ease; -webkit-tap-highlight-color: transparent; }
+        .app-lang .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: block; height: 2px; width: 22px; border-radius: 2px; background: rgba(90,74,208,0.4); transition: width .35s ease, background .3s ease; }
+        .app-lang.active {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: #5a4ad0; font-size: 23px; font-weight: 700; }
+        .app-lang.active .bar {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 38px; background: #5a4ad0; }
+        .app-lang:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: translateX(3px); }
+        .app-lang-add {touch-action:pan-y!important;overscroll-behavior-x:none!important; color: rgba(90,74,208,0.72); font-size: 14px; }
+
+        /* ===== Language globe launchpad — JUST terrakoku-flags.html in a bare iframe.
+           No background, no animation, no transform: it must render byte-for-byte like
+           the standalone file (user requirement: 自作・CDN改変しない). ===== */
+        .lang-launchpad {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: fixed; inset: 0; z-index: 9500; display: none; background: #000;
+            opacity: 0; transition: opacity .5s ease; }   /* smooth 0.5s fade (opacity only — no transform, so the globe never distorts) */
+        .lang-launchpad.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: block; }
+        .lang-launchpad.in {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; }
+        .lang-globe {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
+        .lang-pick-title {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; top: max(env(safe-area-inset-top, 0px) + 12px, 22px); left: 0; right: 0; text-align: center;
+            color: #fff; font: 700 18px/1.25 -apple-system,"Hiragino Sans",system-ui; letter-spacing: .3px; pointer-events: none;
+            text-shadow: 0 2px 14px rgba(0,0,0,.7); z-index: 2; }
+        .lang-pick-title small {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: block; font-size: 12px; font-weight: 500; color: rgba(255,255,255,.62); margin-top: 4px; }
+        .lang-pick-row {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; left: 0; right: 0; bottom: calc(24px + env(safe-area-inset-bottom));
+            display: flex; gap: 12px; overflow-x: auto; padding: 14px 20px; z-index: 2;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .lang-pick-row::-webkit-scrollbar {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+        .lang-flag {touch-action:pan-y!important;overscroll-behavior-x:none!important; flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 6px;
+            background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 18px;
+            padding: 12px 14px; min-width: 78px; cursor: pointer; color: #fff;
+            backdrop-filter: blur(14px) saturate(1.6); -webkit-backdrop-filter: blur(14px) saturate(1.6);
+            transition: transform .15s cubic-bezier(.34,1.56,.64,1), background .2s, opacity .2s; }
+        .lang-flag:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.9); background: rgba(255,255,255,.18); }
+        .lang-flag .fg {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 30px; line-height: 1; }
+        .lang-flag .nm {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 600 12px/1 -apple-system,"Hiragino Sans",system-ui; white-space: nowrap; }
+        .lang-flag.added {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: .45; }
+        .lang-pick-close {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: absolute; top: max(env(safe-area-inset-top, 0px) + 10px, 18px); right: 18px; width: 40px; height: 40px;
+            border-radius: 50%; border: none; background: rgba(255,255,255,.14); color: #fff; font-size: 22px; cursor: pointer;
+            display: grid; place-items: center; z-index: 3;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .lang-pick-close:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.9); }
+        /* text being live-edited as a custom translation */
+        .placed-text.lang-editing {touch-action:pan-y!important;overscroll-behavior-x:none!important; outline: 2px dashed rgba(90,200,250,.5); outline-offset: 3px; border-radius: 4px; }
+
+/* ★ touch-action 例外: 横操作が必須の要素のみ native 動作へ。戻る/進むは JS の端ガード＋履歴トラップで封殺するので安全。 */
+canvas, video, model-viewer, input[type="range"], input[type="color"], [contenteditable], [contenteditable] *, [data-hswipe], [data-hscroll], .hscroll, .h-scroll, .carousel, .swiper, .swiper-wrapper, .timeline, .timeline *{ touch-action:auto !important; }

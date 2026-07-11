@@ -1,0 +1,20 @@
+.DS_Store
+icons/icon-source.png
+あとは俺がやる.local.md
+*.local.md
+firebase.json
+.firebaserc
+.firebase/
+.vscode/
+
+# --- internal / sensitive: keep OUT of the public repo (added 2026-06-16) ---
+.wrangler/
+**/.wrangler/
+apps/WORK_LOG_*.md
+WORK_LOG_*.md
+apps/HANDOFF.md
+apps/DEPLOY.md
+apps/PHASES.md
+
+# build/merge artifacts
+*.orig

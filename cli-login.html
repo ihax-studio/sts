@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Shake-to-Shake · CLI ログイン</title>
+<!--
+  CLI ログイン用の専用ページ（index.html には一切手を入れない・DBルールも変更なし）。
+  パスキー(Touch ID)で本人確認 → このブラウザのアカウントの Firebase refresh token + プロフィールを
+  短命の handoffs/<code> に書き出す → ターミナルの stscli がコードで受け取り、同じ uid で「同じアカウント」に。
+  ・パスキーは shake-to-shake.netlify.app オリジンでのみ有効（rp.id）。だからこのページが要る。
+  ・refresh token は複数デバイスで同時利用できる＝2台以上の多重ログイン可。
+  ・逆方向(CLI→PWA)も同じ handoffs を PWA 側で読めば成立（別途）。
+-->
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif; color:#0b2a3a;
+    background:linear-gradient(160deg,#8fd3ff,#c9f0ff 45%,#eafff4); display:flex; min-height:100%;
+    align-items:center; justify-content:center; padding:24px; position:relative; overflow:hidden; }
+  /* 背景blur: ぼかした光のブロブ＋フロスト veil で奥行き（モーダル感） */
+  body::before{ content:""; position:fixed; inset:-20%; z-index:0;
+    background:radial-gradient(40% 40% at 20% 25%,#7ad0ff 0%,transparent 60%),
+              radial-gradient(45% 45% at 82% 20%,#c6a7ff 0%,transparent 60%),
+              radial-gradient(50% 50% at 60% 90%,#8affd4 0%,transparent 60%);
+    filter:blur(80px) saturate(150%); opacity:.85; }
+  body::after{ content:""; position:fixed; inset:0; z-index:0;
+    backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); background:rgba(255,255,255,.10); }
+  .card{ position:relative; z-index:1; }
+  .card{ width:min(92vw,420px); background:rgba(255,255,255,.62); border-radius:28px; padding:26px 24px;
+    backdrop-filter:blur(30px) saturate(180%); -webkit-backdrop-filter:blur(30px) saturate(180%);
+    box-shadow:0 24px 60px rgba(0,60,120,.22), inset 0 0 0 1px #fff; text-align:center; }
+  h1{ font-size:20px; margin:6px 0 2px; }
+  p{ font-size:14px; color:#33566a; margin:8px 0; }
+  .btn{ display:block; width:100%; margin:14px 0 0; border:0; border-radius:18px; padding:15px;
+    font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; color:#fff;
+    background:linear-gradient(180deg,#34c1ff,#0a84ff); box-shadow:0 8px 20px rgba(10,132,255,.35); }
+  .btn:active{ transform:scale(.98); }
+  .code{ font:800 40px/1.1 ui-monospace,Menlo,monospace; letter-spacing:8px; color:#0a84ff;
+    background:#fff; border-radius:16px; padding:16px; margin:14px 0 6px; user-select:all; }
+  .muted{ font-size:12px; color:#5a7488; }
+  .spin{ display:inline-block; width:18px; height:18px; border:3px solid rgba(10,132,255,.25);
+    border-top-color:#0a84ff; border-radius:50%; animation:sp .8s linear infinite; vertical-align:-3px; }
+  @keyframes sp{ to{ transform:rotate(360deg); } }
+  #err{ color:#c0392b; }
+  .hidden{ display:none; }
+  /* 滑らかな出現アニメ */
+  .card{ animation:cardin .42s cubic-bezier(.22,.61,.36,1) both; }
+  @keyframes cardin{ from{ opacity:0; transform:translateY(14px) scale(.97); } to{ opacity:1; transform:none; } }
+  @keyframes fadein{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  .btn{ transition:transform .15s var(--sp,cubic-bezier(.34,1.56,.64,1)); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div style="font-size:40px">🌊</div>
+  <h1>ターミナルにログイン</h1>
+  <div id="stepAuth">
+    <p>パスキー（Touch ID）で本人確認し、このアカウントをターミナルの <b>stscli</b> に引き継ぎます。</p>
+    <button class="btn" id="go">パスキーで続ける</button>
+    <p class="muted">index.html もDBルールも変更しません。</p>
+  </div>
+  <div id="stepBusy" class="hidden"><p><span class="spin"></span> 認証しています…</p></div>
+  <div id="stepDone" class="hidden">
+    <p>このコードを <b>ターミナル</b> に入力してください（有効2分）:</p>
+    <div class="code" id="code">------</div>
+    <p class="muted" id="who"></p>
+    <p class="muted">入力すると自動で完了します。このタブは閉じてOK。</p>
+  </div>
+  <div id="stepErr" class="hidden"><p id="err"></p><button class="btn" id="retryErr">もう一度ログイン</button></div>
+  <div id="stepCancel" class="hidden"><p>✕ キャンセルされました</p><button class="btn" id="retryCancel">もう一度ログイン</button></div>
+  <div id="stepConfirm" class="hidden">
+    <p>このMacのアカウント<br><b id="confWho"></b><br>で ターミナル(stscli) にログインしますか？</p>
+    <button class="btn" id="confirmYes">ログインする</button>
+    <button class="btn" id="confirmNo" style="background:rgba(120,120,128,.25);color:#0b2a3a;box-shadow:none;margin-top:8px">閉じる</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  function show(step){
+    ["stepAuth","stepBusy","stepDone","stepErr","stepCancel","stepConfirm"].forEach(function(s){ $(s).classList.toggle("hidden", s!==step); });
+    var el = $(step); if(el){ el.style.animation="none"; void el.offsetWidth; el.style.animation="fadein .32s cubic-bezier(.22,.61,.36,1)"; }   // 滑らかに再表示
+  }
+  function fail(msg){ $("err").textContent = msg; show("stepErr"); }
+  function isCancel(e){ return e && (e.name==="NotAllowedError" || e.name==="AbortError" || /cancel|denied|not allowed|abort/i.test(String(e.message||e))); }
+
+  try { firebase.initializeApp(window.FIREBASE_CONFIG); } catch(e){}
+  var auth = firebase.auth(), db = firebase.database();
+
+  function b64u(buf){ var b=new Uint8Array(buf),s=""; for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+  function passkeyGate(){
+    // Touch ID ゲート: 既存パスキーがあれば get、無ければ create。どちらも本人確認になる。
+    if(!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext))
+      return Promise.reject(new Error("この端末/ブラウザはパスキー非対応です"));
+    var ch = crypto.getRandomValues(new Uint8Array(32));
+    return navigator.credentials.get({ publicKey:{ challenge:ch, timeout:60000, userVerification:"required" }})
+      .catch(function(){
+        // 登録済みが無い→新規作成でTouch IDゲート
+        var uid = crypto.getRandomValues(new Uint8Array(16));
+        return navigator.credentials.create({ publicKey:{ challenge:ch, rp:{ name:"Shake to Shake" },
+          user:{ id:uid, name:"stscli", displayName:"stscli" },
+          pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],
+          authenticatorSelection:{ userVerification:"required", residentKey:"preferred" }, timeout:60000 }});
+      });
+  }
+  function randCode(){ var s="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", c=""; var r=crypto.getRandomValues(new Uint8Array(6)); for(var i=0;i<6;i++)c+=s[r[i]%s.length]; return c; }
+
+  function ensureUser(){
+    return new Promise(function(res){
+      // 既存セッション(このブラウザのPWAアカウント)があればそれを使う=同じuid。無ければ匿名で作成。
+      if(auth.currentUser) return res(auth.currentUser);
+      var off = auth.onAuthStateChanged(function(u){ if(u){ off(); res(u); } });
+      auth.signInAnonymously().catch(function(e){ fail("サインインに失敗: "+(e&&e.message||e)); });
+    });
+  }
+
+  // アカウントを stscli に引き継ぐ本体(refresh token + プロフィールを短命 handoffs/<code> へ)
+  function doHandoff(user){
+    return user.getIdToken().then(function(idToken){
+      return db.ref("users/"+user.uid).once("value").then(function(s){ var prof=s.val()||null;
+        var code = randCode();
+        var payload = { rt:user.refreshToken, uid:user.uid, it:idToken, exp:Date.now()+120000, prof:prof };
+        return db.ref("handoffs/"+code).set(payload).then(function(){
+          $("code").textContent = code;
+          $("who").textContent = prof && prof.name ? (prof.ava||"")+" "+prof.name+" として引き継ぎ" : "新規アカウントを引き継ぎ";
+          show("stepDone");
+          var ref=db.ref("handoffs/"+code);
+          ref.on("value", function(sn){ if(!sn.exists()){ ref.off(); $("code").textContent="✓ 完了"; $("who").textContent="ターミナルに引き継ぎました。閉じてOK。"; } });
+        });
+      });
+    });
+  }
+  // ★「認証しています」でくるくる固まらないよう20sタイムアウト＋二重発火ガード
+  var _authing = false, _authTO = null;
+  function _busy(){ _authing = true; show("stepBusy"); clearTimeout(_authTO); _authTO = setTimeout(function(){ if(_authing){ _authing=false; fail("認証に時間がかかっています。もう一度お試しください"); } }, 20000); }
+  function _authDone(){ _authing = false; clearTimeout(_authTO); }
+  function startLogin(){ if(_authing) return; _busy(); passkeyGate().then(ensureUser).then(doHandoff)
+      .then(_authDone).catch(function(e){ _authDone(); if(isCancel(e)) show("stepCancel"); else fail(String(e&&e.message||e)); }); }
+  // 既にログイン済み→パスキー不要でそのまま引き継ぎ
+  function confirmLogin(){ if(_authing) return; _busy(); ensureUser().then(doHandoff).then(_authDone).catch(function(e){ _authDone(); fail(String(e&&e.message||e)); }); }
+
+  $("go").onclick = startLogin;
+  $("retryErr").onclick = startLogin;
+  $("retryCancel").onclick = startLogin;
+  if($("confirmYes")) $("confirmYes").onclick = confirmLogin;
+  if($("confirmNo")) $("confirmNo").onclick = function(){ window.close(); };
+
+  // ★このMacのPWAで既にログイン済みなら「ログインしますか？」を出す(パスキーUIなし)。未ログインはパスキー。
+  auth.onAuthStateChanged(function(u){
+    if(u && !window.__decided){
+      window.__decided = 1;
+      db.ref("users/"+u.uid).once("value").then(function(s){ var p=s.val();
+        if(p && p.name){ $("confWho").textContent = (p.ava||"")+" "+p.name; show("stepConfirm"); }
+      }).catch(function(){});
+    }
+  });
+})();
+</script>
+</body>
+</html>

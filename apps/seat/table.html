@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>座席表エディタ — Glass Table</title>
+<style>
+  :root{
+    --line: rgba(120,124,170,0.22);
+    --cell: rgba(255,255,255,0.46);
+    --cell-hi: rgba(255,255,255,0.62);
+    --sel: rgba(86,130,255,0.20);
+    --sel-edge: rgba(86,130,255,0.9);
+    --blue: #4a90ff;
+    --green: #57d36f;
+    --pink: #ff3b7f;
+    --radius: 18px;
+    --ink: #41455c;
+    --spring: cubic-bezier(.34,1.56,.64,1);
+    --glide: cubic-bezier(.22,.61,.36,1);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Helvetica Neue",system-ui,sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 800px at 12% 8%,  #eef0fb 0%, rgba(238,240,251,0) 60%),
+      radial-gradient(1000px 900px at 88% 95%, #f3eef8 0%, rgba(243,238,248,0) 60%),
+      linear-gradient(135deg,#eef1f8 0%, #e7ebf4 100%);
+    overflow:auto;
+  }
+  .blobs{ position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; filter:blur(60px); }
+  .blob{ position:absolute; border-radius:50%; opacity:.40; animation:drift 20s ease-in-out infinite; }
+  .b1{ width:420px;height:420px; left:6%;  top:10%; background:#a4b6ff; animation-duration:19s; }
+  .b2{ width:480px;height:480px; right:4%; top:6%;  background:#ffc3e0; animation-duration:24s; animation-direction:reverse; }
+  .b3{ width:520px;height:420px; left:20%; bottom:-6%; background:#b7f3c9; animation-duration:27s; }
+  .b4{ width:360px;height:360px; right:18%;bottom:8%; background:#cdb8ff; opacity:.30; animation-duration:22s; animation-direction:reverse; }
+  @keyframes drift{
+    0%  { transform:translate(0,0) scale(1) rotate(0deg); }
+    33% { transform:translate(46px,-34px) scale(1.10) rotate(8deg); }
+    66% { transform:translate(-34px,28px) scale(.94) rotate(-6deg); }
+    100%{ transform:translate(0,0) scale(1) rotate(0deg); }
+  }
+
+  .page{ position:relative; z-index:1; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:34px 90px 120px; }
+
+  /* ── 名前バー ── */
+  .namebar{
+    display:flex; gap:10px; align-items:center; margin-bottom:14px;
+    padding:8px 10px 8px 18px;
+    background:rgba(255,255,255,0.55);
+    border:1px solid rgba(255,255,255,0.7);
+    border-radius:999px;
+    backdrop-filter:blur(20px) saturate(160%);
+    -webkit-backdrop-filter:blur(20px) saturate(160%);
+    box-shadow:0 18px 40px -18px rgba(70,70,130,0.35), inset 0 1px 0 rgba(255,255,255,0.7);
+    animation:floatIn .8s var(--spring) both;
+  }
+  .namebar .lead{ font-size:13px; font-weight:700; opacity:.65; letter-spacing:.3px; }
+  .namebar input{
+    border:none; outline:none; background:transparent; font:inherit; font-size:17px; font-weight:700;
+    color:var(--ink); min-width:200px; padding:6px 4px; caret-color:var(--blue);
+  }
+  .namebar input::placeholder{ color:rgba(65,69,92,.35); font-weight:600; }
+
+  /* ── ツールバー ── */
+  .toolbar{
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+    padding:8px; margin-bottom:38px;
+    background:rgba(255,255,255,0.45);
+    border:1px solid rgba(255,255,255,0.65);
+    border-radius:999px;
+    backdrop-filter:blur(20px) saturate(160%);
+    -webkit-backdrop-filter:blur(20px) saturate(160%);
+    box-shadow:0 18px 40px -18px rgba(70,70,130,0.35), inset 0 1px 0 rgba(255,255,255,0.7);
+    animation:floatIn .8s var(--spring) both;
+  }
+  .toolbar .title{ font-weight:700; letter-spacing:.3px; padding:0 14px 0 16px; font-size:14px; opacity:.8; }
+  .tb{
+    position:relative; overflow:hidden;
+    appearance:none; border:none; cursor:pointer;
+    font-family:inherit; font-size:13px; font-weight:600; color:var(--ink);
+    padding:9px 16px; border-radius:999px;
+    background:rgba(255,255,255,0.55);
+    border:1px solid rgba(255,255,255,0.55);
+    transition:transform .25s var(--spring), background .2s ease, box-shadow .25s var(--glide);
+    text-decoration:none; display:inline-flex; align-items:center;
+  }
+  .tb:before{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,0.55) 50%,transparent 68%);
+    transform:translateX(-130%); transition:transform .6s var(--glide); }
+  .tb:hover:before{ transform:translateX(130%); }
+  .tb:hover{ transform:translateY(-2px); background:rgba(255,255,255,0.88); box-shadow:0 10px 22px -8px rgba(70,70,130,0.45); }
+  .tb:active{ transform:translateY(0) scale(.95); }
+  .tb.save{ background:linear-gradient(135deg,#57d36f,#2eb6a8); color:#fff; border-color:transparent; }
+  .tb.danger:hover{ background:#ffe1ea; color:#e02b62; }
+  .sep{ width:1px; height:22px; background:rgba(120,124,170,0.22); margin:0 4px; }
+
+  /* ── ステージ / 表 ── */
+  .stage{ position:relative; }
+  .wrap{ position:relative; }
+  table{
+    border-collapse:separate; border-spacing:0; table-layout:fixed;
+    background:transparent;
+    border-radius:var(--radius);
+    box-shadow:
+      0 40px 80px -30px rgba(64,68,120,0.42),
+      0 8px 22px -12px rgba(64,68,120,0.28);
+  }
+  td{
+    margin:0; padding:12px 16px; text-align:left; vertical-align:middle;
+    font-size:14px; line-height:1.45; color:var(--ink);
+    outline:none; overflow:hidden;
+    transition:background .15s ease, box-shadow .15s ease;
+    word-break:break-word;
+  }
+  /* 座席（実セル） */
+  td.seat{
+    background:var(--cell);
+    backdrop-filter:blur(14px) saturate(150%);
+    -webkit-backdrop-filter:blur(14px) saturate(150%);
+    box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255,255,255,0.5);
+    cursor:default;
+  }
+  td.seat:empty:before{ content:""; }
+  td.seat.editing{ background:var(--cell-hi); box-shadow: inset 0 0 0 2px rgba(86,130,255,0.55); cursor:text; }
+  /* 空きスペース（削除されたマス） */
+  td.empty{
+    background:transparent;
+    box-shadow: inset 0 0 0 1px rgba(120,124,170,0.10);
+    cursor:pointer;
+  }
+  td.empty:hover{ background:rgba(255,255,255,0.22); box-shadow: inset 0 0 0 1px rgba(120,124,170,0.22); }
+  /* 選択中 */
+  td.sel{ box-shadow: inset 0 0 0 2.5px var(--sel-edge); }
+  td.seat.sel{ background:var(--sel); }
+
+  /* ── リサイズ・ハンドル ── */
+  #handles{ position:absolute; inset:0; pointer-events:none; z-index:5; }
+  /* 行・列のリサイズ線は通常は隠す（結合セルが継ぎ目なく“1つのセル”に見えるように）。ホバーで現れる */
+  .handle{ position:absolute; pointer-events:auto; opacity:0; transition:opacity .25s var(--glide), transform .3s var(--spring), box-shadow .25s var(--glide), left .35s var(--spring), top .35s var(--spring), width .35s var(--spring), height .35s var(--spring); }
+  .h-sx, .h-sy, .h-corner{ opacity:.45; }       /* 外周のスケール用ハンドルは控えめに常時表示 */
+  /* 列・行のリサイズ線はステージのホバーでは出さない（結合グループに境界線が出ないように）。
+     その線を直接ホバーしたときだけ現れる（下の .handle:hover）。 */
+  .stage:hover .h-sx, .stage:hover .h-sy, .stage:hover .h-corner{ opacity:.85; }
+  .handle:hover, .handle.active{ opacity:1; }
+  .handle.active{ transition:opacity .25s var(--glide), transform .12s ease, box-shadow .25s var(--glide); }
+  .h-col{ width:6px; border-radius:6px; background:var(--blue); cursor:col-resize; }
+  .h-col:hover, .h-col.active{ transform:scaleX(1.9); box-shadow:0 0 16px rgba(74,144,255,0.6); }
+  .h-row{ height:6px; border-radius:6px; background:var(--blue); cursor:row-resize; }
+  .h-row:hover, .h-row.active{ transform:scaleY(1.9); box-shadow:0 0 16px rgba(74,144,255,0.6); }
+  .h-sx{ width:7px; border-radius:7px; background:var(--green); cursor:ew-resize; }
+  .h-sx:hover, .h-sx.active{ transform:scaleX(2.0); box-shadow:0 0 18px rgba(87,211,111,0.65); }
+  .h-sy{ height:7px; border-radius:7px; background:var(--green); cursor:ns-resize; }
+  .h-sy:hover, .h-sy.active{ transform:scaleY(2.0); box-shadow:0 0 18px rgba(87,211,111,0.65); }
+  .h-corner{ width:14px; height:14px; border-radius:50%; background:var(--pink); cursor:nwse-resize; box-shadow:0 4px 10px -2px rgba(255,59,127,0.5); animation:pulse 2.6s ease-in-out infinite; }
+  .h-corner:hover, .h-corner.active{ transform:scale(1.35); box-shadow:0 0 20px rgba(255,59,127,0.7); animation-play-state:paused; }
+
+  /* ── 操作オーバーレイ（選択セルに“ぽぽぽ”っと出るバッジ） ── */
+  #overlay{ position:absolute; inset:0; pointer-events:none; z-index:8; }
+  .ov{
+    position:absolute; pointer-events:auto;
+    display:flex; align-items:center; justify-content:center;
+    border:none; cursor:pointer; color:#fff; font-weight:800; line-height:1; padding:0;
+    border-radius:999px; transform-origin:center;
+    box-shadow:0 4px 12px -2px rgba(40,44,70,0.4);
+    animation:popIn .26s var(--spring) both;
+    transition:filter .15s ease, transform .15s var(--spring);
+  }
+  @keyframes popIn{ from{ opacity:0; transform:scale(.2); } to{ opacity:1; transform:scale(1); } }
+  .ov:hover{ filter:brightness(1.08); transform:scale(1.14); }
+  .ov:active{ transform:scale(.88); }
+  /* 結合（グループ化）できる所＝“枠色＋”（塗りつぶさず、枠線スタイルの角丸四角） */
+  .ov-merge{ width:24px; height:24px; font-size:18px; border-radius:7px;
+    background:rgba(255,255,255,0.92); color:var(--blue); border:2.5px solid var(--blue);
+    box-shadow:0 3px 9px -2px rgba(63,123,255,0.45); }
+  .ov-del{ width:27px; height:27px; font-size:21px; background:linear-gradient(135deg,#ff6b8b,#ff2e6e); }
+  /* 新規マスの追加＝“丸い＋”（緑の塗りつぶし円）。空きマスへ座席を置く／行・列を足す */
+  .ov-addseat{ width:32px; height:32px; font-size:21px; background:linear-gradient(135deg,#57d36f,#2eb6a8); }
+  .ov-unmerge{ height:23px; width:auto; padding:0 11px; font-size:11.5px; font-weight:800;
+    background:rgba(40,44,70,0.92); letter-spacing:.4px; }
+  .ov-grow{ width:23px; height:23px; font-size:17px; color:#fff; border:none;
+    background:linear-gradient(135deg,#57d36f,#2eb6a8);
+    box-shadow:0 4px 10px -3px rgba(46,182,168,0.5); opacity:.55; animation:none; }
+  .stage:hover .ov-grow{ opacity:.97; }
+
+  @keyframes floatIn{ from{ opacity:0; transform:translateY(-14px) scale(.96); filter:blur(5px); } to{ opacity:1; transform:none; filter:blur(0); } }
+  @keyframes cellIn{  from{ opacity:0; transform:translateY(10px) scale(.90); filter:blur(8px); } to{ opacity:1; transform:translateY(0) scale(1); filter:blur(0); } }
+  @keyframes pulse{ 0%,100%{ box-shadow:0 4px 10px -2px rgba(255,59,127,0.5); } 50%{ box-shadow:0 0 0 8px rgba(255,59,127,0), 0 4px 16px -2px rgba(255,59,127,0.65); } }
+  td.in{ animation:cellIn .3s var(--spring) both; }
+
+  .hint{ margin-top:30px; font-size:12.5px; color:#7d80a0; text-align:center; line-height:1.95; opacity:.9; }
+  .hint b{ color:#5b5e86; }
+  .dot{ display:inline-block; width:11px;height:11px;border-radius:50%; vertical-align:-1px; margin:0 3px 0 10px; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+</style>
+</head>
+<body>
+  <div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+
+  <div class="page">
+    <div class="namebar">
+      <span class="lead">テーブル名</span>
+      <input id="tableName" type="text" placeholder="例：1年A組 / 職員室" maxlength="40" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="toolbar">
+      <span class="title">◈ 座席表</span>
+      <button class="tb save" data-act="save">💾 座席表を保存</button>
+      <button class="tb danger" data-act="reset" data-haptic="heavy">↺ 全てリセット</button>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="wrap" id="wrap">
+        <table id="tbl"><colgroup id="cg"></colgroup><tbody id="tb"></tbody></table>
+        <div id="handles"></div>
+        <div id="overlay"></div>
+      </div>
+    </div>
+
+    <div class="hint">
+      セルを<b>1クリックで選択</b> → 周りに <b style="color:#3f7bff">＋</b>（結合）と中央の <b style="color:#ff2e6e">−</b>（削除）が出ます<br>
+      <b style="color:#3f7bff">＋</b> 隣と<b>結合</b>して1つのセルに ・ <b style="color:#ff2e6e">−</b> そのマスを<b>空きスペース</b>に ・ 空きマスの <b style="color:#2eb6a8">＋</b> で座席を戻す<br>
+      結合済みのセルには <b>解除</b> が出ます ・ 右／下の <b style="color:#557dff">＋</b> で<b>列・行を追加</b> ・ <b>ダブルクリック / Enter</b> で文字入力<br>
+      <span class="dot" style="background:#4a90ff"></span><b>青</b> 列・行のリサイズ
+      <span class="dot" style="background:#57d36f"></span><b>緑</b> 全体の横／縦スケール
+      <span class="dot" style="background:#ff3b7f"></span><b>桃</b> 角=全体スケール
+    </div>
+  </div>
+
+<script>
+const DEFAULT_COL_W = 170, DEFAULT_ROW_H = 60;
+const MIN_W = 56, MIN_H = 32;
+const STORE_KEY = 'seatingApp_v1';
+
+const cg = document.getElementById('cg');
+const tb = document.getElementById('tb');
+const table = document.getElementById('tbl');
+const wrap = document.getElementById('wrap');
+const handles = document.getElementById('handles');
+const overlay = document.getElementById('overlay');
+const nameInput = document.getElementById('tableName');
+
+// ── 共有ストア ──────────────────────────────────────
+function loadStore(){ try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){ return {}; } }
+function saveStore(s){ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+
+// ── 状態 ──────────────────────────────────────────────
+// grid セル: アンカー {kind:'a', seat:true|false, text, rs, cs} / 被覆 {kind:'c'}
+//   seat:true  = 実際の座席（枠あり・編集可）
+//   seat:false = 空きスペース（枠なしの隙間）
+const state = {
+  rows: 3, cols: 4,
+  grid: [],
+  colW: [DEFAULT_COL_W,DEFAULT_COL_W,DEFAULT_COL_W,DEFAULT_COL_W],
+  rowH: [DEFAULT_ROW_H, DEFAULT_ROW_H, DEFAULT_ROW_H],
+  handles: [], colEls: [], rowEls: [],
+};
+for(let r=0;r<state.rows;r++){
+  const row=[];
+  for(let c=0;c<state.cols;c++) row.push({kind:'a', seat:true, text:'', rs:1, cs:1});
+  state.grid.push(row);
+}
+
+// ── 保存済みの表を復元 ──────────────────────────────
+(function restore(){
+  const t = loadStore().table;
+  if(!t || !t.grid) return;
+  state.rows = t.rows; state.cols = t.cols;
+  state.grid = t.grid;
+  for(let r=0;r<state.rows;r++) for(let c=0;c<state.cols;c++){
+    const cell=state.grid[r][c];
+    if(cell && cell.kind==='a' && cell.seat===undefined) cell.seat = true;   // 旧データは全部座席扱い
+  }
+  state.colW = t.colW && t.colW.length===t.cols ? t.colW.slice() : Array(t.cols).fill(DEFAULT_COL_W);
+  state.rowH = t.rowH && t.rowH.length===t.rows ? t.rowH.slice() : Array(t.rows).fill(DEFAULT_ROW_H);
+  if(t.name) nameInput.value = t.name;
+})();
+
+let selCell = null;   // [r,c] = 選択中アンカー
+let editing = false;
+
+// ── 結合グリッドのヘルパ ───────────────────────────────
+function anchorCoordOf(r,c){
+  if(state.grid[r][c].kind==='a') return [r,c];
+  for(let ar=r; ar>=0; ar--)
+    for(let ac=c; ac>=0; ac--){
+      const cell=state.grid[ar][ac];
+      if(cell.kind==='a' && ar<=r && ac<=c && ar+cell.rs-1>=r && ac+cell.cs-1>=c) return [ar,ac];
+    }
+  return [r,c];
+}
+function sameAnchor(r1,c1,r2,c2){ const a=anchorCoordOf(r1,c1), b=anchorCoordOf(r2,c2); return a[0]===b[0]&&a[1]===b[1]; }
+function expandRange(r1,c1,r2,c2){
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++){
+      const [ar,ac]=anchorCoordOf(r,c), cell=state.grid[ar][ac];
+      const er=ar+cell.rs-1, ec=ac+cell.cs-1;
+      if(ar<r1){r1=ar;changed=true;} if(ac<c1){c1=ac;changed=true;}
+      if(er>r2){r2=er;changed=true;} if(ec>c2){c2=ec;changed=true;}
+    }
+  }
+  return [r1,c1,r2,c2];
+}
+function sum(a){ return a.reduce((x,y)=>x+y,0); }
+function cellEl(ar,ac){ return tb.querySelector('td[data-r="'+ar+'"][data-c="'+ac+'"]'); }
+
+// ── 構造操作：行・列の挿入（末尾＝追加 / 途中＝青ハンドル） ──
+function insertRow(i){
+  const ext=new Set(), newRow=[];
+  for(let c=0;c<state.cols;c++){
+    if(i>0 && i<state.rows && sameAnchor(i-1,c,i,c)){
+      newRow[c]={kind:'c'};
+      const [ar,ac]=anchorCoordOf(i-1,c); ext.add(ar+','+ac);
+    } else newRow[c]={kind:'a', seat:true, text:'', rs:1, cs:1};
+  }
+  ext.forEach(k=>{ const [ar,ac]=k.split(',').map(Number); state.grid[ar][ac].rs++; });
+  state.grid.splice(i,0,newRow);
+  state.rowH.splice(i,0,DEFAULT_ROW_H);
+  state.rows++;
+}
+function insertCol(j){
+  const ext=new Set(), cells=[];
+  for(let r=0;r<state.rows;r++){
+    if(j>0 && j<state.cols && sameAnchor(r,j-1,r,j)){
+      cells[r]={kind:'c'};
+      const [ar,ac]=anchorCoordOf(r,j-1); ext.add(ar+','+ac);
+    } else cells[r]={kind:'a', seat:true, text:'', rs:1, cs:1};
+  }
+  ext.forEach(k=>{ const [ar,ac]=k.split(',').map(Number); state.grid[ar][ac].cs++; });
+  for(let r=0;r<state.rows;r++) state.grid[r].splice(j,0,cells[r]);
+  state.colW.splice(j,0,DEFAULT_COL_W);
+  state.cols++;
+}
+
+// ── 結合 / 解除 / 削除 / 追加 ───────────────────────────
+function mergeRange(r1,c1,r2,c2){
+  const texts=[];
+  for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++){
+    const cc=state.grid[r][c];
+    if(cc.kind==='a' && cc.seat && cc.text && cc.text.trim()) texts.push(cc.text.trim());
+  }
+  for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) state.grid[r][c]={kind:'c'};
+  state.grid[r1][c1]={kind:'a', seat:true, text:texts.join(' '), rs:r2-r1+1, cs:c2-c1+1};
+}
+function unmergeAt(r,c){
+  const [ar,ac]=anchorCoordOf(r,c), a=state.grid[ar][ac];
+  const r2=ar+a.rs-1, c2=ac+a.cs-1, text=a.text;
+  for(let rr=ar;rr<=r2;rr++) for(let cc=ac;cc<=c2;cc++)
+    state.grid[rr][cc]={kind:'a', seat:true, text:(rr===ar&&cc===ac)?text:'', rs:1, cs:1};
+}
+
+// 隣（その辺の外側）が全部「座席」なら、その方向に結合できる
+function canMergeSide(ar,ac,dir){
+  const a=state.grid[ar][ac]; const r2=ar+a.rs-1, c2=ac+a.cs-1;
+  if(dir==='up'){    if(ar-1<0) return false;            for(let c=ac;c<=c2;c++){ const [br,bc]=anchorCoordOf(ar-1,c); if(!state.grid[br][bc].seat) return false; } return true; }
+  if(dir==='down'){  if(r2+1>=state.rows) return false;  for(let c=ac;c<=c2;c++){ const [br,bc]=anchorCoordOf(r2+1,c); if(!state.grid[br][bc].seat) return false; } return true; }
+  if(dir==='left'){  if(ac-1<0) return false;            for(let r=ar;r<=r2;r++){ const [br,bc]=anchorCoordOf(r,ac-1); if(!state.grid[br][bc].seat) return false; } return true; }
+  if(dir==='right'){ if(c2+1>=state.cols) return false;  for(let r=ar;r<=r2;r++){ const [br,bc]=anchorCoordOf(r,c2+1); if(!state.grid[br][bc].seat) return false; } return true; }
+  return false;
+}
+function mergeSide(dir){
+  if(!selCell) return; const [ar,ac]=selCell; const a=state.grid[ar][ac];
+  let r1=ar, c1=ac, r2=ar+a.rs-1, c2=ac+a.cs-1;
+  if(dir==='up') r1--; else if(dir==='down') r2++; else if(dir==='left') c1--; else if(dir==='right') c2++;
+  if(r1<0||c1<0||r2>=state.rows||c2>=state.cols) return;
+  [r1,c1,r2,c2]=expandRange(r1,c1,r2,c2);
+  mergeRange(r1,c1,r2,c2);
+  selCell=[r1,c1];
+  render();
+}
+function deleteSelected(){      // 座席 → 空きスペース（合体していたら全域が空きに）
+  if(!selCell) return; const [ar,ac]=selCell; const a=state.grid[ar][ac];
+  const r2=ar+a.rs-1, c2=ac+a.cs-1;
+  for(let r=ar;r<=r2;r++) for(let c=ac;c<=c2;c++) state.grid[r][c]={kind:'a', seat:false, text:'', rs:1, cs:1};
+  selCell=[ar,ac];
+  render();
+}
+function addSeatSelected(){     // 空きスペース → 座席
+  if(!selCell) return; const [ar,ac]=selCell;
+  state.grid[ar][ac]={kind:'a', seat:true, text:'', rs:1, cs:1};
+  render();
+}
+function unmergeSelected(){
+  if(!selCell) return; unmergeAt(selCell[0],selCell[1]); render();
+}
+
+// ── 描画 ──────────────────────────────────────────────
+function render(){
+  editing=false;
+  cg.innerHTML=''; state.colEls=[];
+  for(let c=0;c<state.cols;c++){ const col=document.createElement('col'); cg.appendChild(col); state.colEls.push(col); }
+  tb.innerHTML=''; state.rowEls=[];
+  for(let r=0;r<state.rows;r++){
+    const tr=document.createElement('tr'); state.rowEls.push(tr);
+    for(let c=0;c<state.cols;c++){
+      const cell=state.grid[r][c];
+      if(cell.kind==='c') continue;
+      const el=document.createElement('td');
+      if(cell.rs>1) el.rowSpan=cell.rs;
+      if(cell.cs>1) el.colSpan=cell.cs;
+      el.dataset.r=r; el.dataset.c=c;
+      if(cell.seat){
+        el.className='seat in';
+        el.contentEditable='false';
+        el.spellcheck=false;
+        el.textContent=cell.text;
+        el.addEventListener('input', ()=>{ state.grid[r][c].text = el.innerText; });
+        el.addEventListener('dblclick', ()=>{ enterEdit(r,c); });
+      } else {
+        el.className='empty in';
+      }
+      el.style.animationDelay = Math.min((r+c)*24, 220)+'ms';
+      tr.appendChild(el);
+    }
+    tb.appendChild(tr);
+  }
+  buildHandles();
+  applyLayout();
+  positionOverlay();
+  highlightSel();
+}
+
+function buildHandles(){
+  state.handles=[]; handles.innerHTML='';
+  for(let k=1;k<state.cols;k++) addHandle('col',k,(dx,dy,b)=>{
+    const nl=b.colW[k-1]+dx, nr=b.colW[k]-dx;
+    if(nl>=MIN_W && nr>=MIN_W){ state.colW[k-1]=nl; state.colW[k]=nr; }
+  }, ()=>{ insertCol(k); render(); });
+  for(let k=1;k<state.rows;k++) addHandle('row',k,(dx,dy,b)=>{
+    const nt=b.rowH[k-1]+dy, nb=b.rowH[k]-dy;
+    if(nt>=MIN_H && nb>=MIN_H){ state.rowH[k-1]=nt; state.rowH[k]=nb; }
+  }, ()=>{ insertRow(k); render(); });
+  addHandle('sx',0,(dx,dy,b)=>{ const s=sum(b.colW); const f=Math.max(0.25,(s+dx)/s); state.colW=b.colW.map(w=>Math.max(MIN_W,w*f)); },
+    ()=>{ insertCol(state.cols); render(); });
+  addHandle('sy',0,(dx,dy,b)=>{ const s=sum(b.rowH); const f=Math.max(0.25,(s+dy)/s); state.rowH=b.rowH.map(h=>Math.max(MIN_H,h*f)); },
+    ()=>{ insertRow(state.rows); render(); });
+  addHandle('corner',0,(dx,dy,b)=>{ const sw=sum(b.colW),sh=sum(b.rowH); const f=Math.max(0.25,1+(dx+dy)/(sw+sh)); state.colW=b.colW.map(w=>Math.max(MIN_W,w*f)); state.rowH=b.rowH.map(h=>Math.max(MIN_H,h*f)); },
+    ()=>{ insertCol(state.cols); insertRow(state.rows); render(); });
+}
+function addHandle(type,k,onMove,onClick){
+  const el=document.createElement('div');
+  el.className='handle h-'+type;
+  if(onClick) el.title='クリックで追加 / ドラッグで調整';
+  handles.appendChild(el);
+  state.handles.push({el,type,k});
+  let base;
+  drag(el,(dx,dy)=>{ onMove(dx,dy,base); applyLayout(); }, ()=>{ base={colW:[...state.colW],rowH:[...state.rowH]}; }, onClick);
+}
+
+function applyLayout(){
+  const {colW,rowH}=state;
+  const cumW=[0]; colW.forEach(w=>cumW.push(cumW[cumW.length-1]+w));
+  const cumH=[0]; rowH.forEach(h=>cumH.push(cumH[cumH.length-1]+h));
+  const W=cumW[state.cols], H=cumH[state.rows];
+  state.colEls.forEach((el,i)=> el.style.width=colW[i]+'px');
+  state.rowEls.forEach((el,i)=> el.style.height=rowH[i]+'px');
+  table.style.width=W+'px';
+  wrap.style.width=W+'px'; wrap.style.height=H+'px';
+  for(const h of state.handles){
+    const s=h.el.style;
+    if(h.type==='col'){ s.left=(cumW[h.k]-3)+'px'; s.top='-10px'; s.height=(H+20)+'px'; }
+    else if(h.type==='row'){ s.top=(cumH[h.k]-3)+'px'; s.left='-10px'; s.width=(W+20)+'px'; }
+    else if(h.type==='sx'){ s.left=(W+18-3.5)+'px'; s.top='10px'; s.height=(H-20)+'px'; }
+    else if(h.type==='sy'){ s.top=(H+18-3.5)+'px'; s.left='10px'; s.width=(W-20)+'px'; }
+    else if(h.type==='corner'){ s.left=(W+18-7)+'px'; s.top=(H+18-7)+'px'; }
+  }
+}
+
+// ── 操作オーバーレイ ──────────────────────────────────
+function addOv(act,txt,left,top,cls,title){
+  const b=document.createElement('button'); b.type='button';
+  b.className='ov '+cls; b.textContent=txt; b.dataset.act=act; if(title) b.title=title;
+  b.style.left=left+'px'; b.style.top=top+'px';
+  overlay.appendChild(b); return b;
+}
+function positionOverlay(){
+  overlay.innerHTML='';
+  const W=sum(state.colW), H=sum(state.rowH);
+  // 行・列を増やす「＋」（常時・横と縦）
+  addOv('growcol','＋', W+13, H/2-11.5, 'ov-grow', '右に列を追加');
+  addOv('growrow','＋', W/2-11.5, H+13, 'ov-grow', '下に行を追加');
+
+  if(!selCell || editing) return;
+  const [ar,ac]=selCell; const cell=state.grid[ar] && state.grid[ar][ac];
+  if(!cell || cell.kind!=='a') return;
+  const el=cellEl(ar,ac); if(!el) return;
+  const wr=wrap.getBoundingClientRect(), cr=el.getBoundingClientRect();
+  const x=cr.left-wr.left, y=cr.top-wr.top, w=cr.width, h=cr.height;
+
+  if(cell.seat){
+    // 中央の削除「−」
+    addOv('del','−', x+w/2-13.5, y+h/2-13.5, 'ov-del', 'このマスを空きにする');
+    // 結合済みなら「解除」
+    if(cell.rs>1 || cell.cs>1) addOv('unmerge','解除', x+9, y+9, 'ov-unmerge', '結合を解除');
+    // 上下左右の結合「＋」（隣が座席のときだけ・ぽぽぽっと）
+    const sides=[['up',x+w/2-12,y-12],['down',x+w/2-12,y+h-12],['left',x-12,y+h/2-12],['right',x+w-12,y+h/2-12]];
+    let i=0;
+    for(const [dir,bx,by] of sides){
+      if(canMergeSide(ar,ac,dir)){
+        const b=addOv('merge','＋',bx,by,'ov-merge','隣と結合');
+        b.dataset.dir=dir; b.style.animationDelay=(i*45)+'ms'; i++;
+      }
+    }
+  } else {
+    // 空きスペース → 座席を戻す「＋」
+    addOv('addseat','＋', x+w/2-16, y+h/2-16, 'ov-addseat', 'ここに座席を追加');
+  }
+}
+overlay.addEventListener('click', e=>{
+  const b=e.target.closest('.ov'); if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const act=b.dataset.act;
+  if(act==='merge') mergeSide(b.dataset.dir);
+  else if(act==='del') deleteSelected();
+  else if(act==='addseat') addSeatSelected();
+  else if(act==='unmerge') unmergeSelected();
+  else if(act==='growcol'){ insertCol(state.cols); render(); }
+  else if(act==='growrow'){ insertRow(state.rows); render(); }
+});
+
+// ── 選択 / 編集 ───────────────────────────────────────
+function highlightSel(){
+  for(const el of tb.querySelectorAll('td')){
+    const on = selCell && +el.dataset.r===selCell[0] && +el.dataset.c===selCell[1];
+    el.classList.toggle('sel', !!on);
+  }
+}
+function setSelected(ar,ac){ selCell=[ar,ac]; highlightSel(); positionOverlay(); }
+function deselect(){ if(editing) exitEdit(); selCell=null; highlightSel(); positionOverlay(); }
+
+function focusEnd(el){
+  el.focus();
+  try{ const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
+       const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){}
+}
+function enterEdit(ar,ac){
+  const cell=state.grid[ar] && state.grid[ar][ac];
+  if(!cell || cell.kind!=='a' || !cell.seat) return;
+  selCell=[ar,ac]; highlightSel();
+  const el=cellEl(ar,ac); if(!el) return;
+  editing=true;
+  el.contentEditable='true'; el.classList.add('editing');
+  positionOverlay();   // 編集中は中央−などのバッジを隠す
+  focusEnd(el);
+}
+function exitEdit(){
+  if(!editing) return;
+  if(selCell){
+    const el=cellEl(selCell[0],selCell[1]);
+    if(el){ state.grid[selCell[0]][selCell[1]].text = el.innerText; el.contentEditable='false'; el.classList.remove('editing'); }
+  }
+  editing=false;
+  positionOverlay();
+}
+
+wrap.addEventListener('pointerdown', e=>{
+  if(e.target.closest('.ov')) return;        // バッジは専用ハンドラ
+  if(e.target.closest('#handles')) return;   // リサイズ・ハンドル
+  const td=e.target.closest('td');
+  if(!td){ deselect(); return; }
+  const [ar,ac]=anchorCoordOf(+td.dataset.r, +td.dataset.c);
+  if(editing){
+    if(selCell && ar===selCell[0] && ac===selCell[1]) return;   // 編集中の同じセルはそのまま
+    exitEdit();
+  }
+  // 選択済みの座席をもう一度クリック → 入力開始
+  if(selCell && ar===selCell[0] && ac===selCell[1] && state.grid[ar][ac].seat){
+    e.preventDefault(); enterEdit(ar,ac); return;
+  }
+  e.preventDefault();   // 1クリックは「選択」（カーソルは出さない）
+  setSelected(ar,ac);
+});
+
+// ステージの外をクリックしたら選択解除
+document.addEventListener('pointerdown', e=>{
+  if(e.target.closest('#stage') || e.target.closest('.toolbar') || e.target.closest('.namebar')) return;
+  deselect();
+});
+
+document.addEventListener('keydown', e=>{
+  if(editing){ if(e.key==='Escape') exitEdit(); else if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); exitEdit(); } return; }
+  if(!selCell) return;
+  if(e.key==='Enter'){ const [ar,ac]=selCell; if(state.grid[ar][ac].seat){ e.preventDefault(); enterEdit(ar,ac); } }
+  else if(e.key==='Escape'){ deselect(); }
+});
+
+function drag(el,onMove,onStart,onClick){
+  el.addEventListener('pointerdown', e=>{
+    e.preventDefault(); e.stopPropagation();
+    onStart&&onStart();
+    el.classList.add('active');
+    document.body.style.userSelect='none';
+    overlay.style.visibility='hidden';
+    const startX=e.clientX, startY=e.clientY; let movedFlag=false;
+    const mv=ev=>{
+      const dx=ev.clientX-startX, dy=ev.clientY-startY;
+      if(!movedFlag && Math.hypot(dx,dy)<4) return;
+      movedFlag=true; onMove(dx,dy);
+    };
+    const up=()=>{
+      window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up);
+      el.classList.remove('active'); document.body.style.userSelect='';
+      overlay.style.visibility=''; positionOverlay();
+      if(!movedFlag && onClick) onClick();
+    };
+    window.addEventListener('pointermove',mv);
+    window.addEventListener('pointerup',up);
+  });
+}
+
+// ── Excel から取り込み（コピー → セルに貼り付け） ──────────
+tb.addEventListener('paste', e=>{
+  if(editing){
+    const cb0=e.clipboardData||window.clipboardData; const t0=cb0?cb0.getData('text/plain'):'';
+    if(!/[\t\n]/.test(t0)) return;   // 編集中の単一値は通常貼り付け
+  }
+  const cb = e.clipboardData || window.clipboardData;
+  const txt = cb ? cb.getData('text/plain') : '';
+  if(!txt || !/[\t\n]/.test(txt)) return;
+  const td = e.target.closest('td'); if(!td) return;
+  e.preventDefault();
+  if(editing) exitEdit();
+  const rowsT = txt.replace(/\r/g,'').replace(/\n+$/,'').split('\n').map(l=>l.split('\t'));
+  const r0=+td.dataset.r, c0=+td.dataset.c;
+  const needR = r0+rowsT.length, needC = c0+Math.max.apply(null, rowsT.map(x=>x.length));
+  while(state.rows < needR) insertRow(state.rows);
+  while(state.cols < needC) insertCol(state.cols);
+  for(let i=0;i<rowsT.length;i++) for(let j=0;j<rowsT[i].length;j++){
+    const [ar,ac]=anchorCoordOf(r0+i, c0+j);
+    const cell=state.grid[ar][ac];
+    cell.seat=true; cell.text=rowsT[i][j];
+  }
+  deselect(); render();
+});
+
+// ── ツールバー：保存 / リセット ───────────────────────
+document.querySelector('.toolbar').addEventListener('click', e=>{
+  const btn=e.target.closest('.tb'); if(!btn) return;
+  const act=btn.dataset.act;
+  if(act==='save') saveTable();
+  else if(act==='reset') resetAll();
+});
+
+function saveTable(){
+  if(editing) exitEdit();
+  const store = loadStore();
+  store.table = {
+    name: nameInput.value.trim(),
+    rows: state.rows, cols: state.cols,
+    colW: state.colW.slice(), rowH: state.rowH.slice(),
+    grid: state.grid,
+    updatedAt: Date.now()
+  };
+  saveStore(store);
+  let n=0;
+  for(let r=0;r<state.rows;r++) for(let c=0;c<state.cols;c++){
+    const cell=state.grid[r][c]; if(cell.kind==='a' && cell.seat) n++;
+  }
+  alert('座席表を保存しました ✓\n座席数 '+n+' 席');
+}
+function resetAll(){
+  if(!confirm('座席表を全てリセットします。よろしいですか？')) return;
+  const store = loadStore();
+  delete store.table;
+  saveStore(store);
+  state.rows=3; state.cols=4;
+  state.grid=[];
+  for(let r=0;r<3;r++){ const row=[]; for(let c=0;c<4;c++) row.push({kind:'a',seat:true,text:'',rs:1,cs:1}); state.grid.push(row); }
+  state.colW=Array(4).fill(DEFAULT_COL_W);
+  state.rowH=Array(3).fill(DEFAULT_ROW_H);
+  nameInput.value='';
+  selCell=null; editing=false;
+  render();
+  alert('全てリセットしました');
+}
+
+render();
+</script>
+
+<!-- 触覚Ultra（自己完結・import不要）: 各ボタンに“本物の”透明スイッチを重ね、実タップで iOS の触覚を確実発火（iOS26.5でも 1タップ=1発の床を保証）。Android は navigator.vibrate を type 別パターンで。 -->
+<script>
+(function(){
+  var PAT = { tap:12, confirm:[10,32,10], heavy:[16,28,16,28,16] };
+  function typeOf(el){
+    if(el.hasAttribute('data-haptic')) return el.getAttribute('data-haptic') || 'tap';
+    if(el.matches('.ov-del,[data-act="reset"]')) return 'heavy';
+    if(el.matches('.save,[data-act="save"]')) return 'confirm';
+    return 'tap';
+  }
+  function overlayHaptic(el){
+    if(el.__hpt) return; el.__hpt = 1;
+    if(getComputedStyle(el).position === 'static') el.style.position = 'relative';
+    var sw = document.createElement('input');
+    sw.type='checkbox'; sw.setAttribute('switch',''); sw.tabIndex=-1; sw.setAttribute('aria-hidden','true');
+    sw.style.cssText='position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;pointer-events:auto;cursor:inherit;z-index:4;';
+    var pat = PAT[typeOf(el)] || 12;
+    sw.addEventListener('change', function(){
+      try{ navigator.vibrate && navigator.vibrate(pat); }catch(e){}
+      sw.checked = false;
+    });
+    el.appendChild(sw);
+  }
+  function auto(){
+    document.querySelectorAll('button, a.tb, .tb, .ov, [data-haptic]').forEach(overlayHaptic);
+  }
+  window.HapticUltra = { bind: overlayHaptic, auto: auto };
+  var pending = 0;
+  function schedule(){ if(pending) return; pending = 1; Promise.resolve().then(function(){ pending = 0; auto(); }); }
+  if(document.readyState !== 'loading') auto(); else document.addEventListener('DOMContentLoaded', auto);
+  try{ new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true}); }catch(e){}
+})();
+</script>
+</body>
+</html>

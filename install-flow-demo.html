@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StS · install flow</title>
+<style>
+  :root{ --ease:cubic-bezier(.22,.61,.36,1); }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; background:#07080d; overflow:hidden; }
+  body{ display:flex; align-items:center; justify-content:center; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif; }
+
+  .stage{ position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
+
+  /* ---------- Mac ---------- */
+  .mac-wrap{ position:relative; width:min(76vw,980px); aspect-ratio:1316/806;
+    opacity:0; transform:scale(.8) translateY(30px); will-change:opacity,transform; }
+  .mac-img{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; user-select:none; }
+  .mac-screen{ position:absolute; left:9.12%; right:9.27%; top:4.84%; bottom:11.29%;
+    overflow:hidden; border-radius:1.6% 1.6% .3% .3%/2.6% 2.6% .3% .3%; }
+
+  /* ---------- glass utility ---------- */
+  .glass{ background:linear-gradient(155deg,rgba(255,255,255,.38),rgba(255,255,255,.09) 60%);
+    backdrop-filter:blur(22px) saturate(160%); -webkit-backdrop-filter:blur(22px) saturate(160%);
+    box-shadow:-4px 0 16px rgba(110,160,255,.5), 4px 0 16px rgba(255,100,220,.5),
+      0 18px 46px rgba(20,10,40,.35), inset 0 0 0 1px rgba(255,255,255,.45), inset 0 1px 0 rgba(255,255,255,.6); }
+
+  /* ---------- terminal ---------- */
+  .term{ position:absolute; left:22%; top:28%; width:58%; height:60%; border-radius:7%;
+    padding:8% 9%; opacity:0; transform:scale(.8); transform-origin:18% 14%; z-index:2; }
+  .term-line{ color:#fff; font-weight:300; letter-spacing:.01em; white-space:nowrap;
+    font-size:clamp(15px,2.5vw,30px); text-shadow:0 1px 10px rgba(0,0,0,.15); }
+  .cursor-bar{ display:inline-block; width:.05em; margin-left:.06em; color:#fff; opacity:0; }
+  .cursor-bar.on{ animation:blink 1s steps(1) infinite; }
+  @keyframes blink{ 0%,49%{ opacity:1; } 50%,100%{ opacity:0; } }
+
+  .term-menu{ margin-top:9%; opacity:0; transform:translateY(16px); transition:opacity .3s var(--ease); }
+  .term-menu.show{ opacity:1; transform:translateY(0); }
+  .menu-line{ color:#fff; font-weight:300; font-size:clamp(13px,2.1vw,25px);
+    opacity:0; transform:translateY(10px); transition:opacity .5s var(--ease), transform .5s var(--ease);
+    text-shadow:0 1px 10px rgba(0,0,0,.15); margin:.35em 0; }
+  .menu-line.head{ margin-bottom:.7em; }
+  .menu-line.setting{ padding-left:.4em; }
+  .term-menu.show .menu-line{ opacity:1; transform:translateY(0); }
+  .term-menu.show .menu-line:nth-child(1){ transition-delay:0s; }
+  .term-menu.show .menu-line:nth-child(2){ transition-delay:.08s; }
+  .term-menu.show .menu-line:nth-child(3){ transition-delay:.16s; }
+  .term-menu.show .menu-line:nth-child(4){ transition-delay:.24s; }
+
+  .term.flash{ box-shadow:-4px 0 16px rgba(110,160,255,.5), 4px 0 16px rgba(255,100,220,.5),
+      0 0 60px 10px rgba(255,255,255,.55), 0 18px 46px rgba(20,10,40,.35),
+      inset 0 0 0 1px rgba(255,255,255,.7), inset 0 1px 0 rgba(255,255,255,.8); }
+
+  /* ---------- AirDrop screen ---------- */
+  .airdrop{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    z-index:3; opacity:0; }
+  .airdrop span.txt{ color:#fff; font-weight:300; font-size:clamp(20px,5.6vw,58px);
+    letter-spacing:.01em; text-shadow:0 2px 20px rgba(0,0,0,.18); display:flex; align-items:center; gap:.35em; }
+  .airdrop .arrow{ font-weight:300; }
+
+  /* ---------- finder window (behind) ---------- */
+  .finder-win{ position:absolute; left:8%; top:46%; width:54%; height:62%; border-radius:6%;
+    opacity:0; transform:scale(.93); z-index:1; }
+
+  /* ---------- file chip (dragged) ---------- */
+  .file-chip{ position:absolute; left:44%; top:23%; width:40%; height:46%; border-radius:8%;
+    opacity:0; transform:scale(1); z-index:4; padding:9%; }
+  .file-icon{ width:44%; height:34%; border-radius:18%; margin:0 auto; background:linear-gradient(160deg,rgba(255,255,255,.55),rgba(255,255,255,.18));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.5), 0 4px 14px rgba(20,10,40,.25); }
+  .file-name{ margin-top:14%; text-align:center; color:#fff; font-weight:300;
+    font-size:clamp(12px,1.9vw,22px); text-shadow:0 1px 8px rgba(0,0,0,.18); }
+
+  /* ---------- cursor ---------- */
+  .cursor-ptr{ position:absolute; left:60%; top:34%; width:26px; height:26px; margin:-2px 0 0 -2px;
+    opacity:0; z-index:6; filter:drop-shadow(0 2px 4px rgba(0,0,0,.45)); pointer-events:none; }
+  .cursor-ptr.click{ transform:scale(.82); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="mac-wrap" id="macWrap">
+    <img class="mac-img" src="macbook-pro.png" alt="">
+    <div class="mac-screen">
+      <div class="term glass" id="term">
+        <div class="term-line" id="promptLine">&gt;_<span id="typed"></span><span class="cursor-bar" id="cursorBar">|</span></div>
+        <div class="term-menu" id="termMenu">
+          <div class="menu-line head">&gt;User</div>
+          <div class="menu-line">People</div>
+          <div class="menu-line setting">Setting</div>
+          <div class="menu-line">byebye</div>
+        </div>
+      </div>
+
+      <div class="airdrop" id="airdrop"><span class="txt">AirDrop to<span class="arrow">&#8594;</span>Mac</span></div>
+
+      <div class="finder-win glass" id="finderWin"></div>
+      <div class="file-chip glass" id="fileChip">
+        <div class="file-icon"></div>
+        <div class="file-name">install.sh</div>
+      </div>
+
+      <svg class="cursor-ptr" id="cursorPtr" viewBox="0 0 24 24">
+        <path d="M4 2 L4 20 L9 15.6 L12.6 22 L15.6 20.4 L12 14 L19 14 Z" fill="#fff" stroke="#1a1a1a" stroke-width="1.1" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var macWrap=$('macWrap'), term=$('term'), promptLine=$('promptLine'), typed=$('typed'),
+      cursorBar=$('cursorBar'), termMenu=$('termMenu'), airdrop=$('airdrop'),
+      finderWin=$('finderWin'), fileChip=$('fileChip'), cursorPtr=$('cursorPtr');
+
+  // fixed offset between the cursor's hotspot and the file-chip's anchor corner,
+  // kept constant so the cursor stays visually "attached" to the file for the whole drag
+  var GRAB_DX = 34, GRAB_DY = -3;
+
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function tr(el, css, dur, ease){ ease = ease || 'var(--ease)'; el.style.transition = css.map(function(p){ return p+' '+dur+' '+ease; }).join(', '); }
+
+  function typeText(str, el, ms){
+    return new Promise(function(resolve){
+      var i=0;
+      var iv=setInterval(function(){
+        el.textContent += str[i]; i++;
+        if(i>=str.length){ clearInterval(iv); resolve(); }
+      }, ms);
+    });
+  }
+
+  // instantly snap every element back to its hidden/start state (transitions off during the snap)
+  function resetAll(){
+    [macWrap, term, cursorBar, termMenu, airdrop, finderWin, fileChip, cursorPtr].forEach(function(el){
+      el.style.transition = 'none';
+    });
+    macWrap.style.opacity = 0; macWrap.style.transform = 'scale(.8) translateY(30px)';
+    term.style.opacity = 0; term.style.transform = 'scale(.8)';
+    typed.textContent = ''; cursorBar.classList.remove('on'); cursorBar.style.opacity = 0;
+    termMenu.classList.remove('show');
+    promptLine.style.opacity = 1;
+    airdrop.style.opacity = 0;
+    finderWin.style.opacity = 0; finderWin.style.transform = 'scale(.93)';
+    fileChip.style.opacity = 0; fileChip.style.transform = 'scale(1)';
+    fileChip.style.left = '44%'; fileChip.style.top = '23%';
+    cursorPtr.style.opacity = 0; cursorPtr.style.left = '60%'; cursorPtr.style.top = '30%';
+    cursorPtr.classList.remove('click');
+    term.classList.remove('flash');
+    void macWrap.offsetWidth; // force reflow so the next transition actually animates
+  }
+
+  async function run(){
+    resetAll();
+    await sleep(250);
+
+    // 1) mac appears — scale .8→1, drifts up, 0.8s cubic
+    tr(macWrap, ['opacity','transform'], '.8s');
+    macWrap.style.opacity = 1; macWrap.style.transform = 'scale(1) translateY(-5vh)';
+    await sleep(850);
+
+    // 2) glass terminal opens — scale .8→1, 0.5s cubic
+    tr(term, ['opacity','transform'], '.5s');
+    term.style.opacity = 1; term.style.transform = 'scale(1)';
+    await sleep(550);
+
+    // 3) type "StS"
+    cursorBar.style.opacity = 1; cursorBar.classList.add('on');
+    await typeText('StS', typed, 150);
+    await sleep(650);
+    cursorBar.classList.remove('on'); cursorBar.style.opacity = 0;
+
+    // 4) menu slides up inside the terminal
+    tr(promptLine, ['opacity'], '.4s');
+    promptLine.style.opacity = .35;
+    termMenu.classList.add('show');
+    await sleep(1300);
+
+    // 5) whole terminal fades, 0.8s
+    tr(term, ['opacity'], '.8s');
+    term.style.opacity = 0;
+    await sleep(800);
+
+    // 6) 1s beat on the empty wallpaper
+    await sleep(1000);
+
+    // 7) "AirDrop to → Mac"
+    tr(airdrop, ['opacity'], '.6s');
+    airdrop.style.opacity = 1;
+    await sleep(1500);
+    airdrop.style.opacity = 0;
+    await sleep(500);
+
+    // 8) install.sh file window appears next to the (re-opened) terminal — reset to a bare
+    // prompt (the User/People/Setting/byebye menu from stage 4 must not still be showing)
+    term.style.transition = 'none'; term.style.opacity = 1; term.style.transform='scale(1)';
+    termMenu.classList.remove('show');
+    promptLine.style.transition = 'none'; promptLine.style.opacity = 1;
+    void term.offsetWidth;
+    tr(finderWin, ['opacity','transform'], '.45s');
+    finderWin.style.opacity = 1; finderWin.style.transform = 'scale(1)';
+    tr(fileChip, ['opacity'], '.45s');
+    fileChip.style.opacity = 1;
+    await sleep(500);
+
+    // 9) cursor grabs the file (fixed offset from the chip's anchor corner)
+    var chipStartLeft = 44, chipStartTop = 23;
+    tr(cursorPtr, ['opacity'], '.3s');
+    cursorPtr.style.left = (chipStartLeft+GRAB_DX)+'%'; cursorPtr.style.top = (chipStartTop+GRAB_DY)+'%';
+    cursorPtr.style.opacity = 1;
+    await sleep(250);
+    cursorPtr.classList.add('click');
+    await sleep(120);
+
+    // 10) drag install.sh into the terminal, ~2s — cursor stays glued to the file the whole way
+    // (ease-in-out, not the entrance curve: that one front-loads ~60% of the motion into the
+    // first 20% of the duration, which reads as "snap then freeze" over a full 2s drag)
+    var chipEndLeft = 30, chipEndTop = 40;
+    var dragEase = 'cubic-bezier(.45,0,.55,1)';
+    tr(fileChip, ['left','top','transform'], '2s', dragEase);
+    tr(cursorPtr, ['left','top'], '2s', dragEase);
+    fileChip.style.left = chipEndLeft+'%'; fileChip.style.top = chipEndTop+'%'; fileChip.style.transform = 'scale(.34)';
+    cursorPtr.style.left = (chipEndLeft+GRAB_DX)+'%'; cursorPtr.style.top = (chipEndTop+GRAB_DY)+'%';
+    await sleep(2000);
+
+    // 11) drop — release the file into the terminal
+    cursorPtr.classList.remove('click');
+    tr(fileChip, ['opacity','transform'], '.28s');
+    fileChip.style.opacity = 0; fileChip.style.transform = 'scale(.05)';
+    term.classList.add('flash');
+    await sleep(180);
+    tr(cursorPtr, ['opacity'], '.3s');
+    cursorPtr.style.opacity = 0;
+    await sleep(500);
+    term.classList.remove('flash');
+
+    // loop
+    await sleep(1600);
+    run();
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>

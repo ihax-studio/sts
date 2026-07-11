@@ -1,0 +1,13 @@
+{
+  "name": "Aero Leap",
+  "short_name": "Aero Leap",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#bfe2ff",
+  "theme_color": "#bfe2ff",
+  "icons": [
+    { "src": "assets/arcade.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

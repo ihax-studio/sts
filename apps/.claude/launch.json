@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "import sys\nsys.path[:]=[p for p in sys.path if p not in ('','.')]\nimport http.server,socketserver\nD='/private/tmp/composer-preview'\nclass H(http.server.SimpleHTTPRequestHandler):\n  def __init__(s,*a,**k):super().__init__(*a,directory=D,**k)\n  def log_message(s,*a):pass\nclass T(socketserver.TCPServer):allow_reuse_address=True\nT(('127.0.0.1',4599),H).serve_forever()"],
+      "port": 4599
+    }
+  ]
+}

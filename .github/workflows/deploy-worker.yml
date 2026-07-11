@@ -1,0 +1,43 @@
+# Cloudflare Worker (shake-toshake) のコードだけを安全にデプロイする。
+# ・トークンはリポジトリの Actions secret「CLOUDFLARE_API_TOKEN」から読む(公開リポジトリなのでファイル/入力には絶対に書かない)
+# ・PUT /content = コード本体のみ差し替え。既存の環境変数(TG_TOKEN等)・Cron・R2バインディングは一切変更しない
+# ・worker/telegram-storage.js を main に push すると自動デプロイ。手動実行(workflow_dispatch)も可
+name: Deploy Cloudflare Worker
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["worker/telegram-storage.js"]
+permissions:
+  contents: read
+concurrency: deploy-worker
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy worker code (settings preserved)
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_TOKEN}" ]; then
+            echo "::error::Actions secret CLOUDFLARE_API_TOKEN が未設定です (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+          ACC=$(curl -sf -H "Authorization: Bearer ${CF_TOKEN}" https://api.cloudflare.com/client/v4/accounts \
+            | python3 -c "import sys,json;print(json.load(sys.stdin)['result'][0]['id'])")
+          echo "account: ${ACC:0:6}…(masked)"
+          RES=$(curl -sf -X PUT "https://api.cloudflare.com/client/v4/accounts/${ACC}/workers/scripts/shake-toshake/content" \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -F 'metadata={"main_module":"telegram-storage.js"};type=application/json' \
+            -F "telegram-storage.js=@worker/telegram-storage.js;type=application/javascript+module")
+          echo "${RES}" | python3 -c "import sys,json;d=json.load(sys.stdin);print('deploy success:',d.get('success'));err=d.get('errors');print(err) if err else None;sys.exit(0 if d.get('success') else 1)"
+      - name: Verify /itunes endpoint
+        run: |
+          sleep 6
+          echo "— /health —"
+          curl -sf "https://shake-toshake.s-users15.workers.dev/health" || true
+          echo
+          echo "— /itunes?term=Ditto —"
+          curl -sf "https://shake-toshake.s-users15.workers.dev/itunes?country=JP&media=music&entity=song&limit=1&term=Ditto" | head -c 400

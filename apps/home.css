@@ -1,0 +1,257 @@
+/* __STS_SWIPE_BLOCK__ */
+/* ★★ OS標準「左右スワイプで戻る/進む」を全CSS要素で完全ブロック。touch-action:pan-y=横ジェスチャ無効・縦スクロール維持。例外は末尾。 */
+*, *::before, *::after{ touch-action:pan-y !important; overscroll-behavior-x:none !important; }
+html, body{ overscroll-behavior:none !important; overscroll-behavior-x:none !important; touch-action:pan-y !important; }
+/* ============================================================
+   Studio Launcher — iOS 26 "Liquid Glass" UI
+   ------------------------------------------------------------
+   Fixes applied:
+   - .sl-cube: superellipse (squircle) corners
+   - .sl-cube / .sl-cube-cinema: 4-layer box-shadow so hover
+     lift transitions smoothly (was snapping on layer mismatch)
+   - .sl-rcard:hover: scale now works (specificity raised above
+     the .sl-expanded transform:none rule) + box-shadow matched
+     to 3 layers so it transitions; swipe/drag excluded
+   ============================================================ */
+
+/* ---- global touch / selection behaviour ---- */
+button, [role="button"], a[href], summary, label,
+.sl-cube, .sl-rcard, #dock1, #dock2, .dock-page-plus, .dock-icon,
+input[type="checkbox"], input[type="radio"], input[type="button"],
+input[type="submit"], input[type="range"], input[type="file"],
+[data-haptic], [onclick] {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    touch-action: manipulation;            /* no double-tap-zoom delay */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Snappy spring on press for chrome controls (touch only). */
+@media (hover: none) and (pointer: coarse) {
+    button:active, .dock-icon:active,
+    #dock1:active, #dock2:active, .dock-page-plus:active {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+        transform: scale(.94);
+    }
+    button, .dock-icon,
+    #dock1, #dock2, .dock-page-plus {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+        transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+    }
+}
+
+/* Smooth momentum scrolling on any scrollable surface. */
+* {touch-action:pan-y!important;overscroll-behavior-x:none!important; -webkit-overflow-scrolling: touch; }
+
+/* Real text fields behave normally despite the blanket rule above. */
+input[type="text"], input[type="search"], input[type="url"],
+input[type="email"], input[type="number"], textarea, [contenteditable="true"] {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
+}
+
+/* ============================================================
+   STUDIO LAUNCHER — first screen (3D/ゲーム · 書類 · アプリ · 動画)
+   ============================================================ */
+.studio-launcher {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position: fixed; inset: 0; z-index: 2147483000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(150% 130% at 50% -12%, #ffffff 0%, #f3f4f8 46%, #e9eaf1 100%);
+    -webkit-font-smoothing: antialiased; overflow-y: auto;
+    padding: calc(36px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom));
+    opacity: 1;
+    transition: opacity .55s cubic-bezier(.16,1,.3,1), transform .55s cubic-bezier(.16,1,.3,1);
+}
+.studio-launcher.sl-hidden {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 0; transform: scale(1.04); pointer-events: none; }
+
+.sl-stage {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; flex-direction: column; align-items: center; gap: 28px; margin: auto; width: 100%; max-width: 900px; }
+.sl-title {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 500 27px/1.15 -apple-system, "SF Pro Display", "Hiragino Sans", system-ui; color: #15151b; letter-spacing: .2px; text-align: center; text-shadow: 0 22px 18px #00000045; }
+.sl-title b {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-weight: 500; }
+.sl-dockrow {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; gap: clamp(15px, 3.2vw, 28px); justify-content: center; align-items: flex-end; flex-wrap: wrap; }
+
+/* ---- cube tiles (squircle) ---- */
+.sl-cube {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    --r: 27px;
+    position: relative; width: clamp(112px, 15.5vw, 148px); aspect-ratio: 1/1;
+    border-radius: var(--r); corner-shape: superellipse(4);   /* squircle */
+    cursor: pointer; border: none; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    backdrop-filter: blur(5px);
+    /* -webkit-backdrop-filter: blur(1px) saturate(0) brightness(1.05); */
+    /* 4 layers (2 transparent outsets + 2 white insets) so the hover lift transitions */
+    box-shadow: 0 26px 64px -18px transparent, 0 8px 22px transparent,
+                inset 1px 1.5px 0 white, inset -1.5px -1px 0 white;
+    transition: transform .4s cubic-bezier(.16,1,.3,1), box-shadow .4s ease;
+    opacity: 0; transform: translateY(16px) scale(.95);
+    animation: slIn .6s cubic-bezier(.16,1,.3,1) forwards;
+    -webkit-tap-highlight-color: transparent;
+}
+.sl-cube:nth-child(1){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay: .04s; }
+.sl-cube:nth-child(2){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay: .1s; }
+.sl-cube:nth-child(3){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay: .16s; }
+.sl-cube:nth-child(4){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay: .22s; }
+@keyframes slIn { to { opacity: 1; transform: none; } }
+
+.sl-cube svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 48%; height: 48%; display: block; position: relative; z-index: 1; }
+/* PNG icon tiles carry their own padding/glow, so they sit a touch larger. */
+.sl-cube img {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 74%; height: 74%; object-fit: contain; display: block; position: relative; z-index: 1;
+    pointer-events: none; -webkit-user-drag: none; user-select: none; }
+
+/* cinema tile — iridescent neon rim (also 4-layer base to match its hover) */
+.sl-cube-cinema {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    box-shadow: 0 16px 38px -12px rgb(223 223 223 / 35%), 0 0 0 transparent,
+                inset -1px .5px 0 rgb(0 216 255 / 95%), inset 1px -1px 1px rgba(255,120,230,.6);
+}
+
+/* Desktop hover: icon scales 1.3 (the cube's entrance animation keeps `transform`,
+   so we scale the icon, not the cube) and the card lifts via box-shadow. */
+.sl-cube svg, .sl-cube img {touch-action:pan-y!important;overscroll-behavior-x:none!important; transition: transform .3s ease; }
+@media (hover: hover) and (pointer: fine) {
+    .sl-cube:hover svg, .sl-cube:hover img {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(1.3); }
+    .sl-cube:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+        box-shadow: 0 26px 64px -18px rgba(86,72,170,.42), 0 8px 22px rgba(86,72,170,.16),
+                    inset 1px 1.5px 0 #fff, inset -1.5px -1px 0 #fff;
+    }
+    .sl-cube-cinema:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+        box-shadow: 0 26px 64px -18px rgba(0,180,255,.5), 0 8px 22px rgba(255,120,230,.22),
+                    inset -1px .5px 0 rgb(0 216 255 / 95%), inset 1px -1px 1px rgba(255,120,230,.6);
+    }
+}
+
+@keyframes slSpin { to { transform: rotate(360deg); } }
+.sl-caption {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 600 15px/1 -apple-system, "Hiragino Sans", system-ui; color: #6a6a76; min-height: 18px; text-align: center; transition: color .2s ease; }
+
+/* ============================================================
+   前回の続き — Apple Watch Smart-Stack
+   ============================================================ */
+.sl-recents {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; flex-direction: column; align-items: center; gap: 12px; width: min(360px,86vw); margin-top: 6px; }
+.sl-recents.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; }
+.sl-recents-label {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 600 12px/1 -apple-system, system-ui; color: #9a9aa6; letter-spacing: .5px; }
+.sl-stack {touch-action:pan-y!important;overscroll-behavior-x:none!important; position: relative; width: 100%; display: flex; flex-direction: column; }
+
+.sl-rcard {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position: relative; width: 100%; box-sizing: border-box;
+    display: flex; align-items: center; gap: 14px; padding: 15px 18px; margin-top: -44px;
+    border-radius: 22px; cursor: pointer; border: none; text-align: left;
+    background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.56));
+    backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6);
+    box-shadow: 0 14px 30px -12px rgba(50,40,95,.32), inset 0 1px 0 rgba(255,255,255,.92), inset 0 0 0 1px rgba(255,255,255,.4);
+    transition: transform .38s cubic-bezier(.16,1,.3,1), box-shadow .35s ease, opacity .35s ease, margin .38s cubic-bezier(.16,1,.3,1);
+}
+.sl-rcard:first-child {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top: 0; }
+
+/* legacy fan-stack (kept; cards are wrapped in .sl-rrow now) */
+.sl-stack:not(.sl-expanded) .sl-rcard:nth-child(2){touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.95); opacity: .9; z-index: 2; }
+.sl-stack:not(.sl-expanded) .sl-rcard:nth-child(3){touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.9); opacity: .78; z-index: 1; }
+.sl-stack:not(.sl-expanded) .sl-rcard:nth-child(n+4){touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+.sl-stack.sl-expanded .sl-rcard {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top: 10px; transform: none; opacity: 1; }
+.sl-stack.sl-expanded .sl-rcard:first-child {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top: 0; }
+
+/* Hover scale — high specificity so it beats `.sl-expanded .sl-rcard{transform:none}`,
+   and excluded while swiping/dragging so it never fights the swipe transform.
+   box-shadow matched to 3 layers so the glow transitions. */
+.sl-rrow:not(.sl-swiped):not(.sl-dragging) > .sl-rcard:hover {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    transform: scale(1.1);
+    box-shadow: 0 20px 40px -12px rgba(96,64,210,.4), inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.4);
+}
+.sl-rcard:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.97); }
+
+.sl-rc-ic {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 42px; height: 42px; border-radius: 13px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: rgba(124,92,255,.12); color: #6a4af0; }
+.sl-rc-ic svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 23px; height: 23px; }
+.sl-rc-txt {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.sl-rc-title {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 600 15px/1.2 -apple-system, "Hiragino Sans", system-ui; color: #1c1c24; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-rc-sub {touch-action:pan-y!important;overscroll-behavior-x:none!important; font: 500 12px/1 -apple-system, system-ui; color: #9a9aa6; }
+.sl-rc-go {touch-action:pan-y!important;overscroll-behavior-x:none!important; flex: 0 0 auto; color: #c0c0cc; }
+
+/* ============================================================
+   iOS-style swipe-to-delete for 前回の続き cards
+   Each card is wrapped in .sl-rrow so fan-stacking lives on the
+   wrapper, leaving the card free to translateX over a red zone.
+   ============================================================ */
+.sl-rrow {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position: relative; width: 100%; box-sizing: border-box; margin-top: -44px; border-radius: 22px;
+    transition: transform .38s cubic-bezier(.16,1,.3,1), opacity .35s ease,
+                margin .38s cubic-bezier(.16,1,.3,1), max-height .4s cubic-bezier(.16,1,.3,1);
+}
+.sl-rrow:first-child {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top: 0; }
+.sl-stack:not(.sl-expanded) .sl-rrow:nth-child(2){touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.95); opacity: .9; z-index: 2; }
+.sl-stack:not(.sl-expanded) .sl-rrow:nth-child(3){touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.9); opacity: .78; z-index: 1; }
+.sl-stack:not(.sl-expanded) .sl-rrow:nth-child(n+4){touch-action:pan-y!important;overscroll-behavior-x:none!important; display: none; }
+.sl-stack.sl-expanded .sl-rrow {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top: 10px; transform: none; opacity: 1; }
+.sl-stack.sl-expanded .sl-rrow:first-child {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top: 0; }
+
+.sl-rrow > .sl-rcard {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    margin-top: 0 !important; position: relative; z-index: 1; will-change: transform;
+    touch-action: pan-y;   /* horizontal swipe is ours; vertical still scrolls */
+    transition: transform .3s cubic-bezier(.16,1,.3,1), box-shadow .35s ease, opacity .35s ease;
+}
+.sl-rrow.sl-dragging > .sl-rcard {touch-action:pan-y!important;overscroll-behavior-x:none!important; transition: none; }
+.sl-rrow.sl-swiped  > .sl-rcard {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: translateX(-92px); }
+
+/* Red panel BEHIND the card — hidden at rest (glass is translucent so it would
+   bleed through), revealed only while dragging / latched open. */
+.sl-rdel {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position: absolute; top: 0; right: 0; bottom: 0; width: 108px; border: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: linear-gradient(180deg,#ff6259,#ff3b30); color: #fff;
+    font: 600 13px/1 -apple-system, "Hiragino Sans", system-ui; border-radius: 0 22px 22px 0; z-index: 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+    opacity: 0; visibility: hidden; transition: opacity .18s ease, visibility .18s;
+}
+.sl-rrow.sl-dragging > .sl-rdel,
+.sl-rrow.sl-swiped  > .sl-rdel {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; visibility: visible; }
+.sl-rdel svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 20px; height: 20px; }
+.sl-rrow.sl-removing {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    opacity: 0; transform: translateX(-110%) scale(.85); max-height: 0 !important;
+    margin-top: -44px !important; pointer-events: none;
+}
+
+/* ============================================================
+   name screen (App / 3D)
+   ============================================================ */
+.sl-name {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+    opacity: 0; pointer-events: none; transition: opacity .4s ease; z-index: 6;
+    background: radial-gradient(150% 130% at 50% -12%, #ffffff 0%, #f3f4f8 46%, #e9eaf1 100%);
+}
+.sl-name.show {touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity: 1; pointer-events: auto; }
+.sl-name-kicker {touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top: 300px; font: 600 16px/1 -apple-system, "Hiragino Sans", system-ui; color: #8a8a97; }
+.sl-name-input {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    width: min(440px,84vw); font: 700 26px/1.25 -apple-system, "Hiragino Sans", system-ui; color: #16161c; text-align: center;
+    border: none; background: transparent; outline: none; border-bottom: 2px solid rgba(124,92,255,.4); padding: 10px 6px;
+}
+.sl-name-row {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; margin-top: 350px; gap: 211px; align-items: center; }
+.sl-name-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,.46)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 10px 24px -10px rgba(50,40,95,.4), inset 0 1px 0 rgba(255,255,255,.9); color: #5a4ad0;
+}
+.sl-name-btn svg {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: 24px; height: 24px; }
+.sl-name-btn.go {touch-action:pan-y!important;overscroll-behavior-x:none!important; background: linear-gradient(180deg,#7a5cf5,#5b3df0); color: #fff; box-shadow: 0 12px 28px -8px rgba(110,70,240,.6); }
+.sl-name-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important; transform: scale(.92); }
+
+/* ---- responsive ---- */
+@media (max-width: 560px) {
+    .sl-dockrow {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 320px; width: 100%; }
+    .sl-cube {touch-action:pan-y!important;overscroll-behavior-x:none!important; width: auto; }
+    .sl-title {touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size: 23px; }
+    .sl-stage {touch-action:pan-y!important;overscroll-behavior-x:none!important; gap: 22px; }
+}
+
+/* ---- Home button — return to the launcher from inside a studio ---- */
+.sl-home-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    display: none; position: fixed; top: max(env(safe-area-inset-top, 0px) + 14px, 22px); left: 50%;
+    transform: translateX(-50%); transition: all 0.3s ease;
+    width: 72px; height: 12px; border-radius: 50px; align-items: center; justify-content: center;
+    background: none; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: none; box-shadow: 0 6px 18px rgb(40 30 90 / 39%), inset -1px 1px 0 rgba(255,255,255,.9), inset 1px -1px 0 rgba(255,255,255,.9);
+    z-index: 9000; cursor: pointer; color: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+body.launched .sl-home-btn {touch-action:pan-y!important;overscroll-behavior-x:none!important; display: flex; }
+.sl-home-btn:active {touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    height: 22px; width: 90px;
+    box-shadow: 0 6px 18px rgb(40 30 90 / 39%), inset -1px -1px 0 rgba(255,255,255,.9), inset 1px 1px 0 rgba(255,255,255,.9);
+    transform: translateX(-50%) scale(1.2);
+}
+/* ★ touch-action 例外: 横操作が必須の要素のみ native 動作へ。戻る/進むは JS の端ガード＋履歴トラップで封殺するので安全。 */
+canvas, video, model-viewer, input[type="range"], input[type="color"], [contenteditable], [contenteditable] *, [data-hswipe], [data-hscroll], .hscroll, .h-scroll, .carousel, .swiper, .swiper-wrapper, .timeline, .timeline *{ touch-action:auto !important; }

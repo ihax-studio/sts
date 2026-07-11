@@ -1,0 +1,3773 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atelier 4D</title>
+<link rel="icon" type="image/png" href="atelier 4d.png">
+<link rel="apple-touch-icon" href="atelier 4d.png">
+<link rel="stylesheet" href="design.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "ios-haptics": "https://esm.sh/ios-haptics"
+  }
+}
+</script>
+</head>
+<body>
+  <div class="app">
+    <!-- Left: Outliner -->
+    <aside class="panel panel-left">
+      <div class="panel-head">
+        <span>シーン</span>
+        <button class="icon-btn" id="btn-clear" title="すべてクリア">⌫</button>
+      </div>
+      <ul id="outliner" class="outliner"></ul>
+      <div class="panel-foot">
+        <span class="brand">Aether <em>Studio</em></span>
+      </div>
+    </aside>
+
+    <!-- Center: Viewport -->
+    <main class="viewport">
+      <canvas id="c"></canvas>
+
+      <!-- Lasso overlay -->
+      <svg class="lasso" id="lasso"><path d=""/></svg>
+
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="glass-chip select-modes" title="Selection tool">
+          <button class="sel active" data-sel="pick" title="Pick (V)">
+            <svg viewBox="0 0 24 24"><path d="M5 2l14 7-6 2-2 6-6-15z"/></svg>
+          </button>
+          <button class="sel" data-sel="lasso" title="Lasso (L)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 10c0-4 4-7 9-7s9 3 9 7-4 7-9 7c-2 0-3.5-.3-5-1"/><path d="M10 17c0 2-1 4-3 4s-3-1-3-2 1-2 3-2"/></svg>
+          </button>
+        </div>
+        <div class="glass-chip tool-modes" title="Edit tool">
+          <button class="tool active" data-tool="none" title="None">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/></svg>
+          </button>
+          <button class="tool" data-tool="paint" title="Paint (P)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v7"/><path d="M3 11h18"/><path d="M12 18v3"/></svg>
+          </button>
+          <button class="tool" data-tool="carve" title="Carve / Drill (C)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>
+          </button>
+          <button class="tool" data-tool="bump" title="Bump (B)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-6 7-8 9-8s6 2 9 8"/></svg>
+          </button>
+          <button class="tool" data-tool="pencil" title="3Dペンシル (K)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+          </button>
+          <button class="tool" data-tool="eraser" title="3D消しゴム (X)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.83l10-10a2 2 0 0 1 2.83 0l6 6a2 2 0 0 1 0 2.83L13 20"/><path d="M7 20L17 10"/></svg>
+          </button>
+        </div>
+        <div class="glass-chip transform-modes" title="Transform mode">
+          <button class="mode active" data-mode="translate" title="Move (W)">
+            <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4M18 8l4 4-4 4"/></svg>
+          </button>
+          <button class="mode" data-mode="rotate" title="Rotate (E)">
+            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-3.2-6.9"/><path d="M21 4v5h-5"/></svg>
+          </button>
+          <button class="mode" data-mode="scale" title="Scale (R)">
+            <svg viewBox="0 0 24 24"><path d="M3 3h7M3 3v7M3 3l7 7M21 21h-7M21 21v-7M21 21l-7-7"/></svg>
+          </button>
+        </div>
+        <div class="glass-chip view-axes" title="Camera view">
+          <button data-view="perspective">Persp</button>
+          <button data-view="top">Top</button>
+          <button data-view="front">Front</button>
+          <button data-view="side">Side</button>
+        </div>
+        <div class="glass-chip">
+          <button id="btn-lights" title="Scene lights">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg>
+          </button>
+        </div>
+        <div class="glass-chip unit-chip" title="Unit">
+          <button data-unit="m" class="active">m</button>
+          <button data-unit="cm">cm</button>
+          <button data-unit="mm">mm</button>
+          <button data-unit="in">in</button>
+          <button data-unit="px">px</button>
+        </div>
+      </div>
+
+      <!-- Hint -->
+      <div class="hint-chip" id="hint">ドラッグで回転 · L ラッソ · P ペイント · C 削り · B 盛上 · W/E/R 変形</div>
+
+      <!-- Floating file actions (bottom-left) -->
+      <div class="file-fab" id="file-fab">
+        <button class="fab-btn" id="btn-import-menu" title="読み込み">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h3.5l2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+        </button>
+        <button class="fab-btn" id="btn-export-menu" title="書き出し">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+        </button>
+        <button class="fab-btn" id="btn-com-pivot" title="重心へピボット (Cinema 4D 風)" style="font-size:18px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor"/><line x1="12" y1="2.5" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21.5" y2="12"/></svg>
+        </button>
+        <button class="fab-btn" id="btn-explode" title="💥 瞬時の爆発" style="font-size:18px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M19 5l-2 2M22 12h-3M19 19l-2-2M12 19v3M5 19l2-2M2 12h3M5 5l2 2"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <!-- Undo / Redo floating buttons -->
+      <button class="hist-btn left" id="btn-undo" title="戻す (⌘Z)" aria-label="Undo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L3 8l6-6"/><path d="M3 8h12a6 6 0 0 1 6 6v2a6 6 0 0 1-6 6H7"/></svg>
+      </button>
+      <button class="hist-btn right" id="btn-redo" title="やり直す (⌘⇧Z)" aria-label="Redo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l6-6-6-6"/><path d="M21 8H9a6 6 0 0 0-6 6v2a6 6 0 0 0 6 6h8"/></svg>
+      </button>
+
+      <!-- Mobile panel toggle -->
+      <button class="mob-toggle" id="mob-left" aria-label="Scene">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      </button>
+      <button class="mob-toggle right" id="mob-right" aria-label="Inspector">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg>
+      </button>
+
+      <!-- Tool popover -->
+      <div class="tool-popover" id="tool-popover" hidden>
+        <div class="tp-title" id="tp-title">Tool</div>
+        <div class="tp-body" id="tp-body"></div>
+      </div>
+
+      <!-- Lights panel -->
+      <div class="lights-panel" id="lights-panel" hidden>
+        <div class="lp-head">
+          <span>シーンライト</span>
+          <button class="icon-btn" id="lights-close">×</button>
+        </div>
+        <div class="lp-body">
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/></svg>
+            <span>キー</span>
+            <div class="num-wheel"><span class="nw-val" id="lux-key-val">1.35</span><input type="number" id="lux-key" min="0" max="4" step="0.01" value="1.35" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+            <span>フィル</span>
+            <div class="num-wheel"><span class="nw-val" id="lux-fill-val">0.50</span><input type="number" id="lux-fill" min="0" max="3" step="0.01" value="0.5" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M12 3a9 9 0 0 1 7 14.5"/></svg>
+            <span>リム</span>
+            <div class="num-wheel"><span class="nw-val" id="lux-rim-val">0.35</span><input type="number" id="lux-rim" min="0" max="3" step="0.01" value="0.35" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+            <span>環境</span>
+            <div class="num-wheel"><span class="nw-val" id="lux-hemi-val">0.85</span><input type="number" id="lux-hemi" min="0" max="3" step="0.01" value="0.85" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-divider"></div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="17" rx="8" ry="3"/><path d="M4 17V7l8 3 8-3v10"/></svg>
+            <span>影の濃さ</span>
+            <div class="num-wheel"><span class="nw-val" id="sh-opa-val">0.12</span><input type="number" id="sh-opa" min="0" max="1" step="0.01" value="0.12" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12c4-6 12-6 16 0M4 17c4-4 12-4 16 0M4 7c4-4 12-4 16 0"/></svg>
+            <span>影のぼかし</span>
+            <div class="num-wheel"><span class="nw-val" id="sh-rad-val">4.0</span><input type="number" id="sh-rad" min="0" max="16" step="0.1" value="4" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="7.5" cy="10" r="1" fill="currentColor"/><circle cx="12" cy="7.5" r="1" fill="currentColor"/><circle cx="16.5" cy="10" r="1" fill="currentColor"/><circle cx="14.5" cy="15" r="1" fill="currentColor"/><circle cx="9.5" cy="15" r="1" fill="currentColor"/></svg>
+            <span>光の色</span>
+            <input type="color" id="lux-color" value="#ffffff">
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M4 21a8 8 0 0 1 16 0"/><path d="M12 21V5"/><path d="M12 5l5 3"/></svg>
+            <span>光の角度</span>
+            <div class="num-wheel"><span class="nw-val" id="lux-ang-val">40</span><input type="number" id="lux-ang" min="0" max="360" step="1" value="40" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>
+            <span>光の高さ</span>
+            <div class="num-wheel"><span class="nw-val" id="lux-hgt-val">12.0</span><input type="number" id="lux-hgt" min="0" max="30" step="0.1" value="12" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+          <div class="lp-row">
+            <svg class="lp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M3 12l5-5M3 12l5 5M21 12l-5-5M21 12l-5 5"/></svg>
+            <span>光の距離</span>
+            <div class="num-wheel"><span class="nw-val" id="lux-dst-val">14.0</span><input type="number" id="lux-dst" min="2" max="30" step="0.1" value="14" tabindex="-1" class="nw-input" hidden></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Dock -->
+      <div class="dock">
+        <button class="dock-btn" id="add-text" title="Add Text"><span class="dock-label">Aa</span></button>
+        <button class="dock-btn" id="add-sphere" title="Add Sphere"><span class="dock-circle"></span></button>
+        <button class="dock-btn" id="add-box" title="Add Rounded Box"><span class="dock-square"></span></button>
+        <button class="dock-btn" id="add-line" title="Add Line"><span class="dock-lines"></span></button>
+        <span class="dock-divider"></span>
+        <button class="dock-btn stl-dock" id="add-stl" title="Import STL"><span class="dock-stl">STL</span></button>
+      </div>
+    </main>
+
+    <!-- Right: Inspector -->
+    <aside class="panel panel-right">
+      <div class="panel-head">
+        <span>インスペクタ</span>
+      </div>
+      <div id="inspector" class="inspector">
+        <p class="hint">No object selected</p>
+      </div>
+    </aside>
+  </div>
+
+  <input type="file" id="stl-input" accept=".stl" hidden>
+  <input type="file" id="obj-input" accept=".obj" hidden>
+  <input type="file" id="glb-input" accept=".glb,.gltf" hidden>
+  <input type="file" id="json-input" accept=".json" hidden>
+  <input type="file" id="tex-input" accept="image/png,image/jpeg,image/jpg,image/heif,image/heic,image/webp,image/*" hidden>
+  <input type="file" id="pat-input" accept="image/png,image/jpeg,image/jpg,image/heif,image/heic,image/webp,image/*" hidden>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- Dynamic Island style import/export menu -->
+  <div class="di-overlay" id="di-overlay" hidden>
+    <div class="di-menu" id="di-menu"></div>
+  </div>
+
+  <!-- Hidden legacy handlers (kept so existing functions keep working) -->
+  <button id="btn-import-json" hidden></button>
+  <button id="btn-export-json" hidden></button>
+  <button id="btn-export-stl" hidden></button>
+  <button id="btn-export-glb" hidden></button>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// iOS haptics (dynamic — page still works if CDN fails)
+let haptic = Object.assign(() => {}, { confirm: () => {}, error: () => {}, warning: () => {} });
+import('ios-haptics').then(m => { if (m.haptic) haptic = m.haptic; }).catch(() => {});
+
+// Delegate haptic to all tappable controls
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('button, .dock-btn, .icon-btn, .btn-ghost, .outliner-item, .sel, .mode, .pattern-kind button, .surface-kind button, input[type=range], input[type=color], input[type=file]')) {
+    try { haptic(); } catch (_) {}
+  }
+}, { passive: true, capture: true });
+
+// =================== Embed mode (inside composer iframe) ===================
+const EMBEDDED = (()=>{ try { return window.self !== window.top; } catch(_) { return true; } })();
+if (EMBEDDED) document.documentElement.classList.add('embedded');
+
+// =================== Scene ===================
+const canvas = document.getElementById('c');
+const viewportEl = canvas.parentElement;
+const scene = new THREE.Scene();
+scene.background = null;
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 2000);
+camera.position.set(6, 5, 8);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+// Lights
+const hemi = new THREE.HemisphereLight(0xffffff, 0xc6cbd5, 0.85);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 1.35);
+key.position.set(6, 12, 8);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left:-14, right:14, top:14, bottom:-14, near:0.5, far:50 });
+key.shadow.bias = -0.0005;
+key.shadow.radius = 4;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xd8e4ff, 0.5);
+fill.position.set(-6, 4, -4);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffe8d1, 0.35);
+rim.position.set(-3, 6, 10);
+scene.add(rim);
+
+// Ground shadow catcher
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.ShadowMaterial({ opacity: 0.12 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+ground.position.y = -0.001;
+scene.add(ground);
+
+// Grid
+const grid = new THREE.GridHelper(40, 40, 0xbcc2cc, 0xdde1e7);
+grid.material.opacity = 0.55;
+grid.material.transparent = true;
+scene.add(grid);
+
+// Origin dot
+const pivotMarker = new THREE.Mesh(
+  new THREE.SphereGeometry(0.08, 20, 14),
+  new THREE.MeshBasicMaterial({ color: 0x8a9099, transparent: true, opacity: 0.78 })
+);
+scene.add(pivotMarker);
+
+// Controls
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.08;
+orbit.target.set(0, 1, 0);
+
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setSize(0.85);
+gizmo.addEventListener('dragging-changed', e => orbit.enabled = !e.value);
+gizmo.addEventListener('objectChange', () => updateInspectorValues());
+scene.add(gizmo);
+
+// Pivot for multi-selection group transform
+const pivot = new THREE.Object3D();
+pivot.name = '__pivot__';
+scene.add(pivot);
+
+// =================== Registry ===================
+let uid = 0;
+const objects = new Map();
+
+const state = {
+  selectedIds: new Set(),
+  selectionMode: 'pick',
+  pendingTexture: null,
+  tool: 'none',
+};
+
+const tools = {
+  paint: { color: '#5ac8fa' },
+  carve: { radius: 0.4, strength: 0.12, style: 'smooth' }, // smooth | stamp
+  bump:  { radius: 0.4, strength: 0.12, style: 'smooth' },
+  pencil:{ color: '#1d1d1f', radius: 0.05 },
+  eraser:{ mode: 'object', radius: 0.15, depth: 0.8 },
+};
+
+function resize(){
+  const r = viewportEl.getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / Math.max(r.height, 1);
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// =================== Ray / Picking ===================
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+
+function collectMeshes(){
+  const out = [];
+  for (const o of objects.values()) o.mesh.traverse(n => { if (n.isMesh) out.push(n); });
+  return out;
+}
+
+function hitTest(e){
+  const r = canvas.getBoundingClientRect();
+  ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+  ray.setFromCamera(ndc, camera);
+  return ray.intersectObjects(collectMeshes(), false);
+}
+
+function findObjId(mesh){
+  let t = mesh;
+  while (t && !t.userData.objId) t = t.parent;
+  return t ? t.userData.objId : null;
+}
+
+let downX = 0, downY = 0, downButton = 0;
+let toolDrag = null;  // continuous paint/carve/bump
+let decalDrag = null; // drag decal along target surface
+
+function applyToolAt(e){
+  if (!toolDrag) return;
+  if (toolDrag.tool === 'paint') handlePaintClick(e);
+  else if (toolDrag.tool === 'carve') handleBrushClick(e, -1);
+  else if (toolDrag.tool === 'bump')  handleBrushClick(e, +1);
+  else if (toolDrag.tool === 'eraser') handleEraserAt(e);
+}
+
+function handleEraserAt(e){
+  const hits = hitTest(e);
+  if (!hits.length) return;
+  const hit = hits[0];
+  const id = findObjId(hit.object);
+  if (!id) return;
+  const obj = objects.get(id);
+  if (!obj) return;
+  if (tools.eraser.mode === 'object') {
+    // オブジェクトを丸ごと削除 (line/pencil/decal/mesh すべて)
+    remove(obj.id);
+    try { haptic(); } catch(_){}
+    return;
+  }
+  // ドリル: 小半径 × 指定深さ の貫通式スタンプ
+  handleBrushClick(e, -1, { radius: tools.eraser.radius, strength: tools.eraser.depth, style: 'stamp' });
+}
+function applyDecalDragAt(e){
+  if (!decalDrag) return;
+  const o = decalDrag.obj;
+  const hits = hitTest(e);
+  const hit = hits.find(h => findObjId(h.object) === o.params.targetId);
+  if (!hit) return;
+  o.params.worldPos = hit.point.toArray();
+  if (hit.face) {
+    const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+    o.params.worldNormal = n.toArray();
+  }
+  rebuildDecal(o);
+}
+
+canvas.addEventListener('pointerdown', e => {
+  downX = e.clientX; downY = e.clientY; downButton = e.button;
+  if (e.button !== 0) return;
+  if (state.selectionMode === 'lasso') { startLasso(e); return; }
+  // Continuous tools (Paint / Carve / Bump) — straight-line draggable
+  if (state.tool === 'paint' || state.tool === 'carve' || state.tool === 'bump') {
+    toolDrag = { tool: state.tool, last: 0, startX: e.clientX, startY: e.clientY };
+    orbit.enabled = false;
+    applyToolAt(e);
+    // Paint: long-press → paint whole object
+    if (state.tool === 'paint') {
+      const hits = hitTest(e);
+      const hit = hits[0];
+      if (hit) {
+        clearTimeout(paintLongPressTimer);
+        paintLongPressTimer = setTimeout(() => {
+          const id = findObjId(hit.object);
+          const obj = id && objects.get(id);
+          if (obj) {
+            paintObjectFull(obj, tools.paint.color);
+            toolDrag = null;
+            orbit.enabled = true;
+            try { haptic.confirm && haptic.confirm(); } catch(_){}
+            toast('オブジェクト全体を塗りました', 'success');
+          }
+          paintLongPressTimer = null;
+        }, 500);
+      }
+    }
+    return;
+  }
+  // 3D Pencil — stroke drawing on any surface
+  if (state.tool === 'pencil') {
+    pencilDrawing = { path: [], preview: null };
+    orbit.enabled = false;
+    pencilAddPoint(e);
+    return;
+  }
+  // 3D Eraser — remove pencil stroke, or stab a hole into an object
+  if (state.tool === 'eraser') {
+    toolDrag = { tool: 'eraser', last: 0, startX: e.clientX, startY: e.clientY };
+    orbit.enabled = false;
+    handleEraserAt(e);
+    return;
+  }
+  // Decal drag along its target surface
+  if (state.selectedIds.size === 1 && !gizmo.dragging && !decalPending && !decalReplace) {
+    const [id] = state.selectedIds;
+    const o = objects.get(id);
+    if (o && o.type === 'decal') {
+      const hits = hitTest(e);
+      const hit = hits.find(h => findObjId(h.object) === o.params.targetId);
+      if (hit) {
+        decalDrag = { obj: o };
+        orbit.enabled = false;
+        applyDecalDragAt(e);
+        return;
+      }
+    }
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  if (lassoActive) { moveLasso(e); return; }
+  if (toolDrag) {
+    // Moved enough: cancel paint long-press
+    if (paintLongPressTimer && (Math.abs(e.clientX - toolDrag.startX) > 6 || Math.abs(e.clientY - toolDrag.startY) > 6)) {
+      clearTimeout(paintLongPressTimer); paintLongPressTimer = null;
+    }
+    const now = performance.now();
+    if (now - toolDrag.last > 35) { toolDrag.last = now; applyToolAt(e); }
+    return;
+  }
+  if (pencilDrawing) { pencilAddPoint(e); updatePencilPreview(); return; }
+  if (decalDrag) { applyDecalDragAt(e); return; }
+});
+canvas.addEventListener('pointerup', e => {
+  if (lassoActive) { endLasso(e); return; }
+  if (paintLongPressTimer) { clearTimeout(paintLongPressTimer); paintLongPressTimer = null; }
+  if (toolDrag) { toolDrag = null; orbit.enabled = true; return; }
+  if (pencilDrawing) { finalizePencilStroke(); return; }
+  if (decalDrag) { decalDrag = null; orbit.enabled = true; return; }
+  if (downButton !== 0) return;
+  if (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4) return;
+  if (gizmo.dragging) return;
+  if (decalPending || decalReplace) { if (handleDecalClickOnCanvas(e)) return; }
+  const hits = hitTest(e);
+  if (hits.length) {
+    const id = findObjId(hits[0].object);
+    if (id) select(id, e.shiftKey || e.metaKey || e.ctrlKey);
+  } else {
+    select(null);
+  }
+});
+
+canvas.addEventListener('dblclick', e => {
+  if (state.selectionMode === 'lasso') return;
+  if (state.tool && state.tool !== 'none') return;
+  const hits = hitTest(e);
+  if (!hits.length) return;
+  state.pendingTexture = { hit: hits[0] };
+  document.getElementById('tex-input').click();
+});
+
+// Prevent browser default drop behavior anywhere on the page (so files don't open in the browser)
+window.addEventListener('dragover', e => {
+  if (e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')) e.preventDefault();
+});
+window.addEventListener('drop', e => {
+  if (e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')) {
+    if (viewportEl.contains(e.target)) return;
+    e.preventDefault();
+    if (e.target.closest && e.target.closest('.panel, input, .mob-toggle, .lights-panel, .tool-popover, .picker-overlay')) return;
+    toast('ビューポート上のオブジェクト面にドロップしてください');
+  }
+});
+
+// === Drag & drop image onto a face ===
+viewportEl.addEventListener('dragenter', e => {
+  if (e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')) {
+    e.preventDefault();
+    viewportEl.classList.add('drop-target');
+  }
+});
+viewportEl.addEventListener('dragover', e => {
+  if (e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }
+});
+viewportEl.addEventListener('dragleave', e => {
+  // Remove highlight only if pointer actually left the viewport bounds
+  const r = viewportEl.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+    viewportEl.classList.remove('drop-target');
+  }
+});
+viewportEl.addEventListener('drop', async e => {
+  e.preventDefault();
+  viewportEl.classList.remove('drop-target');
+  const files = [...(e.dataTransfer?.files || [])];
+  if (!files.length) return;
+  const stlFile = files.find(f => /\.stl$/i.test(f.name));
+  if (stlFile) {
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const geo = stlLoader.parse(ev.target.result);
+        geo.computeVertexNormals();
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox, c = new THREE.Vector3(), sz = new THREE.Vector3();
+        bb.getCenter(c); bb.getSize(sz);
+        geo.translate(-c.x, -c.y, -c.z);
+        const fit = 3 / Math.max(sz.x, sz.y, sz.z, 1e-6);
+        const params = { color: '#d0d3db', roughness: 0.45, metalness: 0.15, surface: defaultSurface() };
+        const m = new THREE.Mesh(geo, makeMaterial(params));
+        m.castShadow = m.receiveShadow = true;
+        m.scale.setScalar(fit);
+        m.position.y = sz.y * fit / 2;
+        register({ type: 'stl', mesh: m, params, name: stlFile.name.replace(/\.stl$/i, '') });
+        toast(`${stlFile.name} を読み込みました`, 'success');
+      } catch (err) { toast('STLの読み込みに失敗', 'error'); }
+    };
+    r.readAsArrayBuffer(stlFile);
+    return;
+  }
+  const imgFile = files.find(f => /^image\//.test(f.type) || /\.(png|jpe?g|webp|heic|heif|avif|gif|bmp)$/i.test(f.name));
+  if (!imgFile) { toast('画像 / STL ファイルをドロップしてください'); return; }
+  const hits = hitTest(e);
+  if (!hits.length) {
+    toast('オブジェクトの表面にドロップしてください', 'error');
+    return;
+  }
+  askImagePlacement(imgFile, hits[0]);
+});
+
+// =================== Materials ===================
+function makeMaterial(params){
+  return new THREE.MeshPhysicalMaterial({
+    color: params.color || '#d8dbe1',
+    roughness: params.roughness ?? 0.4,
+    metalness: params.metalness ?? 0.1,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.3,
+    envMapIntensity: 0.8,
+  });
+}
+
+function forMaterials(obj, fn){
+  obj.traverse(n => {
+    if (!n.material) return;
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    for (const m of mats) fn(m);
+  });
+}
+
+function applyMaterial(root, p){
+  forMaterials(root, m => {
+    if (!m.map && p.color) m.color.set(p.color);
+    if (p.roughness !== undefined) m.roughness = p.roughness;
+    if (p.metalness !== undefined) m.metalness = p.metalness;
+    if (p.opacity !== undefined) {
+      m.transparent = p.opacity < 0.999;
+      m.opacity = p.opacity;
+    }
+    m.needsUpdate = true;
+  });
+}
+function hexToRGB(hex){
+  const m = String(hex || '').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [0,0,0];
+}
+
+// =================== Fonts (multiple weights) ===================
+const fonts = { 400: null, 700: null };
+let fontReady = false;
+(function loadFonts(){
+  const L = new FontLoader();
+  L.load('https://unpkg.com/three@0.160.0/examples/fonts/helvetiker_regular.typeface.json',
+    f => { fonts[400] = f; fontReady = true; });
+  L.load('https://unpkg.com/three@0.160.0/examples/fonts/helvetiker_bold.typeface.json',
+    f => { fonts[700] = f; });
+})();
+function pickFont(weight){
+  return (weight >= 600) ? (fonts[700] || fonts[400]) : (fonts[400] || fonts[700]);
+}
+
+// =================== Box 6-face groups ===================
+function assignBoxGroups(geo){
+  const idx = geo.index;
+  const pos = geo.attributes.position;
+  const fc = (idx ? idx.count : pos.count) / 3;
+  const buckets = [[],[],[],[],[],[]];
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ab = new THREE.Vector3(), ac = new THREE.Vector3(), n = new THREE.Vector3();
+  for (let f = 0; f < fc; f++) {
+    const base = f * 3;
+    const i0 = idx ? idx.getX(base) : base;
+    const i1 = idx ? idx.getX(base + 1) : base + 1;
+    const i2 = idx ? idx.getX(base + 2) : base + 2;
+    a.fromBufferAttribute(pos, i0);
+    b.fromBufferAttribute(pos, i1);
+    c.fromBufferAttribute(pos, i2);
+    ab.subVectors(b, a); ac.subVectors(c, a);
+    n.crossVectors(ab, ac).normalize();
+    const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
+    let g;
+    if (ax >= ay && ax >= az) g = n.x > 0 ? 0 : 1;
+    else if (ay >= az) g = n.y > 0 ? 2 : 3;
+    else g = n.z > 0 ? 4 : 5;
+    buckets[g].push(f);
+  }
+  const newIdx = [];
+  geo.clearGroups();
+  let start = 0;
+  for (let g = 0; g < 6; g++) {
+    for (const f of buckets[g]) {
+      const base = f * 3;
+      if (idx) newIdx.push(idx.getX(base), idx.getX(base + 1), idx.getX(base + 2));
+      else newIdx.push(base, base + 1, base + 2);
+    }
+    if (buckets[g].length > 0) geo.addGroup(start, buckets[g].length * 3, g);
+    start += buckets[g].length * 3;
+  }
+  geo.setIndex(newIdx);
+}
+
+// =================== Creators ===================
+function defaultSurface(){ return { kind: 'solid' }; }
+
+function addBox(){
+  const params = { width: 2, height: 2, depth: 2, radius: 0.3, color: '#d8dbe1', roughness: 0.4, metalness: 0.1, surface: defaultSurface() };
+  const geo = new RoundedBoxGeometry(params.width, params.height, params.depth, 4, params.radius);
+  assignBoxGroups(geo);
+  const mats = Array.from({ length: 6 }, () => makeMaterial(params));
+  const m = new THREE.Mesh(geo, mats);
+  m.castShadow = m.receiveShadow = true;
+  m.position.y = params.height / 2;
+  register({ type: 'box', mesh: m, params, name: `Box ${uid + 1}` });
+}
+
+function addSphere(){
+  const params = { radius: 1.2, color: '#d8dbe1', roughness: 0.3, metalness: 0.1, surface: defaultSurface() };
+  const m = new THREE.Mesh(new THREE.SphereGeometry(params.radius, 64, 48), makeMaterial(params));
+  m.castShadow = m.receiveShadow = true;
+  m.position.y = params.radius;
+  register({ type: 'sphere', mesh: m, params, name: `Sphere ${uid + 1}` });
+}
+
+function addText(){
+  const params = { text: 'Hello', size: 1, depth: 0.25, bevelRadius: 0.04, weight: 400, color: '#d8dbe1', roughness: 0.35, metalness: 0.1, surface: defaultSurface() };
+  if (!fontReady && !hasNonAscii(params.text)) { toast('フォント読込中…'); setTimeout(addText, 400); return; }
+  const m = buildTextMesh(params);
+  m.castShadow = m.receiveShadow = true;
+  m.position.y = 0.1;
+  register({ type: 'text', mesh: m, params, name: `Text ${uid + 1}` });
+}
+
+function hasNonAscii(s){ return /[^\x00-\x7f]/.test(String(s || '')); }
+
+function buildTextGeo(p){
+  const f = pickFont(p.weight || 400);
+  if (!f) return new THREE.BufferGeometry();
+  const g = new TextGeometry(p.text || ' ', {
+    font: f,
+    size: Math.max(0.05, p.size),
+    height: Math.max(0.01, p.depth),
+    curveSegments: 10,
+    bevelEnabled: p.bevelRadius > 0.001,
+    bevelThickness: Math.min(p.bevelRadius, p.depth * 0.4),
+    bevelSize: Math.min(p.bevelRadius, p.size * 0.1),
+    bevelOffset: 0,
+    bevelSegments: 5,
+  });
+  g.computeBoundingBox();
+  if (g.boundingBox) {
+    const c = new THREE.Vector3();
+    g.boundingBox.getCenter(c);
+    g.translate(-c.x, -g.boundingBox.min.y, -c.z);
+  }
+  return g;
+}
+
+// Canvas-based text (supports Japanese/CJK/emoji) — flat plane with slight depth via Extrude
+function buildTextCanvasMesh(p){
+  const weight = p.weight || 400;
+  const family = '"SF Pro Display", -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
+  // Measure
+  const measCv = document.createElement('canvas');
+  const mctx = measCv.getContext('2d');
+  mctx.font = `${weight} 256px ${family}`;
+  const w = Math.max(1, mctx.measureText(p.text || ' ').width);
+  const aspect = Math.max(0.25, Math.min(20, w / 256));
+  // Render at higher res
+  const CH = 512;
+  const CW = Math.max(128, Math.min(4096, Math.round(aspect * CH)));
+  const cv = document.createElement('canvas');
+  cv.width = CW; cv.height = CH;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, CW, CH);
+  ctx.font = `${weight} ${CH * 0.75}px ${family}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = p.color || '#d8dbe1';
+  ctx.fillText(p.text || ' ', CW / 2, CH / 2);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.userData = { isTextCanvas: true };
+
+  const h = Math.max(0.05, p.size);
+  const W = h * aspect;
+  // Slim extruded plane to give a tiny depth (same feel as TextGeometry)
+  const depth = Math.max(0.01, Math.min(p.depth ?? 0.25, h * 0.5));
+  const shape = new THREE.Shape();
+  const r = Math.min(p.bevelRadius ?? 0.02, h * 0.2);
+  const x0 = -W / 2, y0 = 0, x1 = W / 2, y1 = h;
+  if (r > 0.001) {
+    shape.moveTo(x0 + r, y0);
+    shape.lineTo(x1 - r, y0);
+    shape.quadraticCurveTo(x1, y0, x1, y0 + r);
+    shape.lineTo(x1, y1 - r);
+    shape.quadraticCurveTo(x1, y1, x1 - r, y1);
+    shape.lineTo(x0 + r, y1);
+    shape.quadraticCurveTo(x0, y1, x0, y1 - r);
+    shape.lineTo(x0, y0 + r);
+    shape.quadraticCurveTo(x0, y0, x0 + r, y0);
+  } else {
+    shape.moveTo(x0, y0);
+    shape.lineTo(x1, y0);
+    shape.lineTo(x1, y1);
+    shape.lineTo(x0, y1);
+    shape.closePath();
+  }
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, steps: 1, curveSegments: 8 });
+  geo.translate(0, 0, -depth / 2);
+  // Build UVs so only the front face uses the text texture; back/sides get [0,0] (transparent outside)
+  const pos = geo.attributes.position;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const z = pos.getZ(i);
+    if (z > depth / 2 - 1e-4) {
+      const x = pos.getX(i), y = pos.getY(i);
+      uv[i * 2]     = (x - x0) / W;
+      uv[i * 2 + 1] = (y - y0) / h;
+    } else {
+      uv[i * 2]     = 0;
+      uv[i * 2 + 1] = 0;
+    }
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    map: tex,
+    roughness: p.roughness ?? 0.4,
+    metalness: p.metalness ?? 0.1,
+    transparent: true,
+    alphaTest: 0.12,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData.isCanvasText = true;
+  return mesh;
+}
+
+function buildTextMesh(p){
+  if (hasNonAscii(p.text)) return buildTextCanvasMesh(p);
+  const geo = buildTextGeo(p);
+  const mesh = new THREE.Mesh(geo, makeMaterial(p));
+  return mesh;
+}
+
+function addLine(){
+  const params = {
+    a: { x: -1.5, y: 1, z: 0 }, b: { x: 1.5, y: 1, z: 0 },
+    thickness: 0.14, tipSharpness: 0,
+    color: '#d8dbe1', roughness: 0.35, metalness: 0.1, surface: defaultSurface(),
+  };
+  register({ type: 'line', mesh: buildLineGroup(params), params, name: `Line ${uid + 1}` });
+}
+
+function buildLineGroup(p){
+  const group = new THREE.Group();
+  const A = new THREE.Vector3(p.a.x, p.a.y, p.a.z);
+  const B = new THREE.Vector3(p.b.x, p.b.y, p.b.z);
+  const dir = new THREE.Vector3().subVectors(B, A);
+  const len = Math.max(dir.length(), 1e-4);
+  const dirN = dir.clone().normalize();
+  const tip = Math.min(p.tipSharpness * p.thickness * 3, len / 2 - 0.01);
+  const sa = A.clone().addScaledVector(dirN, tip);
+  const sb = B.clone().addScaledVector(dirN, -tip);
+  const curve = new THREE.LineCurve3(sa, sb);
+  const shaft = new THREE.Mesh(
+    new THREE.TubeGeometry(curve, 1, p.thickness, 32, false),
+    makeMaterial(p)
+  );
+  shaft.castShadow = shaft.receiveShadow = true;
+  group.add(shaft);
+  group.add(makeCap(p, A, dirN));
+  group.add(makeCap(p, B, dirN.clone().multiplyScalar(-1)));
+  return group;
+}
+
+function makeCap(p, pos, inwardDir){
+  const sharp = p.tipSharpness;
+  let cap;
+  if (sharp < 0.01) {
+    cap = new THREE.Mesh(new THREE.SphereGeometry(p.thickness, 28, 20), makeMaterial(p));
+    cap.position.copy(pos);
+  } else {
+    const h = Math.max(sharp * p.thickness * 3, 0.001);
+    const baseR = p.thickness * (1 - sharp * 0.25);
+    cap = new THREE.Mesh(new THREE.ConeGeometry(baseR, h, 28), makeMaterial(p));
+    const outward = inwardDir.clone().multiplyScalar(-1).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
+    cap.quaternion.copy(q);
+    cap.position.copy(pos).addScaledVector(inwardDir.clone().normalize(), h / 2);
+  }
+  cap.castShadow = cap.receiveShadow = true;
+  return cap;
+}
+
+// =================== STL I/O ===================
+const stlLoader = new STLLoader();
+const stlExporter = new STLExporter();
+
+document.getElementById('add-stl').onclick = () => document.getElementById('stl-input').click();
+document.getElementById('stl-input').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const geo = stlLoader.parse(ev.target.result);
+      geo.computeVertexNormals();
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox, c = new THREE.Vector3(), sz = new THREE.Vector3();
+      bb.getCenter(c); bb.getSize(sz);
+      geo.translate(-c.x, -c.y, -c.z);
+      const fit = 3 / Math.max(sz.x, sz.y, sz.z, 1e-6);
+      const params = { color: '#d0d3db', roughness: 0.45, metalness: 0.15, surface: defaultSurface() };
+      const m = new THREE.Mesh(geo, makeMaterial(params));
+      m.castShadow = m.receiveShadow = true;
+      m.scale.setScalar(fit);
+      m.position.y = sz.y * fit / 2;
+      register({ type: 'stl', mesh: m, params, name: f.name.replace(/\.stl$/i, '') });
+      toast(`${f.name} を読み込みました`);
+    } catch (err) { console.error(err); toast('STLの読み込みに失敗', 'error'); }
+  };
+  r.readAsArrayBuffer(f);
+  e.target.value = '';
+};
+
+// Clean export scene: clone targets, bake world transform, drop helpers/pivot/lights.
+function buildExportScene(targets){
+  const s = new THREE.Scene();
+  for (const o of targets) {
+    if (!o || !o.mesh) continue;
+    o.mesh.updateMatrixWorld(true);
+    const cl = o.mesh.clone(true);
+    cl.matrix.copy(o.mesh.matrixWorld);
+    cl.matrix.decompose(cl.position, cl.quaternion, cl.scale);
+    cl.name = (o.name || ('obj_' + o.id)).replace(/[^\w\-]/g, '_');
+    s.add(cl);
+  }
+  return s;
+}
+function buildAnimationClips(targets){
+  const clips = [];
+  for (const o of targets) {
+    const a = o.animation;
+    if (!a || !a.from || !a.to) continue;
+    const name = (o.name || ('obj_' + o.id)).replace(/[^\w\-]/g, '_');
+    const dur = Math.max(0.05, a.duration || 1);
+    const times = [0, dur];
+    const posTrack = new THREE.VectorKeyframeTrack(`${name}.position`, times, [...a.from.position, ...a.to.position]);
+    const qa = new THREE.Quaternion().setFromEuler(new THREE.Euler(...a.from.rotation));
+    const qb = new THREE.Quaternion().setFromEuler(new THREE.Euler(...a.to.rotation));
+    const rotTrack = new THREE.QuaternionKeyframeTrack(`${name}.quaternion`, times, [qa.x, qa.y, qa.z, qa.w, qb.x, qb.y, qb.z, qb.w]);
+    const scaleTrack = new THREE.VectorKeyframeTrack(`${name}.scale`, times, [...a.from.scale, ...a.to.scale]);
+    clips.push(new THREE.AnimationClip(name + '_anim', dur, [posTrack, rotTrack, scaleTrack]));
+  }
+  return clips;
+}
+
+document.getElementById('btn-export-glb').onclick = () => {
+  if (objects.size === 0) { toast('書き出すオブジェクトがありません'); return; }
+  const targets = state.selectedIds.size ? [...state.selectedIds].map(id => objects.get(id)).filter(Boolean) : [...objects.values()];
+  if (!targets.length) { toast('書き出すオブジェクトがありません'); return; }
+  const exportScene = buildExportScene(targets);
+  const clips = buildAnimationClips(targets);
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    exportScene,
+    result => {
+      const blob = result instanceof ArrayBuffer
+        ? new Blob([result], { type: 'model/gltf-binary' })
+        : new Blob([JSON.stringify(result)], { type: 'model/gltf+json' });
+      const ext = result instanceof ArrayBuffer ? 'glb' : 'gltf';
+      const name = (targets.length === 1 ? targets[0].name : 'scene').replace(/[^\w\-]/g, '_') + '.' + ext;
+      download(blob, name);
+      toast(`${name} を保存しました`, 'success');
+    },
+    err => { console.error(err); toast('GLBの書き出しに失敗', 'error'); },
+    { binary: true, animations: clips, onlyVisible: true, embedImages: true }
+  );
+};
+
+// Unity-friendly OBJ export (Unity imports .obj natively as 3D mesh)
+function exportOBJ(){
+  if (objects.size === 0) { toast('書き出すオブジェクトがありません'); return; }
+  const targets = state.selectedIds.size ? [...state.selectedIds].map(id => objects.get(id)).filter(Boolean) : [...objects.values()];
+  if (!targets.length) { toast('書き出すオブジェクトがありません'); return; }
+  const exportScene = buildExportScene(targets);
+  const data = new OBJExporter().parse(exportScene);
+  const name = (targets.length === 1 ? targets[0].name : 'scene').replace(/[^\w\-]/g, '_') + '.obj';
+  download(new Blob([data], { type: 'text/plain' }), name);
+  toast(`${name} を保存しました (Unity OBJ)`, 'success');
+}
+
+// =================== Dynamic Island import/export menu ===================
+const diOverlay = document.getElementById('di-overlay');
+const diMenu = document.getElementById('di-menu');
+let diCloseHandler = null;
+function closeDI(){
+  if (diOverlay.hidden) return;
+  diMenu.classList.add('closing');
+  setTimeout(() => {
+    diOverlay.hidden = true;
+    diMenu.className = 'di-menu';
+    diMenu.innerHTML = '';
+  }, 400);
+  diOverlay.onclick = null;
+  diOverlay.ondblclick = null;
+  if (diCloseHandler) { document.removeEventListener('click', diCloseHandler, true); diCloseHandler = null; }
+}
+function showDIError(msg){
+  diMenu.className = 'di-menu error';
+  diMenu.innerHTML = `<span class="di-msg">⚠︎ ${escapeHtml(msg)}</span>`;
+  diOverlay.hidden = false;
+  diOverlay.onclick = e => { if (!diMenu.contains(e.target)) closeDI(); };
+  diOverlay.ondblclick = e => { if (!diMenu.contains(e.target)) closeDI(); };
+  try { haptic.error && haptic.error(); } catch(_){}
+  setTimeout(() => closeDI(), 1600);
+}
+function openDI(items){
+  diMenu.className = 'di-menu';
+  diMenu.innerHTML = items.map((it, i) =>
+    `<button data-i="${i}" title="${it.label}">${it.svg || ''}<span>${it.label}</span></button>`
+  ).join('') + `<button class="di-close" title="閉じる">×</button>`;
+  diMenu.querySelectorAll('button[data-i]').forEach(b => {
+    b.onclick = ev => {
+      ev.stopPropagation();
+      const it = items[parseInt(b.dataset.i, 10)];
+      closeDI();
+      setTimeout(() => { try { it.action(); } catch (err) { console.error(err); toast(err.message || '失敗', 'error'); } }, 420);
+    };
+  });
+  diMenu.querySelector('.di-close').onclick = ev => { ev.stopPropagation(); closeDI(); };
+  diOverlay.hidden = false;
+  diOverlay.onclick = e => { if (!diMenu.contains(e.target)) closeDI(); };
+  diOverlay.ondblclick = e => { if (!diMenu.contains(e.target)) closeDI(); };
+}
+const ICO_STL   = '<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12h6"/></svg>';
+const ICO_GLB   = '<svg viewBox="0 0 24 24"><path d="M12 2L4 6v12l8 4 8-4V6l-8-4z"/><path d="M4 6l8 4 8-4M12 10v12"/></svg>';
+const ICO_OBJ   = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9h6v6H9z"/></svg>';
+const ICO_JSON  = '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>';
+
+const ICO_COMPOSER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3L4 7v10l8 4 8-4V7l-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/><path d="M9 4.5l6 3M9 19.5l6-3"/></svg>';
+document.getElementById('btn-export-menu').onclick = () => {
+  if (objects.size === 0) { showDIError('書き出すオブジェクトがありません'); return; }
+  const items = [
+    { label: 'STL',         svg: ICO_STL,  action: () => document.getElementById('btn-export-stl').onclick() },
+    { label: 'GLB',         svg: ICO_GLB,  action: () => document.getElementById('btn-export-glb').onclick() },
+    { label: 'Unity (OBJ)', svg: ICO_OBJ,  action: exportOBJ },
+    { label: 'シーン JSON', svg: ICO_JSON, action: () => document.getElementById('btn-export-json').onclick() },
+  ];
+  if (EMBEDDED) items.unshift({ label: 'Composerへ', svg: ICO_COMPOSER, action: sendToComposer });
+  openDI(items);
+};
+
+// =================== Send to Composer (GLB + thumbnail via postMessage) ===================
+function captureThumbnail(size = 192){
+  try {
+    renderer.render(scene, camera);
+    const src = renderer.domElement;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    const sw = src.width, sh = src.height;
+    const s = Math.min(sw, sh);
+    ctx.drawImage(src, (sw - s) / 2, (sh - s) / 2, s, s, 0, 0, size, size);
+    return c.toDataURL('image/png');
+  } catch (_) { return null; }
+}
+
+function pickPrimaryColor(targets){
+  for (const o of targets){
+    if (o.params && o.params.color) return o.params.color;
+  }
+  return '#d8dbe1';
+}
+function pickPrimaryAnim(targets){
+  // Inspect first target's animation param (if editor stored one), otherwise 'static'
+  for (const o of targets){
+    const a = o.params && o.params.anim;
+    if (a && a !== 'static') return a;
+  }
+  return 'static';
+}
+
+// Always acknowledge back to the parent (composer) — even on failure — so its
+// close-button fallback timeout doesn't have to fire. Kept a no-op when standalone.
+function __notifyComposerError(reason){
+  try {
+    if (window.self !== window.top){
+      window.parent.postMessage({ type:'composer:3d-asset-error', reason:String(reason||'') }, '*');
+    }
+  } catch(_){}
+}
+
+function sendToComposer(){
+  if (!EMBEDDED) { toast('Composer内でのみ使えます', 'error'); return; }
+  if (objects.size === 0) {
+    __notifyComposerError('empty');
+    toast('書き出すオブジェクトがありません');
+    return;
+  }
+  const targets = state.selectedIds.size ? [...state.selectedIds].map(id => objects.get(id)).filter(Boolean) : [...objects.values()];
+  if (!targets.length) {
+    __notifyComposerError('no-targets');
+    toast('書き出すオブジェクトがありません');
+    return;
+  }
+  const name = (targets.length === 1 ? targets[0].name : 'custom').replace(/[^\w\-]/g, '_');
+  const exportScene = buildExportScene(targets);
+  const thumbnail = captureThumbnail(192);
+  const clips = buildAnimationClips(targets);
+  const color = pickPrimaryColor(targets);
+  const anim  = pickPrimaryAnim(targets);
+
+  // Export STL (binary) — geometry is what composer cares about
+  let stlAB;
+  try {
+    const stlData = stlExporter.parse(exportScene, { binary: true });
+    // stlData is a DataView or ArrayBuffer; normalize to ArrayBuffer
+    stlAB = stlData instanceof ArrayBuffer ? stlData : (stlData.buffer || new Uint8Array(stlData).buffer);
+  } catch (err) {
+    console.error(err);
+    __notifyComposerError('stl-export-failed');
+    toast('STL書き出し失敗', 'error');
+    return;
+  }
+
+  // Also export GLB (for future richer import, not strictly required in composer v1)
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    exportScene,
+    glbResult => {
+      const glbAB = glbResult instanceof ArrayBuffer ? glbResult : new TextEncoder().encode(JSON.stringify(glbResult)).buffer;
+      try {
+        const msg = {
+          type: 'composer:3d-asset',
+          name,
+          color,
+          anim,
+          hasAnimation: clips.length > 0,
+          thumbnail,
+          stl: stlAB,
+          glb: glbAB,
+        };
+        // ArrayBuffers must be transferred; note structuredClone will clone them
+        window.parent.postMessage(msg, '*', [stlAB, glbAB]);
+        toast('Composerに送りました', 'success');
+        try { haptic.confirm && haptic.confirm(); } catch(_){}
+      } catch (err) {
+        console.error(err);
+        toast('送信に失敗', 'error');
+      }
+    },
+    err => {
+      // Even if GLB failed, still send STL only
+      console.warn('GLB export failed, sending STL only', err);
+      try {
+        window.parent.postMessage({
+          type: 'composer:3d-asset',
+          name, color, anim,
+          hasAnimation: false,
+          thumbnail,
+          stl: stlAB,
+        }, '*', [stlAB]);
+        toast('Composerに送りました', 'success');
+      } catch (e2) { console.error(e2); toast('送信に失敗', 'error'); }
+    },
+    { binary: true, animations: clips, onlyVisible: true, embedImages: true }
+  );
+}
+
+// Also expose on window so composer can trigger programmatically if wanted
+window.__aetherSendToComposer = sendToComposer;
+
+// Listen for composer asking us to send current scene
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.type === 'composer:request-asset') sendToComposer();
+  else if (d.type === 'composer:check-dirty') {
+    const count = (typeof objects !== 'undefined' && objects && objects.size) ? objects.size : 0;
+    try { window.parent.postMessage({ type: 'composer:dirty-status', dirty: count > 0, count }, '*'); } catch(_){}
+  }
+  else if (d.type === 'composer:load-asset' && d.stl) {
+    try {
+      const geo = stlLoader.parse(d.stl);
+      geo.computeVertexNormals();
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox, c = new THREE.Vector3(), sz = new THREE.Vector3();
+      bb.getCenter(c); bb.getSize(sz);
+      geo.translate(-c.x, -c.y, -c.z);
+      const fit = 3 / Math.max(sz.x, sz.y, sz.z, 1e-6);
+      const params = { color: '#d0d3db', roughness: 0.45, metalness: 0.15, surface: defaultSurface() };
+      const m = new THREE.Mesh(geo, makeMaterial(params));
+      m.castShadow = m.receiveShadow = true;
+      m.scale.setScalar(fit);
+      m.position.y = sz.y * fit / 2;
+      register({ type: 'stl', mesh: m, params, name: (d.name || 'imported').replace(/\.[^.]+$/, '') });
+      try { window.parent.postMessage({ type: 'composer:asset-loaded' }, '*'); } catch(_){}
+      toast('Composer から読み込みました');
+    } catch (err) {
+      console.error(err);
+      try { window.parent.postMessage({ type: 'composer:asset-load-error', reason: String(err) }, '*'); } catch(_){}
+      toast('STL の読み込みに失敗', 'error');
+    }
+  }
+});
+// Tell composer we're ready to receive load-asset messages.
+try { if (window.self !== window.top) window.parent.postMessage({ type: 'composer:ready' }, '*'); } catch(_){}
+document.getElementById('btn-import-menu').onclick = () => {
+  openDI([
+    { label: 'STL',         svg: ICO_STL,  action: () => document.getElementById('stl-input').click() },
+    { label: 'Unity (OBJ)', svg: ICO_OBJ,  action: () => document.getElementById('obj-input').click() },
+    { label: 'GLB / GLTF',  svg: ICO_GLB,  action: () => document.getElementById('glb-input').click() },
+    { label: '画像 (面へ)', svg: ICO_OBJ,  action: () => { state.pendingTexture = null; document.getElementById('tex-input').click(); } },
+    { label: 'シーン JSON', svg: ICO_JSON, action: () => document.getElementById('json-input').click() },
+  ]);
+};
+
+// OBJ loader — import as new scene objects
+document.getElementById('obj-input').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const group = new OBJLoader().parse(ev.target.result);
+      let added = 0;
+      group.traverse(n => {
+        if (!n.isMesh || !n.geometry) return;
+        const geo = n.geometry;
+        geo.computeVertexNormals();
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox, c = new THREE.Vector3(), sz = new THREE.Vector3();
+        bb.getCenter(c); bb.getSize(sz);
+        geo.translate(-c.x, -c.y, -c.z);
+        const fit = 3 / Math.max(sz.x, sz.y, sz.z, 1e-6);
+        const params = { color: '#d0d3db', roughness: 0.45, metalness: 0.15, surface: defaultSurface() };
+        const mesh = new THREE.Mesh(geo, makeMaterial(params));
+        mesh.castShadow = mesh.receiveShadow = true;
+        mesh.scale.setScalar(fit);
+        mesh.position.y = sz.y * fit / 2;
+        register({ type: 'stl', mesh, params, name: n.name || f.name.replace(/\.obj$/i, '') });
+        added++;
+      });
+      toast(added ? `${f.name} を読み込みました (${added}メッシュ)` : '読み込むメッシュが見つかりませんでした', added ? 'success' : 'error');
+    } catch (err) { console.error(err); toast('OBJの読み込みに失敗', 'error'); }
+  };
+  r.readAsText(f);
+  e.target.value = '';
+};
+
+// GLB/GLTF loader — import as new scene objects
+document.getElementById('glb-input').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    const loader = new GLTFLoader();
+    loader.parse(ev.target.result, '', gltf => {
+      const root = gltf.scene || gltf.scenes[0];
+      if (!root) { toast('GLBにシーンが見つかりません', 'error'); return; }
+      let added = 0;
+      root.updateMatrixWorld(true);
+      root.traverse(n => {
+        if (!n.isMesh || !n.geometry) return;
+        n.updateMatrixWorld(true);
+        const geo = n.geometry.clone();
+        // Bake world matrix into geometry for a simple import (loses per-node hierarchy)
+        geo.applyMatrix4(n.matrixWorld);
+        geo.computeVertexNormals();
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox, c = new THREE.Vector3();
+        bb.getCenter(c);
+        geo.translate(-c.x, -c.y, -c.z);
+        const params = { color: '#d0d3db', roughness: 0.45, metalness: 0.15, surface: defaultSurface() };
+        const mesh = new THREE.Mesh(geo, makeMaterial(params));
+        mesh.castShadow = mesh.receiveShadow = true;
+        mesh.position.copy(c);
+        register({ type: 'stl', mesh, params, name: n.name || f.name.replace(/\.(glb|gltf)$/i, '') });
+        added++;
+      });
+      toast(added ? `${f.name} を読み込みました (${added}メッシュ)` : 'GLBにメッシュが見つかりません', added ? 'success' : 'error');
+    }, err => { console.error(err); toast('GLBの読み込みに失敗', 'error'); });
+  };
+  r.readAsArrayBuffer(f);
+  e.target.value = '';
+};
+
+document.getElementById('btn-export-stl').onclick = () => {
+  if (objects.size === 0) { toast('書き出すオブジェクトがありません'); return; }
+  const targets = state.selectedIds.size ? [...state.selectedIds].map(id => objects.get(id)).filter(Boolean) : [...objects.values()];
+  if (!targets.length) { toast('書き出すオブジェクトがありません'); return; }
+  const exportScene = buildExportScene(targets);
+  const data = stlExporter.parse(exportScene, { binary: true });
+  const name = (targets.length === 1 ? targets[0].name : 'scene').replace(/[^\w\-]/g, '_') + '.stl';
+  download(new Blob([data]), name);
+  toast(`${name} を保存しました`, 'success');
+};
+
+// =================== Scene JSON ===================
+document.getElementById('btn-export-json').onclick = () => {
+  const data = {
+    version: 2, savedAt: new Date().toISOString(),
+    camera: { position: camera.position.toArray(), target: orbit.target.toArray() },
+    lights: getLightState(),
+    objects: [...objects.values()].map(serializeOne),
+  };
+  download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'scene.json');
+  toast('シーンを書き出しました', 'success');
+};
+
+function serializeOne(o){
+  const out = {
+    name: o.name, type: o.type,
+    params: JSON.parse(JSON.stringify(o.params)),
+    position: o.mesh.position.toArray(),
+    rotation: [o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
+    scale: o.mesh.scale.toArray(),
+    stlData: o.type === 'stl' ? stlExporter.parse(new THREE.Mesh(o.mesh.geometry), { binary: false }) : null,
+    animation: o.animation ? JSON.parse(JSON.stringify(o.animation)) : null,
+  };
+  if (o.type === 'decal') {
+    const t = objects.get(o.params.targetId);
+    if (t) out.params.targetName = t.name;
+  }
+  return out;
+}
+
+document.getElementById('btn-import-json').onclick = () => document.getElementById('json-input').click();
+document.getElementById('json-input').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.objects) throw new Error('bad');
+      clearAll();
+      for (const d of data.objects) deserializeOne(d);
+      if (data.camera) { camera.position.fromArray(data.camera.position); orbit.target.fromArray(data.camera.target); }
+      if (data.lights) setLightState(data.lights);
+      toast(`${f.name} を読み込みました`, 'success');
+    } catch (err) { console.error(err); toast('無効なシーンファイル', 'error'); }
+  };
+  r.readAsText(f);
+  e.target.value = '';
+};
+
+function deserializeOne(d){
+  const p = d.params;
+  if (d.type !== 'decal' && !p.surface) p.surface = defaultSurface();
+  let entry = null;
+  if (d.type === 'decal') {
+    const target = [...objects.values()].find(o => o.id === p.targetId) || [...objects.values()].find(o => o.name === p.targetName);
+    if (!target) { console.warn('decal skipped — target missing'); return; }
+    p.targetId = target.id;
+    const mesh = buildDecalMesh(target, p);
+    if (!mesh) return;
+    entry = { type: 'decal', mesh, params: p, name: d.name };
+    register(entry);
+    return;
+  }
+  if (d.type === 'box') {
+    const geo = new RoundedBoxGeometry(p.width, p.height, p.depth, 4, p.radius);
+    assignBoxGroups(geo);
+    const mats = Array.from({ length: 6 }, () => makeMaterial(p));
+    const m = new THREE.Mesh(geo, mats);
+    m.castShadow = m.receiveShadow = true;
+    entry = { type: 'box', mesh: m, params: p, name: d.name };
+  } else if (d.type === 'sphere') {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(p.radius, 64, 48), makeMaterial(p));
+    m.castShadow = m.receiveShadow = true;
+    entry = { type: 'sphere', mesh: m, params: p, name: d.name };
+  } else if (d.type === 'text') {
+    if (!fontReady) { toast('フォント未準備', 'error'); return; }
+    const m = new THREE.Mesh(buildTextGeo(p), makeMaterial(p));
+    m.castShadow = m.receiveShadow = true;
+    entry = { type: 'text', mesh: m, params: p, name: d.name };
+  } else if (d.type === 'line') {
+    entry = { type: 'line', mesh: buildLineGroup(p), params: p, name: d.name };
+  } else if (d.type === 'pencil') {
+    const m = buildPencilMesh(p);
+    m.castShadow = m.receiveShadow = true;
+    entry = { type: 'pencil', mesh: m, params: p, name: d.name };
+  } else if (d.type === 'stl' && d.stlData) {
+    const geo = stlLoader.parse(d.stlData);
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, makeMaterial(p));
+    m.castShadow = m.receiveShadow = true;
+    entry = { type: 'stl', mesh: m, params: p, name: d.name };
+  }
+  if (!entry) return;
+  if (d.position) entry.mesh.position.fromArray(d.position);
+  if (d.rotation) { entry.mesh.rotation.x = d.rotation[0]; entry.mesh.rotation.y = d.rotation[1]; entry.mesh.rotation.z = d.rotation[2]; }
+  if (d.scale) entry.mesh.scale.fromArray(d.scale);
+  if (d.animation) entry.animation = d.animation;
+  register(entry);
+  applyMaterial(entry.mesh, entry.params);
+  applySurface(entry);
+}
+
+function download(blob, name){
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = u; a.download = name; a.click();
+  URL.revokeObjectURL(u);
+}
+
+// =================== History (Undo / Redo) ===================
+const history = { undoStack: [], redoStack: [], lock: false, max: 40 };
+function snapshotState(){
+  return JSON.stringify({
+    objects: [...objects.values()].map(serializeOne),
+  });
+}
+function restoreSnapshot(snapStr){
+  let data;
+  try { data = JSON.parse(snapStr); } catch (_) { return; }
+  history.lock = true;
+  try {
+    clearAll();
+    for (const d of data.objects) deserializeOne(d);
+  } finally { history.lock = false; }
+}
+function pushHistory(){
+  if (history.lock) return;
+  history.undoStack.push(snapshotState());
+  if (history.undoStack.length > history.max) history.undoStack.shift();
+  history.redoStack = [];
+  updateHistoryButtons();
+}
+function undo(){
+  if (history.undoStack.length < 2) return;
+  const cur = history.undoStack.pop();
+  history.redoStack.push(cur);
+  const prev = history.undoStack[history.undoStack.length - 1];
+  restoreSnapshot(prev);
+  updateHistoryButtons();
+  toast('戻しました');
+}
+function redo(){
+  const next = history.redoStack.pop();
+  if (!next) return;
+  history.undoStack.push(next);
+  restoreSnapshot(next);
+  updateHistoryButtons();
+  toast('やり直しました');
+}
+function updateHistoryButtons(){
+  const u = document.getElementById('btn-undo');
+  const r = document.getElementById('btn-redo');
+  if (u) u.disabled = history.undoStack.length < 2;
+  if (r) r.disabled = history.redoStack.length === 0;
+}
+document.getElementById('btn-undo').onclick = () => undo();
+document.getElementById('btn-redo').onclick = () => redo();
+// Push initial empty state at load
+setTimeout(() => { history.undoStack.push(snapshotState()); updateHistoryButtons(); }, 100);
+window.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); redo(); }
+});
+gizmo.addEventListener('mouseUp', () => pushHistory());
+gizmo.addEventListener('touchend', () => pushHistory());
+
+// =================== Registry ops ===================
+function register(entry){
+  entry.id = 'o_' + (++uid);
+  entry.mesh.traverse(n => { n.userData.objId = entry.id; });
+  scene.add(entry.mesh);
+  objects.set(entry.id, entry);
+  refreshOutliner();
+  select(entry.id);
+  pushHistory();
+}
+function remove(id){
+  const o = objects.get(id); if (!o) return;
+  if (state.selectedIds.has(id)) {
+    state.selectedIds.delete(id);
+  }
+  if (o.mesh.parent === pivot) scene.attach(o.mesh);
+  scene.remove(o.mesh);
+  disposeDeep(o.mesh);
+  objects.delete(id);
+  select([...state.selectedIds]);
+  pushHistory();
+}
+function disposeDeep(obj){
+  obj.traverse(n => {
+    if (n.geometry) n.geometry.dispose();
+    if (n.material) {
+      const mats = Array.isArray(n.material) ? n.material : [n.material];
+      for (const m of mats) { if (m.map) m.map.dispose(); m.dispose(); }
+    }
+  });
+}
+function clearAll(){ for (const id of [...objects.keys()]) remove(id); }
+
+function select(idOrIds, additive = false){
+  // Detach children from pivot back to scene (preserving world transform)
+  while (pivot.children.length) scene.attach(pivot.children[0]);
+  pivot.position.set(0, 0, 0); pivot.rotation.set(0, 0, 0); pivot.scale.set(1, 1, 1);
+  pivot.updateMatrixWorld(true);
+
+  const incoming = (Array.isArray(idOrIds) ? idOrIds : (idOrIds ? [idOrIds] : [])).filter(id => objects.has(id));
+
+  if (!additive) state.selectedIds.clear();
+  for (const id of incoming) {
+    if (additive && state.selectedIds.has(id)) state.selectedIds.delete(id);
+    else state.selectedIds.add(id);
+  }
+
+  if (state.selectedIds.size === 0) {
+    gizmo.detach();
+  } else if (state.selectedIds.size === 1) {
+    const [only] = state.selectedIds;
+    const entry = objects.get(only);
+    // Decal: prefer surface-drag over transform gizmo
+    if (entry && entry.type === 'decal') gizmo.detach();
+    else gizmo.attach(entry.mesh);
+  } else {
+    const center = new THREE.Vector3();
+    for (const id of state.selectedIds) {
+      const b = new THREE.Box3().setFromObject(objects.get(id).mesh);
+      const c = new THREE.Vector3(); b.getCenter(c);
+      center.add(c);
+    }
+    center.divideScalar(state.selectedIds.size);
+    pivot.position.copy(center);
+    pivot.updateMatrixWorld(true);
+    for (const id of state.selectedIds) pivot.attach(objects.get(id).mesh);
+    gizmo.attach(pivot);
+  }
+  refreshOutliner();
+  renderInspector();
+  updateGhosts();
+}
+
+// =================== Animation ghosts (start/end visualisation) ===================
+const ghostState = { from: null, to: null };
+function clearGhosts(){
+  ['from', 'to'].forEach(k => {
+    if (ghostState[k]) { scene.remove(ghostState[k]); disposeDeep(ghostState[k]); ghostState[k] = null; }
+  });
+}
+function makeGhost(src, color){
+  const g = src.clone(true);
+  g.traverse(n => {
+    if (n.isMesh) {
+      n.material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, wireframe: true, depthWrite: false });
+      n.castShadow = n.receiveShadow = false;
+      n.userData = {};
+    }
+  });
+  return g;
+}
+function updateGhosts(){
+  clearGhosts();
+  if (state.selectedIds.size !== 1) return;
+  const [id] = state.selectedIds;
+  const o = objects.get(id);
+  if (!o || !o.animation || o.type === 'decal' || o.type === 'group') return;
+  if (animState.has(id)) return;
+  if (o.animation.from) {
+    ghostState.from = makeGhost(o.mesh, 0x30d158);
+    applyPose(ghostState.from, o.animation.from);
+    scene.add(ghostState.from);
+  }
+  if (o.animation.to) {
+    ghostState.to = makeGhost(o.mesh, 0xff453a);
+    applyPose(ghostState.to, o.animation.to);
+    scene.add(ghostState.to);
+  }
+}
+
+// =================== Groups ===================
+function groupSelected(){
+  if (state.selectedIds.size < 2) return;
+  // Detach from pivot so worldTransforms are on scene root
+  while (pivot.children.length) scene.attach(pivot.children[0]);
+  pivot.position.set(0, 0, 0); pivot.rotation.set(0, 0, 0); pivot.scale.set(1, 1, 1);
+  pivot.updateMatrixWorld(true);
+  const ids = [...state.selectedIds];
+  const g = new THREE.Group();
+  const center = new THREE.Vector3();
+  for (const id of ids) {
+    const b = new THREE.Box3().setFromObject(objects.get(id).mesh);
+    const c = new THREE.Vector3(); b.getCenter(c);
+    center.add(c);
+  }
+  center.divideScalar(ids.length);
+  scene.add(g);
+  g.position.copy(center);
+  g.updateMatrixWorld(true);
+  for (const id of ids) g.attach(objects.get(id).mesh);
+  register({ type: 'group', mesh: g, params: { childIds: ids }, name: `グループ ${uid + 1}` });
+  toast(`${ids.length}個をグループ化`, 'success');
+}
+function ungroupSelected(){
+  if (state.selectedIds.size !== 1) return;
+  const [id] = state.selectedIds;
+  const o = objects.get(id);
+  if (!o || o.type !== 'group') return;
+  const children = [...o.mesh.children];
+  const childIds = [];
+  children.forEach(c => {
+    if (c.userData.objId && c.userData.objId !== id) {
+      childIds.push(c.userData.objId);
+      scene.attach(c);
+    }
+  });
+  scene.remove(o.mesh);
+  disposeDeep(o.mesh);
+  objects.delete(id);
+  state.selectedIds.delete(id);
+  select(childIds.length ? childIds : null);
+  refreshOutliner();
+  toast('グループを解除');
+}
+
+// =================== Lasso ===================
+let lassoActive = false;
+let lassoPoints = [];
+const lassoSvg = document.getElementById('lasso');
+const lassoPath = lassoSvg.querySelector('path');
+
+function setSelectionMode(mode){
+  state.selectionMode = mode;
+  document.querySelectorAll('.select-modes .sel').forEach(b => b.classList.toggle('active', b.dataset.sel === mode));
+  viewportEl.classList.toggle('lasso-cursor', mode === 'lasso');
+}
+function startLasso(e){
+  lassoActive = true; lassoPoints = []; orbit.enabled = false;
+  pushLassoPoint(e);
+}
+function moveLasso(e){ if (!lassoActive) return; pushLassoPoint(e); renderLasso(); }
+function endLasso(e){
+  if (!lassoActive) return;
+  lassoActive = false; orbit.enabled = true;
+  if (lassoPoints.length > 2) {
+    const hits = lassoSelect(lassoPoints);
+    select(hits, e && (e.shiftKey || e.metaKey || e.ctrlKey));
+  }
+  lassoPath.setAttribute('d', '');
+  lassoPoints = [];
+}
+function pushLassoPoint(e){
+  const r = canvas.getBoundingClientRect();
+  lassoPoints.push([e.clientX - r.left, e.clientY - r.top]);
+}
+function renderLasso(){
+  if (lassoPoints.length < 2) return;
+  const d = 'M' + lassoPoints.map(p => p.join(',')).join(' L ') + ' Z';
+  lassoPath.setAttribute('d', d);
+}
+function lassoSelect(poly){
+  const rect = canvas.getBoundingClientRect();
+  const out = [];
+  for (const o of objects.values()) {
+    const b = new THREE.Box3().setFromObject(o.mesh);
+    const c = new THREE.Vector3(); b.getCenter(c);
+    const p = c.clone().project(camera);
+    const sx = (p.x * 0.5 + 0.5) * rect.width;
+    const sy = (-p.y * 0.5 + 0.5) * rect.height;
+    if (pointInPolygon(sx, sy, poly)) out.push(o.id);
+  }
+  return out;
+}
+function pointInPolygon(x, y, poly){
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi || 1e-9) + xi)) inside = !inside;
+  }
+  return inside;
+}
+
+// =================== Textures ===================
+function loadImageToTexture(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      const max = 2048;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (Math.max(w, h) > max) { const k = max / Math.max(w, h); w = w * k | 0; h = h * k | 0; }
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      URL.revokeObjectURL(url);
+      resolve(t);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('読み込み失敗。HEIF は Safari のみ対応します')); };
+    img.src = url;
+  });
+}
+
+function makeGradientTexture(p){
+  const s = 512;
+  const cv = document.createElement('canvas'); cv.width = cv.height = s;
+  const ctx = cv.getContext('2d');
+  let g;
+  if (p.mode === 'radial') g = ctx.createRadialGradient(s/2, s/2, 12, s/2, s/2, s*0.7);
+  else {
+    const rad = (p.angle || 0) * Math.PI/180;
+    const dx = Math.cos(rad)*s/2, dy = Math.sin(rad)*s/2;
+    g = ctx.createLinearGradient(s/2 - dx, s/2 - dy, s/2 + dx, s/2 + dy);
+  }
+  g.addColorStop(0, p.colorA); g.addColorStop(1, p.colorB);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+
+function makePatternTexture(p){
+  const s = 256;
+  const cv = document.createElement('canvas'); cv.width = cv.height = s;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = p.colorB; ctx.fillRect(0, 0, s, s);
+  ctx.fillStyle = p.colorA;
+  const u = Math.max(4, Math.min(s/2, p.scale || 32));
+  if (p.kind === 'dots') {
+    for (let y = 0; y < s; y += u) for (let x = 0; x < s; x += u) {
+      ctx.beginPath(); ctx.arc(x + u/2, y + u/2, u * 0.22, 0, Math.PI*2); ctx.fill();
+    }
+  } else if (p.kind === 'stripes') {
+    for (let x = 0; x < s; x += u*2) ctx.fillRect(x, 0, u, s);
+  } else if (p.kind === 'checker') {
+    for (let y = 0; y < s; y += u) for (let x = 0; x < s; x += u) {
+      if ((Math.floor(x/u) + Math.floor(y/u)) % 2 === 0) ctx.fillRect(x, y, u, u);
+    }
+  } else if (p.kind === 'grid') {
+    ctx.strokeStyle = p.colorA; ctx.lineWidth = Math.max(1, u * 0.08);
+    for (let x = 0; x <= s; x += u) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, s); ctx.stroke(); }
+    for (let y = 0; y <= s; y += u) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(s, y); ctx.stroke(); }
+  } else if (p.kind === 'noise') {
+    const cA = hexToRGB(p.colorA), cB = hexToRGB(p.colorB);
+    const imgData = ctx.createImageData(s, s);
+    const grain = Math.max(1, Math.min(8, (p.scale || 32) / 12));
+    for (let y = 0; y < s; y++) {
+      for (let x = 0; x < s; x++) {
+        const t = Math.random();
+        const gx = Math.floor(x / grain) * grain, gy = Math.floor(y / grain) * grain;
+        const idx = (y * s + x) * 4;
+        // Slight clustered noise
+        const n = (t * 0.7 + Math.random() * 0.3);
+        imgData.data[idx]   = cA[0] * (1 - n) + cB[0] * n;
+        imgData.data[idx+1] = cA[1] * (1 - n) + cB[1] * n;
+        imgData.data[idx+2] = cA[2] * (1 - n) + cB[2] * n;
+        imgData.data[idx+3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+
+function applyFaceTexture(mesh, faceIndex, tex){
+  const mat = mesh.material;
+  if (Array.isArray(mat)) {
+    const geo = mesh.geometry;
+    const triStart = faceIndex * 3;
+    let mi = -1;
+    for (const g of geo.groups) {
+      if (triStart >= g.start && triStart < g.start + g.count) { mi = g.materialIndex; break; }
+    }
+    if (mi >= 0) {
+      const m = mat[mi];
+      if (m.map) m.map.dispose();
+      m.map = tex; m.color.set(0xffffff); m.needsUpdate = true;
+    }
+  } else {
+    if (mat.map) mat.map.dispose();
+    mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true;
+  }
+}
+
+async function applySurface(o){
+  const s = o.params.surface || { kind: 'solid' };
+  // Always clear edge overlays first; re-added if needed for ghost kind.
+  removeEdges(o.mesh);
+  if (s.kind === 'solid') {
+    forMaterials(o.mesh, m => {
+      if (m.map) m.map.dispose();
+      m.map = null;
+      m.transparent = false;
+      m.opacity = 1;
+      m.color.set(o.params.color);
+      m.needsUpdate = true;
+    });
+    return;
+  }
+  if (s.kind === 'ghost') {
+    forMaterials(o.mesh, m => {
+      if (m.map) m.map.dispose();
+      m.map = null;
+      m.transparent = true;
+      m.opacity = Math.max(0.001, s.opacity ?? 0.08);
+      m.depthWrite = (s.opacity ?? 0.08) > 0.05;
+      m.color.set(s.fillColor || '#ffffff');
+      m.needsUpdate = true;
+    });
+    addEdges(o.mesh, s);
+    return;
+  }
+  let tex = null;
+  try {
+    if (s.kind === 'gradient') tex = makeGradientTexture(s);
+    else if (s.kind === 'pattern') tex = makePatternTexture(s);
+    else if (s.kind === 'image' && s.imageSrc) tex = await makeImageTexture(s.imageSrc, { repeat: s.repeat ?? 1, offsetX: s.offsetX ?? 0, offsetY: s.offsetY ?? 0, rotation: s.rotation ?? 0 });
+  } catch (err) { toast(err.message || 'texture failed', 'error'); return; }
+  if (!tex) return;
+  forMaterials(o.mesh, m => {
+    if (m.map) m.map.dispose();
+    m.map = tex; m.color.set(0xffffff); m.needsUpdate = true;
+  });
+}
+
+function addEdges(root, s){
+  const targets = [];
+  root.traverse(n => { if (n.isMesh && n.geometry && !n.userData.isEdges) targets.push(n); });
+  for (const n of targets) {
+    const edgeGeo = new THREE.EdgesGeometry(n.geometry, s.edgeAngle ?? 30);
+    const line = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({
+      color: s.outlineColor || '#1d1d1f',
+      transparent: true,
+      opacity: s.outlineOpacity ?? 0.9,
+      depthWrite: false,
+      depthTest: true,
+    }));
+    line.userData.isEdges = true;
+    line.renderOrder = 1;
+    n.add(line);
+  }
+}
+function removeEdges(root){
+  const victims = [];
+  root.traverse(n => { if (n.userData.isEdges) victims.push(n); });
+  for (const v of victims) {
+    if (v.parent) v.parent.remove(v);
+    if (v.geometry) v.geometry.dispose();
+    if (v.material) v.material.dispose();
+  }
+}
+
+function makeImageTexture(src, opts){
+  const o = opts || {};
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      const max = 1024;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (Math.max(w, h) > max) { const k = max / Math.max(w, h); w = (w * k) | 0; h = (h * k) | 0; }
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      const r = Math.max(0.05, (typeof o === 'number') ? o : (o.repeat ?? 1));
+      t.repeat.set(r, r);
+      if (o.offsetX !== undefined || o.offsetY !== undefined) t.offset.set(o.offsetX || 0, o.offsetY || 0);
+      if (o.rotation) { t.center.set(0.5, 0.5); t.rotation = o.rotation * Math.PI / 180; }
+      t.anisotropy = 8;
+      t.userData = { imageAspect: img.naturalWidth / img.naturalHeight };
+      resolve(t);
+    };
+    img.onerror = () => reject(new Error('画像読み込み失敗 (HEIF は Safari のみ)'));
+    img.src = src;
+  });
+}
+
+function fileToDataURL(file){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error || new Error('read failed'));
+    fr.readAsDataURL(file);
+  });
+}
+
+document.getElementById('tex-input').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) { state.pendingTexture = null; return; }
+  const hit = state.pendingTexture?.hit;
+  state.pendingTexture = null;
+  if (!hit) { showDIError('対象面が指定されていません'); return; }
+  askImagePlacement(f, hit);
+};
+
+function askImagePlacement(imgFile, hit){
+  const targetId = findObjId(hit.object);
+  const targetObj = targetId ? objects.get(targetId) : null;
+  const items = [];
+  items.push({ label: '① 面に貼る', svg: ICO_STL, action: async () => {
+    try {
+      const tex = await loadImageToTexture(imgFile);
+      applyFaceTexture(hit.object, hit.faceIndex, tex);
+      toast(`${imgFile.name} を面に適用`, 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  }});
+  if (targetObj && targetObj.type !== 'group') {
+    items.push({ label: '② デカール (別レイヤー)', svg: ICO_OBJ, action: async () => {
+      try {
+        const src = await fileToDataURL(imgFile);
+        const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize() : new THREE.Vector3(0, 1, 0);
+        createDecal(targetObj, src, hit.point.clone(), n);
+      } catch (err) { toast(err.message, 'error'); }
+    }});
+  }
+  if (targetObj && targetObj.type !== 'decal' && targetObj.type !== 'group') {
+    items.push({ label: '③ オブジェクト全体', svg: ICO_GLB, action: async () => {
+      try {
+        const src = await fileToDataURL(imgFile);
+        targetObj.params.surface = { kind: 'image', imageSrc: src, repeat: 1, offsetX: 0, offsetY: 0, rotation: 0 };
+        await applySurface(targetObj);
+        if (state.selectedIds.has(targetObj.id)) renderInspector();
+        toast('オブジェクト全体に適用', 'success');
+      } catch (err) { toast(err.message, 'error'); }
+    }});
+  }
+  openDI(items);
+}
+
+// =================== Outliner ===================
+const outliner = document.getElementById('outliner');
+function refreshOutliner(){
+  outliner.innerHTML = '';
+  for (const o of objects.values()) {
+    const li = document.createElement('li');
+    li.className = 'outliner-item' + (state.selectedIds.has(o.id) ? ' active' : '');
+    li.innerHTML = `<span class="ico type-${o.type}"></span><span class="nm">${escapeHtml(o.name)}</span><button class="del" title="Delete">×</button>`;
+    li.onclick = e => { if (e.target.closest('.del')) return; select(o.id, e.shiftKey || e.metaKey || e.ctrlKey); };
+    li.querySelector('.del').onclick = e => { e.stopPropagation(); remove(o.id); };
+    outliner.appendChild(li);
+  }
+}
+
+// =================== Inspector ===================
+const inspectorEl = document.getElementById('inspector');
+
+function renderInspector(){
+  if (state.selectedIds.size === 0) {
+    inspectorEl.innerHTML = '<p class="hint">No object selected</p>';
+    return;
+  }
+  if (state.selectedIds.size > 1) {
+    inspectorEl.innerHTML = `
+      <div class="selected-count">${state.selectedIds.size} 個のオブジェクトを選択中</div>
+      <section class="actions">
+        <button class="btn-ghost primary" id="p-group">グループ化</button>
+      </section>
+      <section class="actions">
+        <button class="btn-ghost" id="p-group-stl">まとめて STL 保存</button>
+      </section>
+      <section class="actions">
+        <button class="btn-ghost danger" id="p-group-del">全部削除</button>
+      </section>
+      <p class="hint" style="padding:20px 10px;font-size:11px;">ギズモでまとめて変形できます。1つを選ぶとプロパティが編集できます。</p>
+    `;
+    document.getElementById('p-group').onclick = () => groupSelected();
+    document.getElementById('p-group-stl').onclick = () => document.getElementById('btn-export-stl').click();
+    document.getElementById('p-group-del').onclick = () => {
+      for (const id of [...state.selectedIds]) remove(id);
+    };
+    return;
+  }
+
+  const [id] = state.selectedIds;
+  const o = objects.get(id);
+  inspectorEl.innerHTML = `
+    <section>
+      <label class="row"><span>名前</span><input type="text" id="p-name" value="${escapeHtml(o.name)}"></label>
+      ${o.type === 'text' ? `<label class="row"><span>文字</span><input type="text" id="p-text-top" value="${escapeHtml(o.params.text)}"></label>` : ''}
+    </section>
+    <section>
+      <h3>変形</h3>
+      <div class="vec3"><span>位置</span>${numInput('p-px', o.mesh.position.x, 0.1)}${numInput('p-py', o.mesh.position.y, 0.1)}${numInput('p-pz', o.mesh.position.z, 0.1)}</div>
+      <div class="vec3"><span>回転°</span>${numInput('p-rx', THREE.MathUtils.radToDeg(o.mesh.rotation.x), 1)}${numInput('p-ry', THREE.MathUtils.radToDeg(o.mesh.rotation.y), 1)}${numInput('p-rz', THREE.MathUtils.radToDeg(o.mesh.rotation.z), 1)}</div>
+      <button class="btn-ghost" id="p-match-rot" style="width:100%;font-size:11.5px;padding:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;margin-right:4px;"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>角度を他と合わせる</button>
+      <div class="vec3" style="margin-top:8px;"><span>スケール</span>${numInput('p-sx', o.mesh.scale.x, 0.05)}${numInput('p-sy', o.mesh.scale.y, 0.05)}${numInput('p-sz', o.mesh.scale.z, 0.05)}</div>
+      <button class="btn-ghost" id="p-match-scl" style="width:100%;font-size:11.5px;padding:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;margin-right:4px;"><path d="M3 7h7V3M21 17h-7v4M3 7l7 7M21 17l-7-7"/></svg>スケールを他と合わせる</button>
+    </section>
+    ${renderGeometrySection(o)}
+    ${o.type === 'group' ? '' : `
+    <section>
+      <h3>マテリアル</h3>
+      <label class="row"><span>基本色</span><input type="color" id="p-color" value="${o.params.color || '#d8dbe1'}"></label>
+      <label class="row"><span>不透明度</span>${slider('p-op', o.params.opacity ?? 1, 0, 1, 0.01)}</label>
+      <label class="row"><span>粗さ</span>${slider('p-rough', o.params.roughness ?? 0.4, 0, 1, 0.01)}</label>
+      <label class="row"><span>金属感</span>${slider('p-metal', o.params.metalness ?? 0.1, 0, 1, 0.01)}</label>
+      <div class="actions" style="display:flex;gap:6px;">
+        <button class="btn-ghost" id="p-mat-png" title="画像から">画像</button>
+        <button class="btn-ghost" id="p-mat-ghost" title="透明">透明</button>
+        <button class="btn-ghost" id="p-mat-alum" title="アルミ/金属">アルミ</button>
+        <button class="btn-ghost" id="p-mat-plastic" title="プラスチック">プラ</button>
+      </div>
+    </section>`}
+    ${o.type === 'group' ? '' : renderSurfaceSection(o)}
+    ${o.type === 'decal' || o.type === 'group' ? '' : renderDecalSection(o)}
+    ${renderAnimationSection(o)}
+    <section class="actions">
+      <button class="btn-ghost" id="p-duplicate" title="複製"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:5px;"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>複製</button>
+      <button class="btn-ghost primary" id="p-export-stl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:5px;"><path d="M12 3v12M6 9l6 6 6-6M4 21h16"/></svg>STL保存</button>
+      <button class="btn-ghost danger" id="p-delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/></svg>削除</button>
+    </section>
+  `;
+  wireInspector(o);
+}
+
+function renderAnimationSection(o){
+  const a = o.animation || { duration: 2, easing: 'ease-in-out', playMode: 'once', from: null, to: null };
+  const hasFrom = !!a.from, hasTo = !!a.to;
+  const isPlaying = animState.has(o.id);
+  const seg = (id, label, mode) => `<button data-pm="${mode}" class="${a.playMode === mode ? 'active' : ''}">${label}</button>`;
+  return `
+    <section>
+      <h3>アニメーション</h3>
+      <label class="row"><span>時間</span></label>
+      <div class="dur-wheel" id="an-wheel"></div>
+      <label class="row"><span>イージング</span>
+        <div class="num-wheel enum-wheel" id="an-easing-wrap" data-kind="easing" data-value="${a.easing}">
+          <span class="nw-val" id="an-easing-val">${easingLabel(a.easing)}</span>
+        </div>
+      </label>
+      <div class="segmented">
+        <button data-pm="once" class="${a.playMode === 'once' ? 'active' : ''}" title="Once"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>一度</span></button>
+        <button data-pm="pingpong" class="${a.playMode === 'pingpong' ? 'active' : ''}" title="往復"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8l-4 4 4 4M17 8l4 4-4 4M3 12h18"/></svg><span>往復</span></button>
+        <button data-pm="loop" class="${a.playMode === 'loop' ? 'active' : ''}" title="ループ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4M7 22l-4-4 4-4M21 6H7a4 4 0 0 0-4 4v2M3 18h14a4 4 0 0 0 4-4v-2"/></svg><span>ループ</span></button>
+      </div>
+      <div class="actions" style="display:flex;gap:6px;">
+        <button class="btn-ghost" id="an-set-from"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><circle cx="12" cy="12" r="9"/>${hasFrom ? '<path d="M9 12l2 2 4-4"/>' : '<circle cx="12" cy="12" r="3"/>'}</svg>${hasFrom ? '開始済' : '開始を記録'}</button>
+        <button class="btn-ghost" id="an-set-to"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><rect x="4" y="4" width="16" height="16" rx="2"/>${hasTo ? '<path d="M9 12l2 2 4-4"/>' : ''}</svg>${hasTo ? '終了済' : '終了を記録'}</button>
+      </div>
+      <div class="actions" style="display:flex;gap:6px;margin-top:6px;">
+        <button class="btn-ghost primary" id="an-play">${isPlaying ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><rect x="6" y="6" width="12" height="12" rx="1"/></svg> 停止' : '<svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><path d="M8 5v14l11-7z"/></svg> 再生'}</button>
+        <button class="btn-ghost" id="an-reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><path d="M3 12a9 9 0 1 0 9-9M3 3v6h6"/></svg>クリア</button>
+      </div>
+    </section>`;
+}
+
+function renderDecalSection(o){
+  if (o.type === 'decal') return '';
+  return `
+    <section>
+      <h3>デカール（マグネット）</h3>
+      <button class="btn-ghost primary" id="p-add-decal">＋ デカール画像を追加…</button>
+      <p class="hint" style="font-size:11px;padding:6px 0 0;text-align:center;color:var(--ink-3);">画像を選択後、オブジェクト表面をタップ。配置後は3D上でドラッグ移動可能。</p>
+    </section>`;
+}
+
+function renderDecalInspector(o){
+  const p = o.params;
+  return `
+    <section><h3>デカール</h3>
+      <div class="image-surface">
+        <div class="tex-preview has-image" style="background-image:url('${p.imageSrc}');background-size:cover;background-position:center;"></div>
+        <div class="im-actions">
+          <button class="btn-ghost" id="dc-replace">画像差し替え</button>
+          <button class="btn-ghost" id="dc-reposition">位置変更</button>
+        </div>
+      </div>
+      <label class="row"><span>サイズ</span>${slider('dc-size', p.size, 0.1, 8, 0.01)}</label>
+      <label class="row"><span>距離</span>${slider('dc-dist', p.distance, -0.5, 1.5, 0.005)}</label>
+      <label class="row"><span>回転</span>${slider('dc-rot', p.rotation, 0, 360, 1)}</label>
+      <label class="row"><span>不透明度</span>${slider('dc-op', p.opacity, 0, 1, 0.01)}</label>
+      <p class="hint" style="font-size:11px;padding:6px 0 0;text-align:center;color:var(--ink-3);">3Dビュー上でドラッグすると表面に沿って移動します</p>
+    </section>`;
+}
+
+function renderGeometrySection(o){
+  if (o.type === 'decal') return renderDecalInspector(o);
+  const p = o.params;
+  if (o.type === 'box') return `
+    <section><h3>ボックス</h3>
+      <label class="row"><span>幅</span>${slider('g-w', p.width, 0.1, 10, 0.01)}</label>
+      <label class="row"><span>高さ</span>${slider('g-h', p.height, 0.1, 10, 0.01)}</label>
+      <label class="row"><span>奥行</span>${slider('g-d', p.depth, 0.1, 10, 0.01)}</label>
+      <label class="row"><span>角丸</span>${slider('g-r', p.radius, 0, 2, 0.01)}</label>
+    </section>`;
+  if (o.type === 'sphere') return `
+    <section><h3>球</h3>
+      <label class="row"><span>半径</span>${slider('g-r', p.radius, 0.05, 10, 0.01)}</label>
+    </section>`;
+  if (o.type === 'text') return `
+    <section><h3>テキスト</h3>
+      <label class="row"><span>文字</span><input type="text" id="g-text" value="${escapeHtml(p.text)}"></label>
+      <label class="row"><span>太さ</span>${slider('g-weight', p.weight || 400, 100, 900, 100)}</label>
+      <label class="row"><span>サイズ</span>${slider('g-size', p.size, 0.1, 5, 0.01)}</label>
+      <label class="row"><span>厚み</span>${slider('g-depth', p.depth, 0.01, 3, 0.01)}</label>
+      <label class="row"><span>ベベル</span>${slider('g-bev', p.bevelRadius, 0, 0.3, 0.005)}</label>
+    </section>`;
+  if (o.type === 'line') return `
+    <section><h3>ライン</h3>
+      <div class="vec3"><span>始点</span>${numInput('g-ax', p.a.x, 0.1)}${numInput('g-ay', p.a.y, 0.1)}${numInput('g-az', p.a.z, 0.1)}</div>
+      <div class="vec3"><span>終点</span>${numInput('g-bx', p.b.x, 0.1)}${numInput('g-by', p.b.y, 0.1)}${numInput('g-bz', p.b.z, 0.1)}</div>
+      <label class="row"><span>太さ</span>${slider('g-thick', p.thickness, 0.01, 1, 0.005)}</label>
+      <label class="row"><span>先端鋭さ</span>${slider('g-tip', p.tipSharpness, 0, 1, 0.01)}</label>
+    </section>`;
+  if (o.type === 'group') return `
+    <section><h3>グループ</h3>
+      <p class="hint" style="font-size:12px;padding:8px 0;">${(p.childIds||[]).length}個の子オブジェクト</p>
+      <button class="btn-ghost" id="g-ungroup" style="width:100%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:5px;"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M16 21h5v-5"/></svg>グループ解除</button>
+    </section>`;
+  if (o.type === 'pencil') return `
+    <section><h3>ペンシル</h3>
+      <label class="row"><span>色</span><input type="color" id="g-pc" value="${p.color || '#1d1d1f'}"></label>
+      <label class="row"><span>太さ</span>${slider('g-pr', p.radius, 0.005, 2, 0.005)}</label>
+      <p class="hint" style="font-size:11px;padding:4px 0;color:var(--ink-3);">${(p.points||[]).length}点のストローク</p>
+    </section>`;
+  return '';
+}
+
+function renderSurfaceSection(o){
+  const s = o.params.surface || { kind: 'solid' };
+  const tab = (k, label) => `<button data-k="${k}" class="${s.kind === k ? 'active' : ''}">${label}</button>`;
+  const gradient = s.kind === 'gradient' ? `
+    <label class="row"><span>色A</span><input type="color" id="sf-ga" value="${s.colorA || '#5ac8fa'}"></label>
+    <label class="row"><span>色B</span><input type="color" id="sf-gb" value="${s.colorB || '#af52de'}"></label>
+    <label class="row"><span>角度</span>${slider('sf-ang', s.angle ?? 45, 0, 360, 1)}</label>
+    <label class="row"><span>形式</span>
+      <select id="sf-gmode" style="flex:1;padding:7px;border-radius:10px;border:1px solid rgba(0,0,0,0.08);background:#fff;font-family:inherit;font-size:12px;color:var(--ink);outline:none;">
+        <option value="linear" ${s.mode === 'linear' ? 'selected' : ''}>直線</option>
+        <option value="radial" ${s.mode === 'radial' ? 'selected' : ''}>放射</option>
+      </select>
+    </label>` : '';
+  const pattern = s.kind === 'pattern' ? `
+    <div class="pattern-kind">
+      <button data-pk="dots" class="${s.pkind === 'dots' ? 'active' : ''}" title="ドット">●</button>
+      <button data-pk="stripes" class="${s.pkind === 'stripes' ? 'active' : ''}" title="ストライプ">▥</button>
+      <button data-pk="checker" class="${s.pkind === 'checker' ? 'active' : ''}" title="チェック">▦</button>
+      <button data-pk="grid" class="${s.pkind === 'grid' ? 'active' : ''}" title="グリッド">＃</button>
+      <button data-pk="noise" class="${s.pkind === 'noise' ? 'active' : ''}" title="ノイズ（砂／金属粒）">⋯</button>
+    </div>
+    <label class="row"><span>色A</span><input type="color" id="sf-pa" value="${s.colorA || '#1d1d1f'}"></label>
+    <label class="row"><span>色B</span><input type="color" id="sf-pb" value="${s.colorB || '#f5f6f8'}"></label>
+    <label class="row"><span>密度</span>${slider('sf-psc', s.scale ?? 32, 6, 128, 1)}</label>` : '';
+  const r = s.repeat ?? 1, ox = s.offsetX ?? 0, oy = s.offsetY ?? 0, rot = s.rotation ?? 0;
+  const previewStyle = s.imageSrc ? `background-image:url('${s.imageSrc}');background-size:${(100/r).toFixed(2)}% ${(100/r).toFixed(2)}%;background-position:${(ox*-100).toFixed(2)}% ${(oy*100).toFixed(2)}%;transform:rotate(${rot}deg);` : '';
+  const image = s.kind === 'image' ? `
+    <div class="image-surface">
+      <div class="tex-preview ${s.imageSrc ? 'has-image' : 'empty'}" id="sf-prev" style="${previewStyle}">${s.imageSrc ? '' : '画像なし'}</div>
+      <div class="im-actions">
+        <button class="btn-ghost" id="sf-img-pick">${s.imageSrc ? '差し替え' : '画像を選択…'}</button>
+        ${s.imageSrc ? '<button class="btn-ghost" id="sf-img-reset">クロップをリセット</button>' : ''}
+      </div>
+    </div>
+    ${s.imageSrc ? `
+    <p class="hint" style="font-size:10.5px;padding:4px 0 8px;text-align:center;color:var(--ink-3);">プレビューをドラッグで移動 · ホイールでズーム</p>
+    <label class="row"><span>ズーム</span>${slider('sf-irep', r, 0.25, 16, 0.05)}</label>
+    <label class="row"><span>Xオフセット</span>${slider('sf-ox', ox, -1, 1, 0.005)}</label>
+    <label class="row"><span>Yオフセット</span>${slider('sf-oy', oy, -1, 1, 0.005)}</label>
+    <label class="row"><span>回転</span>${slider('sf-rot', rot, 0, 360, 1)}</label>
+    ` : ''}` : '';
+  const ghost = s.kind === 'ghost' ? `
+    <label class="row"><span>不透明度</span>${slider('sf-gop', s.opacity ?? 0.08, 0, 1, 0.01)}</label>
+    <label class="row"><span>塗り色</span><input type="color" id="sf-gfill" value="${s.fillColor || '#ffffff'}"></label>
+    <label class="row"><span>輪郭色</span><input type="color" id="sf-goc" value="${s.outlineColor || '#1d1d1f'}"></label>
+    <label class="row"><span>輪郭濃さ</span>${slider('sf-goo', s.outlineOpacity ?? 0.9, 0, 1, 0.01)}</label>
+    <label class="row"><span>角度閾値</span>${slider('sf-gang', s.edgeAngle ?? 30, 0, 90, 1)}</label>
+    <p class="hint" style="font-size:10.5px;padding:4px 0 0;text-align:center;color:var(--ink-3);">不透明度0で輪郭線だけ、値を上げるとガラス風</p>` : '';
+  return `
+    <section>
+      <h3>質感</h3>
+      <div class="surface-kind">${tab('solid', '単色')}${tab('gradient', 'グラデ')}${tab('pattern', 'パターン')}${tab('image', '画像')}${tab('ghost', '透明')}</div>
+      ${gradient}${pattern}${image}${ghost}
+      <p class="hint" style="font-size:11px;padding:6px 0 0;text-align:center;color:var(--ink-3);">面をダブルクリックでその面だけに画像を貼り付け</p>
+    </section>`;
+}
+
+function digitsFor(step){ return step >= 1 ? 0 : (step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3); }
+
+function buildInlineWheel(container, { min, max, step, value, digits, onChange }){
+  if (!container) return;
+  const items = [];
+  const maxCount = Math.min(3000, Math.round((max - min) / step) + 1);
+  for (let i = 0; i < maxCount; i++) {
+    const v = Math.round((min + i * step) / step) * step;
+    if (v > max + step/2) break;
+    items.push(v);
+  }
+  const dig = digits ?? digitsFor(step);
+  container.innerHTML = `
+    <div class="iw-selbar"></div>
+    <div class="iw-track">
+      <div class="pad"></div>
+      ${items.map((v, i) => `<div class="iw-item" data-i="${i}">${v.toFixed(dig)}</div>`).join('')}
+      <div class="pad"></div>
+    </div>
+  `;
+  const track = container.querySelector('.iw-track');
+  const all = container.querySelectorAll('.iw-item');
+  const ROW_H = 36;
+  const startIdx = Math.max(0, items.findIndex(v => Math.abs(v - value) < step/2));
+  requestAnimationFrame(() => { track.scrollTop = Math.max(0, startIdx) * ROW_H; markSel(); });
+  let lastIdx = startIdx, st;
+  function markSel(){
+    const sel = Math.max(0, Math.min(items.length - 1, Math.round(track.scrollTop / ROW_H)));
+    all.forEach((it, i) => it.classList.toggle('selected', i === sel));
+    return sel;
+  }
+  track.addEventListener('scroll', () => {
+    const idx = Math.max(0, Math.min(items.length - 1, Math.round(track.scrollTop / ROW_H)));
+    if (idx !== lastIdx) { lastIdx = idx; try { haptic(); } catch(_){} markSel(); onChange(items[idx]); }
+    clearTimeout(st);
+    st = setTimeout(() => {
+      const sel = Math.round(track.scrollTop / ROW_H);
+      const target = Math.max(0, Math.min(items.length - 1, sel)) * ROW_H;
+      if (Math.abs(track.scrollTop - target) > 0.5) track.scrollTo({ top: target, behavior: 'smooth' });
+    }, 80);
+  });
+  all.forEach((it, i) => it.onclick = () => track.scrollTo({ top: i * ROW_H, behavior: 'smooth' }));
+}
+function slider(id, val, min, max, step){
+  const digits = digitsFor(step);
+  return `<div class="num-wheel">
+    <span class="nw-val" id="${id}-val">${formatNumDisplay(val, digits)}</span>
+    <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" tabindex="-1" class="nw-input" hidden>
+  </div>`;
+}
+function numInput(id, val, step){
+  const digits = digitsFor(step);
+  return `<div class="num-wheel">
+    <span class="nw-val" id="${id}-val">${formatNumDisplay(val, digits)}</span>
+    <input type="number" id="${id}" step="${step}" value="${val}" tabindex="-1" class="nw-input" hidden>
+  </div>`;
+}
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+function openMatchPicker(o, prop){
+  const others = [...objects.values()].filter(x => x.id !== o.id && x.mesh && x.type !== 'decal');
+  if (!others.length) { toast('他にオブジェクトがありません', 'error'); return; }
+  const label = prop === 'rotation' ? '角度を合わせる対象' : 'スケールを合わせる対象';
+  const items = others.map(x => ({ value: x.id, label: x.name || x.id }));
+  openPickerPopup({
+    title: label, items, index: 0,
+    onPick: it => {
+      const src = objects.get(it.value);
+      if (!src) return;
+      if (prop === 'rotation') o.mesh.rotation.copy(src.mesh.rotation);
+      else if (prop === 'scale') o.mesh.scale.copy(src.mesh.scale);
+      updateInspectorValues();
+      toast(`${src.name || '対象'} に合わせました`, 'success');
+    }
+  });
+}
+
+function wireInspector(o){
+  const nm = document.getElementById('p-name');
+  nm.oninput = () => { o.name = nm.value; refreshOutliner(); };
+  const ptop = document.getElementById('p-text-top');
+  if (ptop) ptop.oninput = () => {
+    o.params.text = ptop.value;
+    rebuildText(o);
+    const gt = document.getElementById('g-text');
+    if (gt) gt.value = ptop.value;
+  };
+
+  bindNum('p-px', v => o.mesh.position.x = v);
+  bindNum('p-py', v => o.mesh.position.y = v);
+  bindNum('p-pz', v => o.mesh.position.z = v);
+  bindNum('p-rx', v => o.mesh.rotation.x = THREE.MathUtils.degToRad(v));
+  bindNum('p-ry', v => o.mesh.rotation.y = THREE.MathUtils.degToRad(v));
+  bindNum('p-rz', v => o.mesh.rotation.z = THREE.MathUtils.degToRad(v));
+  bindNum('p-sx', v => o.mesh.scale.x = v);
+  bindNum('p-sy', v => o.mesh.scale.y = v);
+  bindNum('p-sz', v => o.mesh.scale.z = v);
+
+  // "Match" buttons: copy rotation / scale from another object (picker dialog ~0.5s fade in/out)
+  const matchRot = document.getElementById('p-match-rot');
+  if (matchRot) matchRot.onclick = () => openMatchPicker(o, 'rotation');
+  const matchScl = document.getElementById('p-match-scl');
+  if (matchScl) matchScl.onclick = () => openMatchPicker(o, 'scale');
+
+  const color = document.getElementById('p-color');
+  color.oninput = () => { o.params.color = color.value; if ((o.params.surface?.kind || 'solid') === 'solid') applySurface(o); };
+  bindSlider('p-rough', v => { o.params.roughness = v; applyMaterial(o.mesh, o.params); });
+  bindSlider('p-metal', v => { o.params.metalness = v; applyMaterial(o.mesh, o.params); });
+  bindSlider('p-op',    v => { o.params.opacity = v; applyMaterial(o.mesh, o.params); });
+
+  // Material quick actions
+  const matPng = document.getElementById('p-mat-png');
+  if (matPng) matPng.onclick = () => {
+    const inp = document.getElementById('pat-input');
+    inp.onchange = async ev => {
+      const f = ev.target.files[0]; ev.target.value = '';
+      if (!f) return;
+      try {
+        const src = await fileToDataURL(f);
+        o.params.surface = { kind: 'image', imageSrc: src, repeat: 1, offsetX: 0, offsetY: 0, rotation: 0 };
+        await applySurface(o);
+        renderInspector();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    inp.click();
+  };
+  const matGhost = document.getElementById('p-mat-ghost');
+  if (matGhost) matGhost.onclick = () => {
+    o.params.surface = { kind: 'ghost', opacity: 0.08, fillColor: '#ffffff', outlineColor: '#1d1d1f', outlineOpacity: 0.9, edgeAngle: 30 };
+    applySurface(o); renderInspector();
+  };
+  const matAlum = document.getElementById('p-mat-alum');
+  if (matAlum) matAlum.onclick = () => {
+    o.params.color = '#d4d8df';
+    o.params.roughness = 0.32;
+    o.params.metalness = 0.88;
+    o.params.opacity = 1;
+    o.params.surface = { kind: 'pattern', pkind: 'noise', colorA: '#b8bec6', colorB: '#e8ebef', scale: 12 };
+    applyMaterial(o.mesh, o.params);
+    applySurface(o); renderInspector();
+  };
+  const matPlastic = document.getElementById('p-mat-plastic');
+  if (matPlastic) matPlastic.onclick = () => {
+    o.params.color = '#f2f4f8';
+    o.params.roughness = 0.55;
+    o.params.metalness = 0.02;
+    o.params.opacity = 1;
+    o.params.surface = { kind: 'solid' };
+    applyMaterial(o.mesh, o.params);
+    applySurface(o); renderInspector();
+  };
+
+  if (o.type === 'box') {
+    bindSlider('g-w', v => { o.params.width = v; clampBoxRadius(o); rebuildBox(o); });
+    bindSlider('g-h', v => { o.params.height = v; clampBoxRadius(o); rebuildBox(o); });
+    bindSlider('g-d', v => { o.params.depth = v; clampBoxRadius(o); rebuildBox(o); });
+    bindSlider('g-r', v => { o.params.radius = Math.min(v, minSide(o) / 2 - 0.001); rebuildBox(o); });
+  }
+  if (o.type === 'sphere') bindSlider('g-r', v => { o.params.radius = v; rebuildSphere(o); });
+  if (o.type === 'text') {
+    const t = document.getElementById('g-text');
+    t.oninput = () => { o.params.text = t.value; rebuildText(o); };
+    bindSlider('g-weight', v => { o.params.weight = Math.round(v); rebuildText(o); });
+    bindSlider('g-size', v => { o.params.size = v; rebuildText(o); });
+    bindSlider('g-depth', v => { o.params.depth = v; rebuildText(o); });
+    bindSlider('g-bev', v => { o.params.bevelRadius = v; rebuildText(o); });
+  }
+  if (o.type === 'pencil') {
+    bindSlider('g-pr', v => { o.params.radius = v; rebuildPencil(o); });
+    const pc = document.getElementById('g-pc');
+    if (pc) pc.oninput = () => { o.params.color = pc.value; applyMaterial(o.mesh, o.params); };
+  }
+  if (o.type === 'line') {
+    bindNum('g-ax', v => { o.params.a.x = v; rebuildLine(o); });
+    bindNum('g-ay', v => { o.params.a.y = v; rebuildLine(o); });
+    bindNum('g-az', v => { o.params.a.z = v; rebuildLine(o); });
+    bindNum('g-bx', v => { o.params.b.x = v; rebuildLine(o); });
+    bindNum('g-by', v => { o.params.b.y = v; rebuildLine(o); });
+    bindNum('g-bz', v => { o.params.b.z = v; rebuildLine(o); });
+    bindSlider('g-thick', v => { o.params.thickness = v; rebuildLine(o); });
+    bindSlider('g-tip', v => { o.params.tipSharpness = v; rebuildLine(o); });
+  }
+
+  // Surface kind tabs
+  document.querySelectorAll('.surface-kind button').forEach(b => {
+    b.onclick = () => {
+      const k = b.dataset.k;
+      if (k === 'gradient') o.params.surface = { kind: 'gradient', colorA: '#5ac8fa', colorB: '#af52de', angle: 45, mode: 'linear', ...(o.params.surface?.kind === 'gradient' ? o.params.surface : {}) };
+      else if (k === 'pattern') o.params.surface = { kind: 'pattern', pkind: 'dots', colorA: '#1d1d1f', colorB: '#f5f6f8', scale: 32, ...(o.params.surface?.kind === 'pattern' ? o.params.surface : {}) };
+      else if (k === 'image') o.params.surface = { kind: 'image', imageSrc: null, repeat: 1, ...(o.params.surface?.kind === 'image' ? o.params.surface : {}) };
+      else if (k === 'ghost') o.params.surface = { kind: 'ghost', opacity: 0.08, fillColor: '#ffffff', outlineColor: '#1d1d1f', outlineOpacity: 0.9, edgeAngle: 30, ...(o.params.surface?.kind === 'ghost' ? o.params.surface : {}) };
+      else o.params.surface = { kind: 'solid' };
+      applySurface(o);
+      renderInspector();
+    };
+  });
+  // Image surface inputs
+  const imgPick = document.getElementById('sf-img-pick');
+  if (imgPick) imgPick.onclick = () => {
+    const inp = document.getElementById('pat-input');
+    inp.onchange = async ev => {
+      const f = ev.target.files[0]; ev.target.value = '';
+      if (!f) return;
+      try {
+        const src = await fileToDataURL(f);
+        o.params.surface.imageSrc = src;
+        await applySurface(o);
+        renderInspector();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    inp.click();
+  };
+  bindSlider('sf-irep', v => {
+    if (o.params.surface.kind === 'image') { o.params.surface.repeat = v; updateImagePreview(o); applySurface(o); }
+  });
+  bindSlider('sf-ox', v => {
+    if (o.params.surface.kind === 'image') { o.params.surface.offsetX = v; updateImagePreview(o); applySurface(o); }
+  });
+  bindSlider('sf-oy', v => {
+    if (o.params.surface.kind === 'image') { o.params.surface.offsetY = v; updateImagePreview(o); applySurface(o); }
+  });
+  bindSlider('sf-rot', v => {
+    if (o.params.surface.kind === 'image') { o.params.surface.rotation = v; updateImagePreview(o); applySurface(o); }
+  });
+  // Ghost (transparent + outline)
+  bindSlider('sf-gop',  v => { if (o.params.surface.kind === 'ghost') { o.params.surface.opacity = v; applySurface(o); } });
+  bindSlider('sf-goo',  v => { if (o.params.surface.kind === 'ghost') { o.params.surface.outlineOpacity = v; applySurface(o); } });
+  bindSlider('sf-gang', v => { if (o.params.surface.kind === 'ghost') { o.params.surface.edgeAngle = v; applySurface(o); } });
+  const gfill = document.getElementById('sf-gfill');
+  if (gfill) gfill.oninput = () => { o.params.surface.fillColor = gfill.value; applySurface(o); };
+  const goc = document.getElementById('sf-goc');
+  if (goc) goc.oninput = () => { o.params.surface.outlineColor = goc.value; applySurface(o); };
+  const imgReset = document.getElementById('sf-img-reset');
+  if (imgReset) imgReset.onclick = () => {
+    const s = o.params.surface;
+    s.repeat = 1; s.offsetX = 0; s.offsetY = 0; s.rotation = 0;
+    applySurface(o); renderInspector();
+  };
+
+  // Visual crop: drag / wheel on preview
+  const prev = document.getElementById('sf-prev');
+  if (prev && o.params.surface.kind === 'image' && o.params.surface.imageSrc) {
+    let drag = null;
+    prev.addEventListener('pointerdown', ev => {
+      ev.preventDefault();
+      prev.setPointerCapture(ev.pointerId);
+      drag = { x: ev.clientX, y: ev.clientY, ox: o.params.surface.offsetX ?? 0, oy: o.params.surface.offsetY ?? 0 };
+    });
+    prev.addEventListener('pointermove', ev => {
+      if (!drag) return;
+      const k = 1 / (54 * (o.params.surface.repeat ?? 1));
+      const dx = (ev.clientX - drag.x) * k;
+      const dy = (ev.clientY - drag.y) * k;
+      o.params.surface.offsetX = Math.max(-1, Math.min(1, drag.ox - dx));
+      o.params.surface.offsetY = Math.max(-1, Math.min(1, drag.oy + dy));
+      updateImagePreview(o);
+      applySurface(o);
+      setIfExists('sf-ox', o.params.surface.offsetX.toFixed(3));
+      setIfExists('sf-oy', o.params.surface.offsetY.toFixed(3));
+      const s1 = document.getElementById('sf-ox-s'); if (s1) s1.value = o.params.surface.offsetX;
+      const s2 = document.getElementById('sf-oy-s'); if (s2) s2.value = o.params.surface.offsetY;
+    });
+    prev.addEventListener('pointerup', () => { drag = null; });
+    prev.addEventListener('pointercancel', () => { drag = null; });
+    prev.addEventListener('wheel', ev => {
+      ev.preventDefault();
+      const cur = o.params.surface.repeat ?? 1;
+      const next = Math.max(0.25, Math.min(16, cur * (1 + ev.deltaY * -0.0015)));
+      o.params.surface.repeat = next;
+      updateImagePreview(o); applySurface(o);
+      setIfExists('sf-irep', next.toFixed(3));
+      const sr = document.getElementById('sf-irep-s'); if (sr) sr.value = next;
+    }, { passive: false });
+  }
+  // Gradient inputs
+  const ga = document.getElementById('sf-ga'); if (ga) ga.oninput = () => { o.params.surface.colorA = ga.value; applySurface(o); };
+  const gb = document.getElementById('sf-gb'); if (gb) gb.oninput = () => { o.params.surface.colorB = gb.value; applySurface(o); };
+  bindSlider('sf-ang', v => { if (o.params.surface.kind === 'gradient') { o.params.surface.angle = v; applySurface(o); } });
+  const gmode = document.getElementById('sf-gmode'); if (gmode) gmode.onchange = () => { o.params.surface.mode = gmode.value; applySurface(o); };
+  // Pattern inputs
+  document.querySelectorAll('.pattern-kind button').forEach(b => {
+    b.onclick = () => {
+      o.params.surface.pkind = b.dataset.pk;
+      applySurface(o);
+      document.querySelectorAll('.pattern-kind button').forEach(x => x.classList.toggle('active', x === b));
+    };
+  });
+  const pa = document.getElementById('sf-pa'); if (pa) pa.oninput = () => { o.params.surface.colorA = pa.value; applySurface(o); };
+  const pb = document.getElementById('sf-pb'); if (pb) pb.oninput = () => { o.params.surface.colorB = pb.value; applySurface(o); };
+  bindSlider('sf-psc', v => { if (o.params.surface.kind === 'pattern') { o.params.surface.scale = v; applySurface(o); } });
+
+  document.getElementById('p-duplicate').onclick = () => duplicate(o);
+  document.getElementById('p-delete').onclick = () => remove(o.id);
+  document.getElementById('p-export-stl').onclick = () => {
+    const data = stlExporter.parse(o.mesh, { binary: true });
+    download(new Blob([data]), `${o.name || 'object'}.stl`);
+    toast(`${o.name}.stl を保存しました`, 'success');
+  };
+
+  // Animation wiring
+  const a = ensureAnim(o);
+  buildDurWheel('an-wheel', a.duration, v => { a.duration = v; });
+  const ew = document.getElementById('an-easing-wrap');
+  if (ew) ew.onclick = () => {
+    const eItems = [
+      { value: 'linear', label: 'Linear' },
+      { value: 'ease', label: 'Ease (CSS)' },
+      { value: 'ease-in', label: 'Ease-in (CSS)' },
+      { value: 'ease-out', label: 'Ease-out (CSS)' },
+      { value: 'ease-in-out', label: 'Ease-in-out (CSS)' },
+      { value: 'cubic', label: 'Cubic' },
+      { value: 'cubic-out', label: 'Cubic-out' },
+      { value: 'spring', label: 'Spring' },
+    ];
+    const idx = eItems.findIndex(x => x.value === a.easing);
+    openPickerPopup({
+      title: 'Easing',
+      items: eItems,
+      index: Math.max(0, idx),
+      onPick: it => {
+        a.easing = it.value;
+        const v = document.getElementById('an-easing-val'); if (v) v.textContent = it.label;
+      }
+    });
+  };
+  document.querySelectorAll('.segmented button[data-pm]').forEach(b => {
+    b.onclick = () => {
+      a.playMode = b.dataset.pm;
+      document.querySelectorAll('.segmented button[data-pm]').forEach(x => x.classList.toggle('active', x === b));
+    };
+  });
+  const sf = document.getElementById('an-set-from');
+  if (sf) sf.onclick = () => { a.from = poseOf(o.mesh); renderInspector(); updateGhosts(); toast('開始ポーズを記録', 'success'); };
+  const st = document.getElementById('an-set-to');
+  if (st) st.onclick = () => { a.to = poseOf(o.mesh); renderInspector(); updateGhosts(); toast('終了ポーズを記録', 'success'); };
+  const playBtn = document.getElementById('an-play');
+  if (playBtn) playBtn.onclick = () => {
+    if (animState.has(o.id)) { stopAnim(o); toast('停止'); }
+    else { playAnim(o); toast('再生中', 'success'); }
+    clearGhosts();
+    renderInspector();
+    if (!animState.has(o.id)) updateGhosts();
+  };
+  const ar = document.getElementById('an-reset');
+  if (ar) ar.onclick = () => { a.from = null; a.to = null; stopAnim(o); clearGhosts(); renderInspector(); };
+
+  // Group ungroup
+  const ungroupBtn = document.getElementById('g-ungroup');
+  if (ungroupBtn) ungroupBtn.onclick = () => ungroupSelected();
+
+  // Decal buttons
+  const addDecalBtn = document.getElementById('p-add-decal');
+  if (addDecalBtn) addDecalBtn.onclick = () => startAddDecal(o);
+  if (o.type === 'decal') {
+    bindSlider('dc-size', v => { o.params.size = v; rebuildDecal(o); });
+    bindSlider('dc-dist', v => { o.params.distance = v; rebuildDecal(o); });
+    bindSlider('dc-rot', v => { o.params.rotation = v; rebuildDecal(o); });
+    bindSlider('dc-op', v => { o.params.opacity = v; if (o.mesh.material) { o.mesh.material.opacity = v; o.mesh.material.needsUpdate = true; } });
+    document.getElementById('dc-replace').onclick = async () => {
+      const inp = document.getElementById('pat-input');
+      inp.onchange = async ev => {
+        const f = ev.target.files[0]; ev.target.value = '';
+        if (!f) return;
+        try {
+          const src = await fileToDataURL(f);
+          o.params.imageSrc = src;
+          rebuildDecal(o);
+          renderInspector();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+      inp.click();
+    };
+    document.getElementById('dc-reposition').onclick = () => {
+      decalReplace = o;
+      setTool('none');
+      setPickPendingHint(true);
+      toast('移動先の表面をクリック', 'success');
+    };
+  }
+}
+
+function updateImagePreview(o){
+  const prev = document.getElementById('sf-prev'); if (!prev) return;
+  const s = o.params.surface || {};
+  if (!s.imageSrc) return;
+  const r = s.repeat ?? 1, ox = s.offsetX ?? 0, oy = s.offsetY ?? 0, rot = s.rotation ?? 0;
+  prev.style.backgroundImage = `url('${s.imageSrc}')`;
+  prev.style.backgroundSize = `${(100/r).toFixed(2)}% ${(100/r).toFixed(2)}%`;
+  prev.style.backgroundPosition = `${(ox*-100).toFixed(2)}% ${(oy*100).toFixed(2)}%`;
+  prev.style.transform = `rotate(${rot}deg)`;
+}
+
+function minSide(o){ return Math.min(o.params.width, o.params.height, o.params.depth); }
+function clampBoxRadius(o){ o.params.radius = Math.min(o.params.radius, minSide(o) / 2 - 0.001); }
+
+function wheelify(input, handler){
+  if (!input) return;
+  const wrap = input.parentElement;
+  if (!wrap || !wrap.classList.contains('num-wheel')) return;
+  if (wrap.dataset.wired === '1') return;
+  wrap.dataset.wired = '1';
+  const valEl = wrap.querySelector('.nw-val');
+  const step = parseFloat(input.step) || 0.1;
+  const digits = digitsFor(step);
+  const min = input.min !== '' && input.min != null ? parseFloat(input.min) : -Infinity;
+  const max = input.max !== '' && input.max != null ? parseFloat(input.max) : Infinity;
+  const clamp = v => Math.max(min, Math.min(max, v));
+  const on = v => {
+    let n = clamp(Math.round(v / step) * step);
+    if (Math.abs(n) < step / 1000) n = 0;
+    input.value = n;
+    if (valEl) valEl.textContent = formatNumDisplay(n, digits);
+    handler(n);
+  };
+  wrap._wheelUpdate = on;
+  let drag = null;
+  wrap.addEventListener('pointerdown', e => {
+    if (e.target === input) return;
+    e.preventDefault();
+    wrap.setPointerCapture(e.pointerId);
+    drag = { x: e.clientX, y: e.clientY, v: parseFloat(input.value) || 0, axis: null, moved: false };
+    wrap.classList.add('active');
+    try { haptic(); } catch (_) {}
+  });
+  wrap.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    const dy = drag.y - e.clientY;
+    if (!drag.axis) {
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) { drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; drag.moved = true; }
+    }
+    if (!drag.axis) return;
+    const d = drag.axis === 'x' ? dx : dy;
+    const range = (isFinite(max) && isFinite(min)) ? (max - min) : 0;
+    const perPx = range > 0 && range <= 20 ? range / 160 : step;
+    on(drag.v + d * perPx);
+  });
+  const endDrag = e => {
+    const wasMoved = drag && drag.moved;
+    drag = null;
+    wrap.classList.remove('active');
+    if (!wasMoved && e && e.type === 'pointerup') {
+      // タップ: popup ダイアログなしで直接キーボード編集
+      setTimeout(() => { input.hidden = false; input.focus(); input.select(); }, 10);
+    }
+  };
+  wrap.addEventListener('pointerup', endDrag);
+  wrap.addEventListener('pointercancel', () => { drag = null; wrap.classList.remove('active'); });
+  wrap.addEventListener('wheel', e => {
+    e.preventDefault();
+    on((parseFloat(input.value) || 0) + (-Math.sign(e.deltaY) * step));
+  }, { passive: false });
+  wrap.addEventListener('dblclick', () => { input.hidden = false; input.focus(); input.select(); });
+  input.addEventListener('blur', () => { input.hidden = true; });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+  input.addEventListener('input', () => {
+    const v = parseFloat(input.value);
+    if (!isNaN(v)) {
+      if (valEl) valEl.textContent = formatNumDisplay(v, digits);
+      handler(v);
+    }
+  });
+}
+
+function openNumberPicker(wrap, input, handler){
+  const step = parseFloat(input.step) || 0.1;
+  const digits = digitsFor(step);
+  const cur = parseFloat(input.value) || 0;
+  const min = input.min !== '' && input.min != null ? parseFloat(input.min) : cur - step * 100;
+  const max = input.max !== '' && input.max != null ? parseFloat(input.max) : cur + step * 100;
+  const items = [];
+  for (let i = 0; i < 4000; i++) {
+    const v = Math.round((min + i * step) / step) * step;
+    if (v > max + step / 2) break;
+    items.push({ label: formatNumDisplay(v, digits), value: v });
+  }
+  let idx = items.findIndex(it => Math.abs(it.value - cur) < step / 2);
+  if (idx < 0) idx = 0;
+  let title = '値';
+  const lbl = wrap.closest('label, .row, .vec3');
+  if (lbl) { const sp = lbl.querySelector('span'); if (sp) title = sp.textContent; }
+  openPickerPopup({
+    title, items, index: idx,
+    onPick: it => {
+      const valEl = wrap.querySelector('.nw-val');
+      input.value = it.value;
+      if (valEl) valEl.textContent = it.label;
+      handler(it.value);
+    }
+  });
+}
+
+function bindNum(id, handler){ wheelify(document.getElementById(id), handler); }
+function bindSlider(id, handler){ wheelify(document.getElementById(id), handler); }
+
+// =================== Units (display only) ===================
+const unitInfo = {
+  m:  { symbol: 'm',  factor: 1 },
+  cm: { symbol: 'cm', factor: 100 },
+  mm: { symbol: 'mm', factor: 1000 },
+  in: { symbol: 'in', factor: 39.3701 },
+  px: { symbol: 'px', factor: 100 },
+};
+state.unit = 'm';
+function formatNumDisplay(n, digits){
+  const sym = unitInfo[state.unit]?.symbol;
+  return Number(n).toFixed(digits) + (sym && sym !== 'm' ? ' ' + sym : '');
+}
+function refreshAllUnitLabels(){
+  document.querySelectorAll('.num-wheel').forEach(wrap => {
+    const input = wrap.querySelector('input.nw-input');
+    const valEl = wrap.querySelector('.nw-val');
+    if (!input || !valEl) return;
+    const step = parseFloat(input.step) || 0.1;
+    const digits = digitsFor(step);
+    const v = parseFloat(input.value);
+    if (!isNaN(v)) valEl.textContent = formatNumDisplay(v, digits);
+  });
+}
+document.querySelectorAll('.unit-chip button').forEach(b => {
+  b.onclick = () => {
+    state.unit = b.dataset.unit;
+    document.querySelectorAll('.unit-chip button').forEach(x => x.classList.toggle('active', x === b));
+    refreshAllUnitLabels();
+  };
+});
+
+// =================== iOS-style picker popup ===================
+function openPickerPopup({ title, items, index, onPick }){
+  const overlay = document.createElement('div');
+  overlay.className = 'picker-overlay';
+  overlay.innerHTML = `
+    <div class="picker-card">
+      <div class="picker-title">${title || ''}</div>
+      <div class="picker-body">
+        <div class="picker-selbar"></div>
+        <div class="picker-track">
+          <div class="pad"></div>
+          ${items.map((it, i) => `<div class="picker-item" data-i="${i}">${it.html || it.label}</div>`).join('')}
+          <div class="pad"></div>
+        </div>
+      </div>
+      <div class="picker-actions">
+        <button class="btn-ghost" data-act="cancel">Cancel</button>
+        <button class="btn-ghost primary" data-act="done">Done</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const track = overlay.querySelector('.picker-track');
+  const itemEls = overlay.querySelectorAll('.picker-item');
+  const H = 44;
+  const startI = Math.max(0, Math.min(items.length - 1, index || 0));
+  requestAnimationFrame(() => { track.scrollTop = startI * H; updateSel(); });
+  let lastSel = -1;
+  function updateSel(){
+    const sel = Math.max(0, Math.min(items.length - 1, Math.round(track.scrollTop / H)));
+    if (sel !== lastSel) {
+      try { haptic(); } catch(_) {}
+      lastSel = sel;
+    }
+    itemEls.forEach((e, i) => e.classList.toggle('selected', i === sel));
+    return sel;
+  }
+  let st;
+  track.addEventListener('scroll', () => {
+    clearTimeout(st);
+    updateSel();
+    st = setTimeout(() => {
+      const sel = updateSel();
+      if (Math.abs(track.scrollTop - sel * H) > 0.5) track.scrollTo({ top: sel * H, behavior: 'smooth' });
+    }, 110);
+  });
+  itemEls.forEach(e => {
+    e.onclick = () => track.scrollTo({ top: parseInt(e.dataset.i) * H, behavior: 'smooth' });
+  });
+  const doClose = (result) => {
+    overlay.style.animation = 'fadeIn .16s ease-out reverse';
+    setTimeout(() => overlay.remove(), 150);
+    if (result !== undefined) onPick(result);
+    document.removeEventListener('keydown', onKey);
+  };
+  overlay.querySelector('[data-act=done]').onclick = () => { const i = updateSel(); doClose(items[i]); };
+  overlay.querySelector('[data-act=cancel]').onclick = () => doClose();
+  overlay.addEventListener('click', e => { if (e.target === overlay) doClose(); });
+  const onKey = e => {
+    if (e.key === 'Escape') doClose();
+    if (e.key === 'Enter') { const i = updateSel(); doClose(items[i]); }
+  };
+  document.addEventListener('keydown', onKey);
+}
+
+function updateInspectorValues(){
+  if (state.selectedIds.size !== 1) return;
+  const [id] = state.selectedIds;
+  const o = objects.get(id);
+  setIfExists('p-px', o.mesh.position.x.toFixed(3));
+  setIfExists('p-py', o.mesh.position.y.toFixed(3));
+  setIfExists('p-pz', o.mesh.position.z.toFixed(3));
+  setIfExists('p-rx', THREE.MathUtils.radToDeg(o.mesh.rotation.x).toFixed(2));
+  setIfExists('p-ry', THREE.MathUtils.radToDeg(o.mesh.rotation.y).toFixed(2));
+  setIfExists('p-rz', THREE.MathUtils.radToDeg(o.mesh.rotation.z).toFixed(2));
+  setIfExists('p-sx', o.mesh.scale.x.toFixed(3));
+  setIfExists('p-sy', o.mesh.scale.y.toFixed(3));
+  setIfExists('p-sz', o.mesh.scale.z.toFixed(3));
+}
+function setIfExists(id, v){
+  const el = document.getElementById(id);
+  if (!el || document.activeElement === el) return;
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  if (isNaN(n)) return;
+  el.value = n;
+  const valEl = document.getElementById(id + '-val');
+  if (valEl) {
+    const step = parseFloat(el.step) || 0.1;
+    const digits = digitsFor(step);
+    valEl.textContent = formatNumDisplay(n, digits);
+  }
+}
+
+// =================== Rebuilds ===================
+function rebuildBox(o){
+  const old = o.mesh.geometry;
+  const geo = new RoundedBoxGeometry(o.params.width, o.params.height, o.params.depth, 4, Math.max(o.params.radius, 0));
+  assignBoxGroups(geo);
+  o.mesh.geometry = geo;
+  old.dispose();
+}
+function rebuildSphere(o){
+  const old = o.mesh.geometry;
+  o.mesh.geometry = new THREE.SphereGeometry(o.params.radius, 64, 48);
+  old.dispose();
+}
+function rebuildText(o){
+  const parent = o.mesh.parent || scene;
+  const keepPos = o.mesh.position.clone();
+  const keepRot = o.mesh.rotation.clone();
+  const keepScl = o.mesh.scale.clone();
+  const nm = buildTextMesh(o.params);
+  nm.position.copy(keepPos);
+  nm.rotation.copy(keepRot);
+  nm.scale.copy(keepScl);
+  nm.castShadow = true; nm.receiveShadow = true;
+  nm.traverse(n => n.userData.objId = o.id);
+  disposeDeep(o.mesh);
+  parent.remove(o.mesh);
+  parent.add(nm);
+  o.mesh = nm;
+  if (state.selectedIds.has(o.id) && state.selectedIds.size === 1) gizmo.attach(nm);
+}
+function rebuildLine(o){
+  const parent = o.mesh.parent || scene;
+  const ng = buildLineGroup(o.params);
+  ng.position.copy(o.mesh.position); ng.rotation.copy(o.mesh.rotation); ng.scale.copy(o.mesh.scale);
+  ng.traverse(n => n.userData.objId = o.id);
+  disposeDeep(o.mesh);
+  parent.remove(o.mesh);
+  parent.add(ng);
+  o.mesh = ng;
+  applyMaterial(ng, o.params);
+  applySurface(o);
+  if (state.selectedIds.has(o.id) && state.selectedIds.size === 1) gizmo.attach(ng);
+}
+
+function duplicate(o){
+  const d = serializeOne(o);
+  d.position = [d.position[0] + 1, d.position[1], d.position[2]];
+  deserializeOne(d);
+}
+
+// =================== Decals ===================
+let decalPending = null; // { targetObj, imageSrc }
+let decalReplace = null; // decal entry
+
+function setPickPendingHint(on){
+  document.querySelectorAll('.sel[data-sel="pick"], .tool[data-tool="none"]').forEach(b => b.classList.toggle('pending-hint', !!on));
+}
+async function startAddDecal(targetObj){
+  const inp = document.getElementById('pat-input');
+  inp.onchange = async ev => {
+    const f = ev.target.files[0]; ev.target.value = '';
+    if (!f) return;
+    try {
+      const src = await fileToDataURL(f);
+      decalPending = { targetObj, imageSrc: src };
+      setTool('none');
+      setPickPendingHint(true);
+      toast('対象オブジェクトの表面をクリックして配置', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+  inp.click();
+}
+
+function handleDecalClickOnCanvas(e){
+  const hits = hitTest(e);
+  if (!hits.length) { toast('表面に当たりませんでした', 'error'); decalPending = null; decalReplace = null; setPickPendingHint(false); return true; }
+  const h = hits[0];
+  let targetMesh = h.object;
+  const targetId = findObjId(targetMesh);
+  const pos = h.point.clone();
+  const normal = (h.face && h.face.normal) ? h.face.normal.clone().transformDirection(targetMesh.matrixWorld).normalize() : new THREE.Vector3(0,1,0);
+  if (decalReplace) {
+    const newTarget = targetId ? objects.get(targetId) : null;
+    decalReplace.params.worldPos = pos.toArray();
+    decalReplace.params.worldNormal = normal.toArray();
+    if (newTarget && newTarget.type !== 'decal' && newTarget.id !== decalReplace.id) decalReplace.params.targetId = newTarget.id;
+    rebuildDecal(decalReplace);
+    decalReplace = null; setPickPendingHint(false);
+    toast('デカールを配置し直しました', 'success');
+    return true;
+  }
+  if (!decalPending) return false;
+  const targetObj = decalPending.targetObj;
+  if (targetId !== targetObj.id) { toast('選択中のオブジェクトをクリック', 'error'); return true; }
+  createDecal(targetObj, decalPending.imageSrc, pos, normal);
+  decalPending = null; setPickPendingHint(false);
+  return true;
+}
+
+function createDecal(targetObj, imageSrc, worldPos, worldNormal){
+  const params = {
+    targetId: targetObj.id,
+    imageSrc,
+    worldPos: worldPos.toArray(),
+    worldNormal: worldNormal.toArray(),
+    size: 0.7,
+    distance: 0.0,
+    rotation: 0,
+    opacity: 1,
+  };
+  const mesh = buildDecalMesh(targetObj, params);
+  if (!mesh) { toast('デカール作成に失敗', 'error'); return; }
+  register({ type: 'decal', mesh, params, name: `Decal ${uid + 1}` });
+  toast('デカールを配置しました', 'success');
+}
+
+function buildDecalMesh(targetObj, p){
+  const tm = firstMeshIn(targetObj.mesh);
+  if (!tm) return null;
+  tm.updateMatrixWorld(true);
+  const pos = new THREE.Vector3().fromArray(p.worldPos);
+  const nrm = new THREE.Vector3().fromArray(p.worldNormal).normalize();
+  const pushed = pos.clone().addScaledVector(nrm, p.distance);
+  // Build orientation: z axis along -normal
+  const up = Math.abs(nrm.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+  const zAxis = nrm.clone().multiplyScalar(-1);
+  const xAxis = new THREE.Vector3().crossVectors(up, zAxis).normalize();
+  const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+  const m4 = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+  const euler = new THREE.Euler().setFromRotationMatrix(m4);
+  euler.z += p.rotation * Math.PI / 180;
+  const sz = new THREE.Vector3(p.size, p.size, p.size * 1.5);
+  const geo = new DecalGeometry(tm, pushed, euler, sz);
+
+  const tex = new THREE.TextureLoader().load(p.imageSrc);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex,
+    transparent: true,
+    opacity: p.opacity ?? 1,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    roughness: 0.6,
+    metalness: 0.05,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = false;
+  mesh.receiveShadow = true;
+  // Parent to target so it follows transforms
+  targetObj.mesh.attach(mesh);
+  return mesh;
+}
+
+function rebuildDecal(o){
+  const targetObj = objects.get(o.params.targetId);
+  if (!targetObj) return;
+  const parent = o.mesh.parent;
+  disposeDeep(o.mesh);
+  if (parent) parent.remove(o.mesh);
+  const nm = buildDecalMesh(targetObj, o.params);
+  if (!nm) return;
+  nm.traverse(n => n.userData.objId = o.id);
+  o.mesh = nm;
+  if (state.selectedIds.has(o.id) && state.selectedIds.size === 1) gizmo.attach(nm);
+}
+
+function firstMeshIn(root){
+  let found = null;
+  root.traverse(n => { if (!found && n.isMesh && n !== root && n.userData.objId === root.userData.objId) found = n; });
+  if (!found && root.isMesh) return root;
+  return found || root;
+}
+
+// =================== Lights panel ===================
+function getLightState(){
+  return {
+    hemi: hemi.intensity, key: key.intensity, fill: fill.intensity, rim: rim.intensity,
+    shadow: ground.material.opacity, soft: key.shadow.radius,
+    color: '#' + key.color.getHexString(), angle: parseFloat(document.getElementById('lux-ang')?.value ?? 40),
+  };
+}
+function setLightState(s){
+  if (s.hemi !== undefined) { hemi.intensity = s.hemi; setSliderVal('lux-hemi', s.hemi); }
+  if (s.key !== undefined) { key.intensity = s.key; setSliderVal('lux-key', s.key); }
+  if (s.fill !== undefined) { fill.intensity = s.fill; setSliderVal('lux-fill', s.fill); }
+  if (s.rim !== undefined) { rim.intensity = s.rim; setSliderVal('lux-rim', s.rim); }
+  if (s.shadow !== undefined) { ground.material.opacity = s.shadow; setSliderVal('sh-opa', s.shadow); }
+  if (s.soft !== undefined) { key.shadow.radius = s.soft; setSliderVal('sh-rad', s.soft); }
+  if (s.color) { key.color.set(s.color); const c = document.getElementById('lux-color'); if (c) c.value = s.color; }
+  if (s.angle !== undefined) applyLightAngle(s.angle);
+}
+function setSliderVal(id, v){
+  const n = document.getElementById(id);
+  const valEl = document.getElementById(id + '-val');
+  if (n) n.value = v;
+  if (valEl) valEl.textContent = Number(v).toFixed(3);
+}
+const lightPose = { angle: 40, height: 12, distance: 14 };
+function applyLightPose(){
+  const rad = lightPose.angle * Math.PI / 180;
+  key.position.set(Math.cos(rad) * lightPose.distance, lightPose.height, Math.sin(rad) * lightPose.distance);
+}
+function applyLightAngle(deg){
+  lightPose.angle = deg;
+  applyLightPose();
+  setSliderVal('lux-ang', deg);
+}
+(function wireLights(){
+  const panel = document.getElementById('lights-panel');
+  document.getElementById('btn-lights').onclick = () => panel.hidden = !panel.hidden;
+  document.getElementById('lights-close').onclick = () => panel.hidden = true;
+  bindSlider('lux-key',  v => key.intensity = v);
+  bindSlider('lux-fill', v => fill.intensity = v);
+  bindSlider('lux-rim',  v => rim.intensity = v);
+  bindSlider('lux-hemi', v => hemi.intensity = v);
+  bindSlider('sh-opa',   v => ground.material.opacity = v);
+  bindSlider('sh-rad',   v => key.shadow.radius = v);
+  bindSlider('lux-ang',  v => applyLightAngle(v));
+  bindSlider('lux-hgt',  v => { lightPose.height = v; applyLightPose(); });
+  bindSlider('lux-dst',  v => { lightPose.distance = v; applyLightPose(); });
+  document.getElementById('lux-color').oninput = e => key.color.set(e.target.value);
+})();
+
+// =================== Buttons ===================
+document.getElementById('add-text').onclick = addText;
+document.getElementById('add-sphere').onclick = addSphere;
+document.getElementById('add-box').onclick = addBox;
+document.getElementById('add-line').onclick = addLine;
+
+// ===== Drag-from-dock to place sphere/box/line =====
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function screenToGround(clientX, clientY){
+  const r = canvas.getBoundingClientRect();
+  ndc.x = ((clientX - r.left) / r.width) * 2 - 1;
+  ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
+  ray.setFromCamera(ndc, camera);
+  const out = new THREE.Vector3();
+  return ray.ray.intersectPlane(groundPlane, out) ? out : null;
+}
+let dragAdd = null; // { kind, start, preview }
+function beginDragAdd(kind, e){
+  const start = screenToGround(e.clientX, e.clientY) || new THREE.Vector3(0, 0, 0);
+  const mat = new THREE.MeshBasicMaterial({ color: 0x5ac8fa, transparent: true, opacity: 0.55, wireframe: true });
+  let preview;
+  if (kind === 'sphere') preview = new THREE.Mesh(new THREE.SphereGeometry(0.1, 24, 16), mat);
+  else if (kind === 'box') preview = new THREE.Mesh(new RoundedBoxGeometry(0.1, 1.5, 0.1, 4, 0.02), mat);
+  else if (kind === 'line') preview = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(start.clone(), start.clone()), 1, 0.06, 12, false), mat);
+  if (preview) { preview.position.copy(start); scene.add(preview); }
+  dragAdd = { kind, start, preview };
+  orbit.enabled = false;
+  viewportEl.classList.add('lasso-cursor');
+}
+function updateDragAdd(e){
+  if (!dragAdd) return;
+  const p = screenToGround(e.clientX, e.clientY); if (!p) return;
+  const { kind, start, preview } = dragAdd;
+  const old = preview.geometry;
+  if (kind === 'sphere') {
+    const r = Math.max(0.1, start.distanceTo(p));
+    preview.geometry = new THREE.SphereGeometry(r, 32, 20);
+    preview.position.copy(start).setY(r);
+  } else if (kind === 'box') {
+    const w = Math.max(0.1, Math.abs(p.x - start.x));
+    const d = Math.max(0.1, Math.abs(p.z - start.z));
+    preview.geometry = new RoundedBoxGeometry(w, 1.5, d, 4, Math.min(0.2, Math.min(w, d) / 4));
+    preview.position.set((p.x + start.x) / 2, 0.75, (p.z + start.z) / 2);
+  } else if (kind === 'line') {
+    const a = start.clone().setY(0.5); const b = p.clone().setY(0.5);
+    preview.geometry = new THREE.TubeGeometry(new THREE.LineCurve3(a, b), 1, 0.08, 12, false);
+    preview.position.set(0, 0, 0);
+  }
+  old.dispose();
+}
+function finalizeDragAdd(e){
+  if (!dragAdd) return;
+  const { kind, start, preview } = dragAdd;
+  const p = screenToGround(e.clientX, e.clientY) || start.clone();
+  if (preview) { scene.remove(preview); preview.geometry.dispose(); preview.material.dispose(); }
+  dragAdd = null; orbit.enabled = true;
+  viewportEl.classList.remove('lasso-cursor');
+  const dist = start.distanceTo(p);
+  if (dist < 0.12) return;
+  if (kind === 'sphere') {
+    const r = Math.max(0.2, dist);
+    const params = { radius: r, color: '#d8dbe1', roughness: 0.3, metalness: 0.1, surface: defaultSurface() };
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 48), makeMaterial(params));
+    m.castShadow = m.receiveShadow = true;
+    m.position.copy(start).setY(r);
+    register({ type: 'sphere', mesh: m, params, name: `Sphere ${uid + 1}` });
+  } else if (kind === 'box') {
+    const w = Math.max(0.3, Math.abs(p.x - start.x));
+    const d = Math.max(0.3, Math.abs(p.z - start.z));
+    const radius = Math.min(0.3, Math.min(w, d) / 4);
+    const params = { width: w, height: 1.5, depth: d, radius, color: '#d8dbe1', roughness: 0.4, metalness: 0.1, surface: defaultSurface() };
+    const geo = new RoundedBoxGeometry(w, 1.5, d, 4, radius);
+    assignBoxGroups(geo);
+    const mats = Array.from({ length: 6 }, () => makeMaterial(params));
+    const m = new THREE.Mesh(geo, mats);
+    m.castShadow = m.receiveShadow = true;
+    m.position.set((p.x + start.x) / 2, 0.75, (p.z + start.z) / 2);
+    register({ type: 'box', mesh: m, params, name: `Box ${uid + 1}` });
+  } else if (kind === 'line') {
+    const a = { x: start.x, y: 0.5, z: start.z }, b = { x: p.x, y: 0.5, z: p.z };
+    const params = { a, b, thickness: 0.14, tipSharpness: 0, color: '#d8dbe1', roughness: 0.35, metalness: 0.1, surface: defaultSurface() };
+    register({ type: 'line', mesh: buildLineGroup(params), params, name: `Line ${uid + 1}` });
+  }
+}
+function attachDragAdd(btn, kind){
+  btn.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const sx = e.clientX, sy = e.clientY;
+    let engaged = false, clickSuppressed = false;
+    const onMove = ev => {
+      if (!engaged && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 10) {
+        engaged = true; clickSuppressed = true;
+        beginDragAdd(kind, ev);
+      }
+      if (engaged) updateDragAdd(ev);
+    };
+    const onUp = ev => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (engaged) finalizeDragAdd(ev);
+    };
+    const onClick = ev => {
+      if (clickSuppressed) { ev.stopPropagation(); ev.preventDefault(); }
+      btn.removeEventListener('click', onClick, true);
+    };
+    btn.addEventListener('click', onClick, true);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+attachDragAdd(document.getElementById('add-sphere'), 'sphere');
+attachDragAdd(document.getElementById('add-box'), 'box');
+attachDragAdd(document.getElementById('add-line'), 'line');
+document.getElementById('btn-clear').onclick = () => { if (objects.size && confirm('すべてのオブジェクトを削除しますか？')) clearAll(); };
+
+/* ── Cinema-4D-ish helpers: center-of-mass pivot + instantaneous explosion FX ── */
+function computeSceneCenterOfMass(){
+  // Volume-weighted centroid across all objects' bounding boxes.
+  let totalW = 0;
+  const acc = new THREE.Vector3();
+  for(const o of objects.values()){
+    const m = o.mesh; if(!m) continue;
+    const bb = new THREE.Box3().setFromObject(m);
+    if(!bb.isEmpty()){
+      const c = new THREE.Vector3(); bb.getCenter(c);
+      const s = new THREE.Vector3(); bb.getSize(s);
+      const w = Math.max(0.0001, s.x * s.y * s.z);
+      acc.add(c.multiplyScalar(w));
+      totalW += w;
+    }
+  }
+  if(totalW === 0) return null;
+  return acc.divideScalar(totalW);
+}
+
+document.getElementById('btn-com-pivot').onclick = () => {
+  if(!objects.size){ toast('オブジェクトがありません'); return; }
+  const com = computeSceneCenterOfMass();
+  if(!com){ toast('重心を算出できませんでした'); return; }
+  pivot.position.copy(com);
+  // Flash the pivot marker
+  if(typeof pivotMarker !== 'undefined' && pivotMarker){
+    pivotMarker.position.copy(com);
+    const m = pivotMarker.material;
+    if(m){
+      const oldOp = m.opacity;
+      m.opacity = 1;
+      setTimeout(()=>{ try{ m.opacity = oldOp; }catch(_){} }, 600);
+    }
+  }
+  toast('重心へピボット');
+};
+
+let _explosionRunning = false;
+document.getElementById('btn-explode').onclick = () => {
+  if(_explosionRunning) return;
+  if(!objects.size){ toast('オブジェクトがありません'); return; }
+  const com = computeSceneCenterOfMass() || new THREE.Vector3();
+  const dur = 0.7; // seconds, "瞬時"
+  const snapshots = [];
+  for(const o of objects.values()){
+    const m = o.mesh; if(!m) continue;
+    const start = m.position.clone();
+    const dir = m.position.clone().sub(com);
+    if(dir.lengthSq() < 1e-6) dir.set((Math.random()-0.5), (Math.random()-0.5)+0.5, (Math.random()-0.5));
+    dir.normalize();
+    // Distance proportional to mesh size so big things drift further
+    const bb = new THREE.Box3().setFromObject(m);
+    const size = new THREE.Vector3(); bb.getSize(size);
+    const reach = 3 + Math.min(8, size.length() * 1.6);
+    const end = start.clone().add(dir.multiplyScalar(reach));
+    const spin = new THREE.Vector3(
+      (Math.random()-0.5)*Math.PI*1.4,
+      (Math.random()-0.5)*Math.PI*1.4,
+      (Math.random()-0.5)*Math.PI*1.4
+    );
+    const rot0 = m.rotation.clone();
+    snapshots.push({ mesh:m, start, end, rot0, spin });
+  }
+  _explosionRunning = true;
+  const t0 = performance.now();
+  const ease = (t) => 1 - Math.pow(1-t, 3);
+  function step(now){
+    const e = (now - t0)/1000;
+    const t = Math.min(1, e/dur);
+    const k = ease(t);
+    for(const s of snapshots){
+      s.mesh.position.lerpVectors(s.start, s.end, k);
+      s.mesh.rotation.x = s.rot0.x + s.spin.x * k;
+      s.mesh.rotation.y = s.rot0.y + s.spin.y * k;
+      s.mesh.rotation.z = s.rot0.z + s.spin.z * k;
+    }
+    if(t < 1){ requestAnimationFrame(step); }
+    else {
+      _explosionRunning = false;
+      toast('💥 爆発 — ⌘Z で戻る');
+      // Record into undo stack if available
+      try {
+        if(typeof pushHistory === 'function') pushHistory();
+        else if(typeof history !== 'undefined' && history.push) history.push();
+      } catch(_){}
+    }
+  }
+  requestAnimationFrame(step);
+};
+
+document.querySelectorAll('.select-modes .sel').forEach(b => {
+  b.onclick = () => setSelectionMode(b.dataset.sel);
+});
+document.querySelectorAll('.transform-modes .mode').forEach(b => {
+  b.onclick = () => setMode(b.dataset.mode);
+});
+function setMode(mode){
+  gizmo.setMode(mode);
+  document.querySelectorAll('.transform-modes .mode').forEach(x => x.classList.toggle('active', x.dataset.mode === mode));
+}
+document.querySelectorAll('.view-axes button').forEach(b => {
+  b.onclick = () => {
+    const v = b.dataset.view, t = orbit.target.clone();
+    if (v === 'top') camera.position.set(t.x, t.y + 14, t.z + 0.01);
+    if (v === 'front') camera.position.set(t.x, t.y + 3, t.z + 14);
+    if (v === 'side') camera.position.set(t.x + 14, t.y + 3, t.z);
+    if (v === 'perspective') camera.position.set(t.x + 6, t.y + 5, t.z + 8);
+    camera.lookAt(t);
+  };
+});
+
+window.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  if (e.key === 'v' || e.key === 'V') setSelectionMode('pick');
+  if (e.key === 'l' || e.key === 'L') setSelectionMode('lasso');
+  if (e.key === 'w' || e.key === 'W') setMode('translate');
+  if (e.key === 'e' || e.key === 'E') setMode('rotate');
+  if (e.key === 'r' || e.key === 'R') setMode('scale');
+  if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedIds.size) {
+    for (const id of [...state.selectedIds]) remove(id);
+    e.preventDefault();
+  }
+  if (e.key === 'Escape') {
+    decalPending = null; decalReplace = null;
+    if (dragAdd) {
+      if (dragAdd.preview) { scene.remove(dragAdd.preview); dragAdd.preview.geometry.dispose(); dragAdd.preview.material.dispose(); }
+      dragAdd = null; orbit.enabled = true; viewportEl.classList.remove('lasso-cursor');
+    }
+    if (lassoActive) { lassoActive = false; orbit.enabled = true; lassoPath.setAttribute('d', ''); }
+    select(null);
+  }
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+    e.preventDefault();
+    select([...objects.keys()]);
+  }
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D') && state.selectedIds.size === 1) {
+    e.preventDefault();
+    duplicate(objects.get([...state.selectedIds][0]));
+  }
+});
+
+// Hide hint on first click
+let hintGone = false;
+canvas.addEventListener('pointerdown', () => {
+  if (hintGone) return; hintGone = true;
+  const h = document.getElementById('hint');
+  if (h) { h.style.transition = 'opacity .6s'; h.style.opacity = '0'; setTimeout(() => h.remove(), 700); }
+});
+
+// =================== Toast ===================
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function toast(msg, variant){
+  toastEl.textContent = msg;
+  toastEl.style.background = variant === 'error' ? 'rgba(255,59,48,0.92)' : 'rgba(20,22,30,0.88)';
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
+  try {
+    if (variant === 'error') haptic.error();
+    else if (variant === 'success') haptic.confirm();
+  } catch (_) {}
+}
+
+// =================== Paint / Bump / Carve tools ===================
+let paintLongPressTimer = null;
+
+function paintObjectFull(o, color){
+  const endColor = new THREE.Color(color);
+  const mats = [];
+  o.mesh.traverse(n => {
+    if (!n.material) return;
+    const list = Array.isArray(n.material) ? n.material : [n.material];
+    for (const m of list) {
+      if (m.map) { m.map.dispose(); m.map = null; }
+      mats.push({ m, start: m.color.clone() });
+    }
+  });
+  const t0 = performance.now(), dur = 500;
+  (function step(now){
+    const t = Math.min(1, (now - t0) / dur);
+    const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    mats.forEach(({ m, start }) => {
+      m.color.copy(start).lerp(endColor, ease);
+      m.needsUpdate = true;
+    });
+    if (t < 1) requestAnimationFrame(step);
+  })(t0);
+  o.params.color = color;
+  if (o.params.surface) o.params.surface = { kind: 'solid' };
+}
+
+function handlePaintClick(e){
+  const hits = hitTest(e);
+  if (!hits.length) return;
+  const hit = hits[0];
+  const mesh = hit.object;
+  const geo = mesh.geometry;
+  let targetMat;
+  if (Array.isArray(mesh.material)) {
+    const triStart = hit.faceIndex * 3;
+    let mi = 0;
+    for (const g of geo.groups) if (triStart >= g.start && triStart < g.start + g.count) { mi = g.materialIndex; break; }
+    targetMat = mesh.material[mi];
+  } else {
+    targetMat = mesh.material;
+  }
+  if (!targetMat) return;
+  if (targetMat.map) { targetMat.map.dispose(); targetMat.map = null; }
+  const start = targetMat.color.clone();
+  const end = new THREE.Color(tools.paint.color);
+  const t0 = performance.now();
+  const dur = 500;
+  (function step(now){
+    const t = Math.min(1, (now - t0) / dur);
+    const e2 = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+    targetMat.color.copy(start).lerp(end, e2);
+    targetMat.needsUpdate = true;
+    if (t < 1) requestAnimationFrame(step);
+  })(t0);
+  try { haptic(); } catch(_){}
+}
+
+function handleBrushClick(e, dir, override){
+  const hits = hitTest(e);
+  if (!hits.length) return;
+  const hit = hits[0];
+  const mesh = hit.object;
+  const id = findObjId(mesh);
+  if (!id) return;
+  const entry = objects.get(id);
+  if (!entry) return;
+  // Prevent on STL only if desired? allow for all
+  const geo = mesh.geometry;
+  const posAttr = geo.attributes.position;
+  if (!posAttr) return;
+  // Make non-indexed? keep indexed, but we modify unique vertex positions.
+  // Also ensure geometry is not shared — clone if needed.
+  if (!mesh.userData._brushReady) {
+    mesh.geometry = geo.clone();
+    // Preserve groups too
+    mesh.userData._brushReady = true;
+  }
+  const g2 = mesh.geometry;
+  const p = g2.attributes.position;
+  const local = mesh.worldToLocal(hit.point.clone());
+  const nrm = (hit.face && hit.face.normal) ? hit.face.normal.clone() : new THREE.Vector3(0, 1, 0);
+  const tool = override || (dir > 0 ? tools.bump : tools.carve);
+  const rad = tool.radius;
+  const str = tool.strength * dir;
+  const rad2 = rad * rad;
+  const stamp = tool.style === 'stamp';
+  for (let i = 0; i < p.count; i++) {
+    const vx = p.getX(i), vy = p.getY(i), vz = p.getZ(i);
+    const dx = vx - local.x, dy = vy - local.y, dz = vz - local.z;
+    const d2 = dx*dx + dy*dy + dz*dz;
+    if (d2 > rad2) continue;
+    let f;
+    if (stamp) {
+      // Hard circle: uniform depth, sharp edge
+      f = 1;
+    } else {
+      const d = Math.sqrt(d2);
+      const falloff = Math.cos((d / rad) * Math.PI / 2);
+      f = falloff * falloff;
+    }
+    p.setXYZ(i, vx + nrm.x * str * f, vy + nrm.y * str * f, vz + nrm.z * str * f);
+  }
+  p.needsUpdate = true;
+  g2.computeVertexNormals();
+  g2.computeBoundingBox();
+  g2.computeBoundingSphere();
+  try { haptic(); } catch(_){}
+}
+
+// =================== 3D Pencil (freehand 3D line) ===================
+let pencilDrawing = null;
+function pencilAddPoint(e){
+  const hits = hitTest(e);
+  let p = null;
+  if (hits.length) {
+    const hit = hits[0];
+    const n = hit.face
+      ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize()
+      : new THREE.Vector3(0, 1, 0);
+    p = hit.point.clone().addScaledVector(n, tools.pencil.radius * 0.6);
+  } else {
+    // 何もない空中 — orbit.target を通るカメラ視線に垂直な平面で補間
+    const r = canvas.getBoundingClientRect();
+    ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ndc, camera);
+    const planeNormal = new THREE.Vector3().subVectors(camera.position, orbit.target).normalize();
+    const airPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, orbit.target);
+    const target = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(airPlane, target)) return;
+    p = target;
+  }
+  if (!p) return;
+  const last = pencilDrawing.path[pencilDrawing.path.length - 1];
+  if (!last || last.distanceTo(p) > tools.pencil.radius * 0.25) {
+    pencilDrawing.path.push(p);
+  }
+}
+function updatePencilPreview(){
+  if (pencilDrawing.preview) { scene.remove(pencilDrawing.preview); pencilDrawing.preview.geometry.dispose(); pencilDrawing.preview.material.dispose(); pencilDrawing.preview = null; }
+  const pts = pencilDrawing.path;
+  if (pts.length < 2) return;
+  // 太さに応じた Tube preview (radius の 90% で軽く透明、実物より薄く表示)
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+  const segs = Math.max(6, Math.min(pts.length * 3, 220));
+  const r = Math.max(0.003, tools.pencil.radius * 0.9);
+  const geo = new THREE.TubeGeometry(curve, segs, r, 12, false);
+  const mat = new THREE.MeshBasicMaterial({
+    color: tools.pencil.color,
+    transparent: true,
+    opacity: 0.6,
+    depthWrite: false,
+  });
+  pencilDrawing.preview = new THREE.Mesh(geo, mat);
+  pencilDrawing.preview.renderOrder = 999;
+  scene.add(pencilDrawing.preview);
+}
+function finalizePencilStroke(){
+  if (!pencilDrawing) return;
+  if (pencilDrawing.preview) { scene.remove(pencilDrawing.preview); pencilDrawing.preview.geometry.dispose(); pencilDrawing.preview.material.dispose(); }
+  const raw = pencilDrawing.path;
+  pencilDrawing = null;
+  orbit.enabled = true;
+  if (raw.length < 2) return;
+  // Deduplicate close points for smoother curve
+  const pts = [raw[0]];
+  const minD = tools.pencil.radius * 0.4;
+  for (let i = 1; i < raw.length; i++) if (raw[i].distanceTo(pts[pts.length - 1]) > minD) pts.push(raw[i]);
+  if (pts.length < 2) pts.push(raw[raw.length - 1]);
+  const params = {
+    points: pts.map(p => p.toArray()),
+    radius: tools.pencil.radius,
+    color: tools.pencil.color,
+    roughness: 0.4, metalness: 0.1,
+    surface: defaultSurface(),
+  };
+  const mesh = buildPencilMesh(params);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  register({ type: 'pencil', mesh, params, name: `ペン ${uid + 1}` });
+  // Fade-in 0.2s
+  const mat = mesh.material;
+  mat.transparent = true; mat.opacity = 0;
+  const t0 = performance.now();
+  (function fade(now){
+    const t = Math.min(1, (now - t0) / 200);
+    mat.opacity = t;
+    if (t < 1) requestAnimationFrame(fade);
+    else { mat.transparent = false; mat.needsUpdate = true; }
+  })(t0);
+}
+function buildPencilMesh(p){
+  const pts = p.points.map(arr => new THREE.Vector3().fromArray(arr));
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+  const segs = Math.max(8, Math.min(pts.length * 8, 600));
+  const geo = new THREE.TubeGeometry(curve, segs, Math.max(0.002, p.radius), 20, false);
+  return new THREE.Mesh(geo, makeMaterial(p));
+}
+function rebuildPencil(o){
+  const parent = o.mesh.parent || scene;
+  const nm = buildPencilMesh(o.params);
+  nm.position.copy(o.mesh.position);
+  nm.rotation.copy(o.mesh.rotation);
+  nm.scale.copy(o.mesh.scale);
+  nm.castShadow = true; nm.receiveShadow = true;
+  nm.traverse(n => n.userData.objId = o.id);
+  disposeDeep(o.mesh);
+  parent.remove(o.mesh);
+  parent.add(nm);
+  o.mesh = nm;
+  applyMaterial(nm, o.params);
+  applySurface(o);
+  if (state.selectedIds.has(o.id) && state.selectedIds.size === 1) gizmo.attach(nm);
+}
+
+// =================== Tool UI ===================
+const toolPopover = document.getElementById('tool-popover');
+const tpTitle = document.getElementById('tp-title');
+const tpBody = document.getElementById('tp-body');
+
+function setTool(name){
+  state.tool = name;
+  document.querySelectorAll('.tool-modes .tool').forEach(b => b.classList.toggle('active', b.dataset.tool === name));
+  renderToolPopover();
+  viewportEl.classList.toggle('lasso-cursor', name === 'paint' || name === 'carve' || name === 'bump');
+}
+function renderToolPopover(){
+  if (state.tool === 'none') { toolPopover.hidden = true; return; }
+  toolPopover.hidden = false;
+  if (state.tool === 'paint'){
+    tpTitle.textContent = 'ペイント · タップ:面／長押し:全体';
+    tpBody.innerHTML = `<label><span>色</span><input type="color" id="tp-paint-color" value="${tools.paint.color}"></label>
+      <p class="hint" style="font-size:11px;text-align:center;color:var(--ink-3);margin:4px 0 0;">タップ: その面だけ · 長押し(0.5s): オブジェクト全体 · ドラッグ: 連続</p>`;
+    document.getElementById('tp-paint-color').oninput = e => tools.paint.color = e.target.value;
+  } else if (state.tool === 'eraser'){
+    const m = tools.eraser.mode;
+    tpTitle.textContent = m === 'object' ? '消しゴム · オブジェクト削除' : '消しゴム · ドリル穴あけ';
+    tpBody.innerHTML = `
+      <div class="segmented er-mode" style="margin:2px 0 8px;">
+        <button data-em="object" class="${m === 'object' ? 'active' : ''}">オブジェクト</button>
+        <button data-em="drill" class="${m === 'drill' ? 'active' : ''}">ドリル穴</button>
+      </div>
+      ${m === 'drill' ? `
+        <label><span>半径</span>${slider('tp-er-r', tools.eraser.radius, 0.02, 2, 0.01)}</label>
+        <label><span>深さ</span>${slider('tp-er-d', tools.eraser.depth, 0.05, 3, 0.01)}</label>
+      ` : ''}
+      <p class="hint" style="font-size:11px;text-align:center;color:var(--ink-3);margin:4px 0 0;">${m === 'object' ? 'タップでそのオブジェクトを削除 (線/デカール含む)' : '雪だるまの目のようにピンポイントで深くえぐる'}</p>
+    `;
+    document.querySelectorAll('.er-mode button').forEach(b => {
+      b.onclick = () => { tools.eraser.mode = b.dataset.em; renderToolPopover(); };
+    });
+    if (m === 'drill') {
+      bindSlider('tp-er-r', v => tools.eraser.radius = v);
+      bindSlider('tp-er-d', v => tools.eraser.depth = v);
+    }
+  } else if (state.tool === 'pencil'){
+    tpTitle.textContent = '3Dペンシル · 0.2s で滑らかに';
+    tpBody.innerHTML = `
+      <label><span>色</span><input type="color" id="tp-pen-color" value="${tools.pencil.color}"></label>
+      <label style="grid-template-columns: 78px 1fr; align-items:stretch;"><span>太さ</span>
+        <div class="inline-wheel" id="tp-pen-wheel"></div>
+      </label>
+      <p class="hint" style="font-size:11px;text-align:center;color:var(--ink-3);margin:4px 0 0;">ドラッグで表面/空中に滑らかな3D線</p>
+    `;
+    document.getElementById('tp-pen-color').oninput = e => tools.pencil.color = e.target.value;
+    buildInlineWheel(document.getElementById('tp-pen-wheel'), {
+      min: 0.005, max: 2, step: 0.005, value: tools.pencil.radius, digits: 3,
+      onChange: v => { tools.pencil.radius = v; }
+    });
+  } else if (state.tool === 'carve' || state.tool === 'bump'){
+    const tool = state.tool === 'carve' ? tools.carve : tools.bump;
+    const title = state.tool === 'carve' ? '削り / ドリル' : '盛り上げ';
+    tpTitle.textContent = title;
+    tpBody.innerHTML = `
+      <div class="segmented brush-style" style="margin-bottom:2px;">
+        <button data-cs="smooth" class="${tool.style === 'smooth' ? 'active' : ''}">なめらか</button>
+        <button data-cs="stamp" class="${tool.style === 'stamp' ? 'active' : ''}">スタンプ</button>
+      </div>
+      <label><span>半径</span>${slider('tp-rad', tool.radius, 0.05, 3, 0.01)}</label>
+      <label><span>強さ</span>${slider('tp-str', tool.strength, 0.01, 1, 0.005)}</label>
+      <p class="hint" style="font-size:11px;text-align:center;color:var(--ink-3);margin:4px 0 0;">なめらか＝ふんわり変形 / スタンプ＝円形にくっきり削り</p>
+    `;
+    document.querySelectorAll('.brush-style button').forEach(b => {
+      b.onclick = () => {
+        tool.style = b.dataset.cs;
+        document.querySelectorAll('.brush-style button').forEach(x => x.classList.toggle('active', x === b));
+      };
+    });
+    bindSlider('tp-rad', v => tool.radius = v);
+    bindSlider('tp-str', v => tool.strength = v);
+  }
+}
+document.querySelectorAll('.tool-modes .tool').forEach(b => { b.onclick = () => setTool(b.dataset.tool); });
+
+// =================== Animation ===================
+const animState = new Map(); // id -> { startTime, reversed }
+const easings = {
+  'linear': t => t,
+  'ease':         t => cubicBezierT(t, 0.25, 0.1, 0.25, 1),
+  'ease-in':      t => cubicBezierT(t, 0.42, 0, 1, 1),
+  'ease-out':     t => cubicBezierT(t, 0, 0, 0.58, 1),
+  'ease-in-out':  t => cubicBezierT(t, 0.42, 0, 0.58, 1),
+  'cubic':        t => t * t * t,
+  'cubic-out':    t => 1 - Math.pow(1 - t, 3),
+  'spring':       t => 1 - Math.cos(t * Math.PI * 0.5),
+};
+function cubicBezierT(t, x1, y1, x2, y2){
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+  const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  let u = t;
+  for (let i = 0; i < 8; i++) {
+    const x = ((ax * u + bx) * u + cx) * u;
+    const dx = (3*ax*u + 2*bx) * u + cx;
+    if (Math.abs(dx) < 1e-6) break;
+    u = u - (x - t) / Math.max(dx, 1e-6);
+    if (u < 0) u = 0; else if (u > 1) u = 1;
+  }
+  return ((ay * u + by) * u + cy) * u;
+}
+
+function poseOf(mesh){
+  return {
+    position: mesh.position.toArray(),
+    rotation: [mesh.rotation.x, mesh.rotation.y, mesh.rotation.z],
+    scale: mesh.scale.toArray(),
+  };
+}
+function applyPose(mesh, p){
+  if (!p) return;
+  mesh.position.fromArray(p.position);
+  mesh.rotation.set(p.rotation[0], p.rotation[1], p.rotation[2]);
+  mesh.scale.fromArray(p.scale);
+}
+function lerpPose(mesh, a, b, t){
+  for (let i = 0; i < 3; i++) {
+    mesh.position.setComponent(i, THREE.MathUtils.lerp(a.position[i], b.position[i], t));
+    mesh.scale.setComponent(i, THREE.MathUtils.lerp(a.scale[i], b.scale[i], t));
+  }
+  const qa = new THREE.Quaternion().setFromEuler(new THREE.Euler(a.rotation[0], a.rotation[1], a.rotation[2]));
+  const qb = new THREE.Quaternion().setFromEuler(new THREE.Euler(b.rotation[0], b.rotation[1], b.rotation[2]));
+  mesh.quaternion.slerpQuaternions(qa, qb, t);
+}
+
+function ensureAnim(o){
+  if (!o.animation) o.animation = { duration: 2, easing: 'ease-in-out', playMode: 'once', from: null, to: null };
+  return o.animation;
+}
+function easingLabel(v){
+  return ({ 'linear': 'Linear', 'ease': 'Ease (CSS)', 'ease-in': 'Ease-in (CSS)', 'ease-out': 'Ease-out (CSS)', 'ease-in-out': 'Ease-in-out (CSS)', 'cubic': 'Cubic', 'cubic-out': 'Cubic-out', 'spring': 'Spring' })[v] || v;
+}
+function playAnim(o){
+  const a = ensureAnim(o);
+  if (!a.from || !a.to) { toast('先に開始と終了を記録してください', 'error'); return; }
+  applyPose(o.mesh, a.from);
+  animState.set(o.id, { startTime: performance.now(), reversed: false });
+}
+function stopAnim(o){
+  animState.delete(o.id);
+}
+function tickAnim(now){
+  for (const [id, s] of animState) {
+    const o = objects.get(id);
+    if (!o || !o.animation) { animState.delete(id); continue; }
+    const a = o.animation;
+    const dur = Math.max(50, (a.duration || 1) * 1000);
+    let t = (now - s.startTime) / dur;
+    let doneSide = false;
+    if (t >= 1) { t = 1; doneSide = true; }
+    const eased = (easings[a.easing] || easings.linear)(t);
+    const from = s.reversed ? a.to : a.from;
+    const to = s.reversed ? a.from : a.to;
+    lerpPose(o.mesh, from, to, eased);
+    if (doneSide) {
+      if (a.playMode === 'once') {
+        animState.delete(id);
+      } else if (a.playMode === 'loop') {
+        s.startTime = now;
+      } else if (a.playMode === 'pingpong') {
+        s.reversed = !s.reversed;
+        s.startTime = now;
+      }
+    }
+  }
+}
+
+// =================== Duration wheel (iOS-style) ===================
+function buildDurWheel(containerId, value, onChange){
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const vals = [];
+  for (let i = 1; i <= 200; i++) vals.push(Math.round(i * 0.1 * 10) / 10); // 0.1..20.0
+  const items = vals.map(v => `<div class="item" data-v="${v}">${v.toFixed(1)}s</div>`).join('');
+  el.innerHTML = `<div class="dur-selbar"></div><div class="dur-track">
+    <div class="pad"></div>${items}<div class="pad"></div>
+  </div>`;
+  const track = el.querySelector('.dur-track');
+  const all = [...el.querySelectorAll('.item')];
+  const H = 44;
+  const idx = Math.max(0, vals.findIndex(v => Math.abs(v - value) < 0.05));
+  requestAnimationFrame(() => { track.scrollTop = idx * H; markSelected(); });
+  function markSelected(){
+    const sel = Math.round(track.scrollTop / H);
+    all.forEach((it, i) => it.classList.toggle('selected', i === sel));
+    const v = vals[Math.max(0, Math.min(vals.length - 1, sel))];
+    onChange(v);
+  }
+  let st = null;
+  track.addEventListener('scroll', () => {
+    clearTimeout(st);
+    markSelected();
+    st = setTimeout(() => {
+      const sel = Math.round(track.scrollTop / H);
+      track.scrollTo({ top: sel * H, behavior: 'smooth' });
+    }, 120);
+  });
+  all.forEach((it, i) => it.onclick = () => track.scrollTo({ top: i * H, behavior: 'smooth' }));
+}
+
+// =================== Loop ===================
+(function loop(now){
+  requestAnimationFrame(loop);
+  orbit.update();
+  pivotMarker.position.copy(orbit.target);
+  tickAnim(now || performance.now());
+  renderer.render(scene, camera);
+})();
+
+// =================== Mobile panel toggles ===================
+(function setupMobileToggles(){
+  const L = document.querySelector('.panel-left');
+  const R = document.querySelector('.panel-right');
+  const btnL = document.getElementById('mob-left');
+  const btnR = document.getElementById('mob-right');
+  if (btnL) btnL.onclick = () => { L.classList.toggle('open'); R.classList.remove('open'); };
+  if (btnR) btnR.onclick = () => { R.classList.toggle('open'); L.classList.remove('open'); };
+  // Tap outside closes
+  document.addEventListener('pointerdown', e => {
+    if (!window.matchMedia('(max-width: 820px)').matches) return;
+    if (e.target.closest('.panel-left, .panel-right, .mob-toggle')) return;
+    L.classList.remove('open'); R.classList.remove('open');
+  });
+})();
+
+// =================== Keyboard tool shortcuts ===================
+window.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  if (e.key === 'p' || e.key === 'P') setTool('paint');
+  if (e.key === 'c' || e.key === 'C') setTool('carve');
+  if (e.key === 'b' || e.key === 'B') setTool('bump');
+  if (e.key === 'n' || e.key === 'N') setTool('none');
+  if (e.key === 'k' || e.key === 'K') setTool('pencil');
+  if (e.key === 'x' || e.key === 'X') setTool('eraser');
+  // T = add Text (quick)
+  if (e.key === 't' || e.key === 'T') addText();
+});
+
+</script>
+</body>
+</html>

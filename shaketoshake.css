@@ -1,0 +1,1208 @@
+/* __STS_SWIPE_BLOCK__ */
+/* ★★ OS標準「左右スワイプで戻る/進む」を全CSS要素で完全ブロック。touch-action:pan-y=横ジェスチャ無効・縦スクロール維持。例外は末尾。 */
+*, *::before, *::after{ touch-action:pan-y !important; overscroll-behavior-x:none !important; }
+html, body{ overscroll-behavior:none !important; overscroll-behavior-x:none !important; touch-action:pan-y !important; }
+  :root{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    --ink:#1c1c1e; --sub:#8a8a8e; --line:rgba(0,0,0,.08);
+    --bubble-me:#2c2c2e; --bubble-you:#ececef; --peer-color:#0a84ff;
+    --accent:#0a84ff; --bg:#ffffff;
+    --spring:cubic-bezier(.34,1.56,.64,1); --glide:cubic-bezier(.22,.61,.36,1);
+    --safe-t:0px; --safe-b:0px;   /* 安全領域は#appのpaddingで一元管理。個別要素では0(二重適用しない) */
+    --cssw:360px;
+    /* Pre1 Notch デザイン言語: ガラス/グラデ/イージング */
+    --bg-2:#f4f5f9; --accent2:#af52de; --ease-out:cubic-bezier(.16,1,.3,1); --gls:rgba(255,255,255,.62);
+    --app-bg:
+      radial-gradient(1000px 700px at 12% -10%, #5ac8fa22, transparent 60%),
+      #ffffff;   /* 下部の紫グロー＋白→グレー縦グラデ(=下部シャドウ感)を撤去しフラットに */
+  }
+  *{touch-action:pan-y!important;overscroll-behavior-x:none!important; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:pan-x pan-y; }
+  .bubble, .sty-li, .msg-tr, .row{touch-action:pan-y!important;overscroll-behavior-x:none!important; touch-action:pan-y; }   /* 縦スクロールは生かしつつダブルタップ/ピンチ拡大をブロック */
+  html,body{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin:0; padding:0; height:100%; width:100%; }   /* safe-areaは#appに一元化(下記)。overflowは#appがfixed+hiddenで担保 */
+  /* iOSのフォーカス時オートズーム防止（入力は16px以上）*/
+  input, textarea, select, .ta, .field, .css-area, .sty-input{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:16px !important; }
+  body{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Hiragino Sans","Helvetica Neue",system-ui,sans-serif;
+    color:var(--ink); background:var(--app-bg); background-color:var(--bg);
+    -webkit-user-select:none; user-select:none;
+    -webkit-font-smoothing:antialiased; touch-action:manipulation;
+  }
+  #app{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; top:0; left:0; right:0; bottom:0; min-height:100dvh; box-sizing:border-box; padding-top:env(safe-area-inset-top); padding-right:env(safe-area-inset-right); padding-bottom:env(safe-area-inset-bottom); padding-left:env(safe-area-inset-left); overflow:hidden; background:var(--app-bg); background-color:var(--bg); }   /* 安全領域はここ一箇所だけ。bgはborder-box全面=ノッチ裏までfull-bleed、中身はpadding内=safe。Pre1風ガラスグラデ背景 */
+  .screen{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    background:var(--bg); transform:translateX(100%); transition:transform .42s var(--glide);
+    will-change:transform;
+  }
+  .screen.active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(0); }
+  .screen.behind{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-22%); }
+  .pad-t{touch-action:pan-y!important;overscroll-behavior-x:none!important; height:var(--safe-t); flex:0 0 auto; }
+  .pad-b{touch-action:pan-y!important;overscroll-behavior-x:none!important; height:var(--safe-b); flex:0 0 auto; }
+
+  /* 管理者: 一覧セクション見出し */
+  .adm-sec{touch-action:pan-y!important;overscroll-behavior-x:none!important; grid-column:1/-1; font-size:12px; font-weight:800; color:#8a8a8e; letter-spacing:.5px; padding:8px 4px 0; }
+  /* 管理者: 中継(読み取り専用)は入力欄を隠す */
+  #app.monitor .input-wrap{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  #app.monitor .msgs{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding-bottom:calc(12px + var(--safe-b)); }
+  /* 管理者: empty mode のON/OFFバナー（中継画面上部・状態が一目で分かる）*/
+  .mon-empty{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:10px; padding:11px 14px; margin:0 0 8px; border-radius:16px;
+    background:rgba(255,59,48,.07); -webkit-backdrop-filter:blur(14px) saturate(180%); backdrop-filter:blur(14px) saturate(180%); box-shadow:inset 0 0 0 1px rgba(255,59,48,.12); }
+  .mon-empty.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(52,199,89,.10); box-shadow:inset 0 0 0 1px rgba(52,199,89,.22); }
+  .mon-empty-tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; font-size:14px; font-weight:800; color:#1c1c1e; }
+  .mon-sw{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:52px; height:31px; flex:0 0 auto; border-radius:16px; background:#c7c7cc; position:relative; cursor:pointer; transition:background .3s; }
+  .mon-sw .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .32s var(--spring); }
+  .mon-sw.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#34c759; }
+  .mon-sw.on .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(21px); }
+  .mon-sw:active .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:31px; }
+  .mon-empty-st{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:36px; text-align:center; font-size:14px; font-weight:900; letter-spacing:.5px; color:#8a8a8e; }
+  .mon-empty.on .mon-empty-st{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#34c759; }
+  /* 一覧カードの empty mode ON バッジ */
+  .conv-empty-badge{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:9px; left:9px; z-index:4; font-size:11px; font-weight:800; color:#fff; background:#34c759; border-radius:10px; padding:2px 7px; box-shadow:0 2px 6px -1px rgba(52,199,89,.5); }
+
+  /* ===== blobs background (register) ===== */
+  .blobs{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; filter:blur(64px); }
+  .blob{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; border-radius:50%; opacity:.30; animation:drift 22s ease-in-out infinite; }
+  .b1{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:380px;height:380px; left:4%;  top:6%;  background:#a4b6ff; }
+  .b2{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:420px;height:420px; right:2%; top:2%;  background:#ffc3e0; animation-direction:reverse; }
+  .b3{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:460px;height:380px; left:18%; bottom:-8%; background:#b7f3c9; }
+  @keyframes drift{ 0%{transform:translate(0,0) scale(1);} 50%{transform:translate(36px,-26px) scale(1.08);} 100%{transform:translate(0,0) scale(1);} }
+
+  /* ===== register ===== */
+  #scrReg{touch-action:pan-y!important;overscroll-behavior-x:none!important; align-items:center; justify-content:center; padding:28px; background:
+      radial-gradient(1000px 700px at 12% 8%,  #eef0fb 0%, rgba(238,240,251,0) 60%),
+      radial-gradient(900px 800px at 88% 95%, #f3eef8 0%, rgba(243,238,248,0) 60%),
+      linear-gradient(135deg,#f3f5fb 0%, #eef1f8 100%); }
+  .reg-card{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:relative; z-index:1; width:100%; max-width:360px; padding:30px 24px 26px; border-radius:30px;
+    background:rgba(255,255,255,0.55); border:1px solid rgba(255,255,255,0.7);
+    backdrop-filter:blur(22px) saturate(160%); -webkit-backdrop-filter:blur(22px) saturate(160%);
+
+    animation:pop .6s var(--spring) both; text-align:center;
+  }
+  @keyframes pop{ from{opacity:0; transform:translateY(18px) scale(.94); filter:blur(6px);} to{opacity:1; transform:none; filter:none;} }
+  .reg-card h1{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:24px; font-weight:800; margin:2px 0 4px; letter-spacing:.3px; }
+  .reg-card .lead{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; color:var(--sub); margin:0 0 22px; font-weight:600; }
+  .avatar-pick{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    width:96px; height:96px; border-radius:50%; margin:0 auto 18px; display:flex; align-items:center; justify-content:center;
+    font-size:50px; cursor:pointer; transition:transform .3s var(--spring);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .avatar-pick:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.93); }
+  .field{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    width:100%; border:none; outline:none; background:rgba(255,255,255,.7);
+    border-radius:16px; padding:15px 16px; font-size:17px; color:var(--ink); text-align:center; font-weight:600;
+    -webkit-user-select:text; user-select:text; margin-bottom:14px;
+  }
+  .field::placeholder{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#b6b8c4; font-weight:500; }
+  .swatches{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:10px; justify-content:center; margin-bottom:22px; }
+  .sw{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; border-radius:50%; cursor:pointer; transition:transform .25s var(--spring); box-shadow:inset 0 1px 0 rgba(255,255,255,.5); }
+  .sw.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1.22); box-shadow:0 0 0 3px #fff; }
+  .btn{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    width:100%; border:none; border-radius:16px; padding:16px; font-size:17px; font-weight:800; cursor:pointer;
+    background:var(--ink); color:#fff; transition:transform .2s var(--spring), opacity .2s;
+
+  }
+  .btn:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.97); }
+  .btn[disabled]{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.4; }
+  .btn.ghost{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.05); color:var(--ink); box-shadow:none; }
+
+  /* ===== home / list ===== */
+  /* ホームは自然スクロール（flexロックをやめ block+overflow-y:scroll）。空でもバウンス＝lockしない。スクロールバーは非表示 */
+  #scrHome{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--bg); display:block; overflow-y:scroll; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; scrollbar-width:none; }   /* contain=連鎖/引っ張り更新だけ止めゴムバウンドは残す（none禁止＝バウンス自体が死ぬ） */
+  #scrHome::-webkit-scrollbar{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  .home-top{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:calc(var(--safe-t) + 4px) 18px 4px; }   /* 背景はfull-bleedのまま/カードはDynamic Island下へ＝最上段のピン・削除ボタンが押せる（safe-t+4px）。スクロールで自然にmenubar裏へ抜ける */
+  .home-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:15px; font-weight:800; color:var(--sub); letter-spacing:.4px; }
+  .list{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:grid; grid-template-columns:repeat(2,1fr); gap:14px; align-content:start; padding:12px 14px calc(88px + env(safe-area-inset-bottom)); min-height:calc(100% + 1px); }   /* 下パディングを110→88pxに圧縮=下端までコンテンツ。ボタン帯ぶんだけ確保 */
+  .empty{touch-action:pan-y!important;overscroll-behavior-x:none!important; grid-column:1 / -1; height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--sub); text-align:center; padding:0 30px; }
+  .empty .big{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:48px; }
+  .empty p{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:14px; line-height:1.7; font-weight:600; margin:0; }
+  .conv{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; aspect-ratio:1 / 1.18; border-radius:24px; background:#fff; box-shadow:inset 0 0 0 1px rgba(0,0,0,.04); display:flex; flex-direction:column; justify-content:flex-end; padding:14px; cursor:pointer; transition:transform .2s var(--spring); overflow:visible; }
+  .conv:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.96); }
+  .conv.pinned{touch-action:pan-y!important;overscroll-behavior-x:none!important; order:-1; }
+  .conv.has-unread{touch-action:pan-y!important;overscroll-behavior-x:none!important; box-shadow:0 12px 30px -14px rgba(10,132,255,.42), inset 0 0 0 1.6px var(--accent); }
+  .conv-top{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:9px; right:9px; display:flex; gap:6px; align-items:center; z-index:4; }
+  .conv-adm{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:none; cursor:pointer; padding:8px; line-height:0; transition:transform .15s var(--spring); }
+  .conv-adm:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+  .conv-adm img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:26px; height:26px; object-fit:contain; }
+  .conv-empty-btn{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:19px; line-height:1; padding:5px; opacity:.8; filter:grayscale(.3); }   /* 💨 emptyモード切替(管理者) */
+  .conv-empty-btn.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; filter:none; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif; font-size:11px; font-weight:600; color:#34c759; line-height:1; padding:4px 8px; background:rgba(52,199,89,.12); border-radius:11px; }   /* ON時 "Empty On"(SF Pro) */
+  .conv-del{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:none; cursor:pointer; padding:3px; color:#ff3b30; line-height:0; }
+  .conv-del svg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:23px; height:23px; }
+  .conv-pin{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:none; cursor:pointer; font-size:19px; opacity:.38; padding:3px; line-height:1; transition:opacity .2s, transform .2s var(--spring); }
+  .conv-pin.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; transform:rotate(-8deg); }
+  .conv-nm{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:22px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .conv-pv{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:12px; color:var(--sub); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+  /* グループ(stackアバター) */
+  .conv.grp{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:linear-gradient(160deg,#f4f1ff,#eef5ff); }
+  .grp-stack{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:12px; left:14px; display:flex; }
+  .grp-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; border-radius:50%; box-shadow:0 0 0 2.5px #fff; display:flex; align-items:center; justify-content:center; font-size:15px; margin-left:-12px; }
+  .grp-ava:first-child{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-left:0; }
+  .conv.sel{touch-action:pan-y!important;overscroll-behavior-x:none!important; box-shadow:0 0 0 3px var(--accent), 0 12px 30px -14px rgba(10,132,255,.5); transform:scale(.95); }
+  #app.selmode .conv:not(.sel){touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.65; }
+  /* グループ作成バー */
+  .group-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:0; right:0; bottom:0; z-index:30; display:flex; gap:10px; align-items:center; padding:12px 16px calc(16px + var(--safe-b)); transform:translateY(140%); transition:transform .42s var(--spring); pointer-events:none; }
+  .group-bar.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateY(0); pointer-events:auto; }
+  .gb-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:48px; height:48px; border:none; border-radius:50%; background:rgba(120,120,128,.24); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%); font-size:19px; color:var(--ink); cursor:pointer; }
+  .gb-del{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; display:none; padding:0 18px; height:48px; border:none; border-radius:24px; background:#ff3b30; color:#fff; font-size:15px; font-weight:700; cursor:pointer; }
+  .gb-del.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; }
+  .gb-make{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; height:48px; border:none; border-radius:24px; background:var(--accent); color:#fff; font-size:16px; font-weight:800; cursor:pointer; box-shadow:none; transition:opacity .2s; }
+  .gb-make:disabled{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.4; cursor:default; }
+  .ch-leave{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-left:auto; display:none; border:none; background:rgba(255,59,48,.12); color:#ff3b30; font-size:13px; font-weight:700; padding:7px 13px; border-radius:99px; cursor:pointer; }
+  .ch-leave.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; }
+  .conv.armed{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:cardWiggle .28s ease-in-out infinite alternate; }
+  @keyframes cardWiggle{ from{ transform:rotate(-1.2deg);} to{ transform:rotate(1.2deg);} }
+  .conv-minus{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:-10px; left:-10px; width:30px; height:30px; border-radius:50%; background:#ff3b30; color:#fff; border:2.5px solid #fff; font-size:22px; font-weight:600; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:6;animation:minusPop .3s var(--spring) both; }
+  @keyframes minusPop{ from{ opacity:0; transform:scale(.2);} to{ opacity:1; transform:scale(1);} }
+  .conv-minus.holding{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.9); }
+  .conv.deleting{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:none !important; transform:scale(1.07); transition:transform .3s var(--spring); }
+  .conv.removing{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:cardRemove .42s var(--glide) forwards; }
+  @keyframes cardRemove{ 0%{ opacity:1; transform:scale(1.07);} 100%{ opacity:0; transform:scale(1.5) translateY(-26px);} }
+  /* 名前変更オーバーレイ */
+  .name-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:115; background:rgba(255,255,255,0); -webkit-backdrop-filter:blur(0); backdrop-filter:blur(0); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .5s, background .5s, backdrop-filter .5s; }
+  .name-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; background:rgba(255,255,255,.96); -webkit-backdrop-filter:blur(22px); backdrop-filter:blur(22px); }
+  .name-ov-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:20px; transform:translateY(26px); opacity:0; transition:transform .3s var(--spring), opacity .3s; }
+  .name-ov.show .name-ov-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateY(0); opacity:1; }
+  .name-ov-input{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; outline:none; background:none; font-size:40px; font-weight:300; color:var(--ink); text-align:center; -webkit-user-select:text; user-select:text; min-width:120px; max-width:56vw; }
+  .name-ov-check{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:none; cursor:pointer; padding:4px; transition:transform .2s var(--spring); }
+  .name-ov-check:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+  .name-ov-check img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:40px; height:40px; object-fit:contain; }
+
+  /* 下端3ボタンは pre1-notch-deploy 同方式＝コンテナバー無し・各々を下端コーナーに浮かせる。
+     bottom:max(env(safe-area-inset-bottom),22px) でノッチ機は安全余白／非ノッチ機は22px＝常に下端に寄る。
+     #app直下なので position:fixed が実ビューポート下端に効く（参照 pre1-notch-deploy と同方式）。
+     #app.on-home の時だけ表示。ホームは自然スクロール＝コンテンツは下端まで伸び、ボタンはその上に浮く。*/
+  .home-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; bottom:0; height:0; z-index:8; pointer-events:none; opacity:0; transition:opacity .35s ease; }
+  #app.on-home .home-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; }
+  #app.searching .home-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0 !important; pointer-events:none !important; }   /* 検索中はチャット側の虫眼鏡/＋を隠す＝虫眼鏡2個を解消 */
+  .home-bar > *{touch-action:pan-y!important;overscroll-behavior-x:none!important; pointer-events:none; }
+  #app.on-home .home-bar > *{touch-action:pan-y!important;overscroll-behavior-x:none!important; pointer-events:auto; }
+  /* 左下: glass検索。参照 day-fab と同位置（bottom:max(safe,22px), left:22px, fixed） */
+  .home-search{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:22px; bottom:max(env(safe-area-inset-bottom),22px); width:56px; height:56px; border:none; padding:0; background:none; cursor:pointer; border-radius:50%; transform:scale(.8); opacity:0; transition:transform .5s ease, opacity .5s ease; z-index:8; }   /* PNG(円付き)アイコンをそのまま使用＝ガラス化はme-pill/fabで表現 */
+  #app.on-home .home-search{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; }
+  .home-search:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transition:transform .15s var(--spring); }
+  #app.on-home .home-search:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.9); }
+  .home-search .hs-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+  .home-search .hs-dark{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  @media (prefers-color-scheme: dark){ .home-search .hs-light{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; } .home-search .hs-dark{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; } }
+  /* 中央下: emoji+名前ピル（参照 gear-fab と同じ中央・fixed） */
+  .me-pill{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:50%; bottom:max(env(safe-area-inset-bottom),22px); transform:translateX(-50%) scale(.8); opacity:0; display:flex; align-items:center; gap:10px; max-width:56%; padding:6px 18px 6px 6px; border-radius:30px; cursor:pointer; background:rgba(255,255,255,.6); -webkit-backdrop-filter:blur(28px) saturate(180%); backdrop-filter:blur(28px) saturate(180%); box-shadow:inset 0 1px 0 rgba(255,255,255,.6); transition:transform .5s ease, opacity .5s ease; z-index:8; }
+  #app.on-home .me-pill{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) scale(1); opacity:1; }
+  #app.on-home .me-pill:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transition:transform .15s var(--spring); transform:translateX(-50%) scale(.95); }
+  .me-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:42px; height:42px; flex:0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:23px; box-shadow:inset 0 1px 0 rgba(255,255,255,.5); }
+  .me-name{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
+  /* 右下: ＋（参照 search-fab と同位置・fixed） */
+  .fab{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:fixed; right:22px; bottom:max(env(safe-area-inset-bottom),22px); z-index:8;
+    width:60px; height:60px; border-radius:50%; background:var(--gls); color:var(--ink); border:0.5px solid rgba(255,255,255,.45); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:300;
+    -webkit-backdrop-filter:blur(36px) saturate(180%); backdrop-filter:blur(36px) saturate(180%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.6);
+    transition:transform .25s var(--spring); transform:scale(.8); opacity:0;
+  }   /* Pre1風ガラス丸FAB */
+  #app.on-home .fab{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; }
+  #app.on-home .fab:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.88) rotate(90deg); }
+
+  /* ===== chat ===== */
+  /* チャットは完全フルブリード: ステータスバー裏〜下端までコンテンツ */
+  #scrChat{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--bg); }
+  .chat-head{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:calc(var(--safe-t) + 6px) 12px 8px;
+    border-bottom:1px solid var(--line); background:rgba(255,255,255,.92);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  }
+  .back{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:38px; height:38px; border:none; background:none; cursor:pointer; font-size:26px; color:var(--accent); display:flex; align-items:center; justify-content:center; }
+  .back:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.5; }
+  .ch-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:19px; box-shadow:inset 0 1px 0 rgba(255,255,255,.5); }
+  .ch-info{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-width:0; }
+  .ch-name{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ch-stat{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:12px; font-weight:600; color:#c33; }
+  .ch-stat.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#34c759; }
+  .msgs{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 12px 8px; display:flex; flex-direction:column; gap:3px; transition:transform .5s ease; transform-origin:center; }
+  .row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-direction:column; max-width:78%; }
+  .row.me{touch-action:pan-y!important;overscroll-behavior-x:none!important; align-self:flex-end; align-items:flex-end; }
+  .row.you{touch-action:pan-y!important;overscroll-behavior-x:none!important; align-self:flex-start; align-items:flex-start; }
+  .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    padding:9px 14px; border-radius:21px; font-size:16px; line-height:1.35; word-break:break-word; white-space:pre-wrap;
+    -webkit-user-select:none; user-select:none; position:relative;
+    animation:bubpop .42s var(--spring) both;
+  }
+  @keyframes bubpop{ from{opacity:0; transform:scale(.6) translateY(6px); filter:blur(2px);} to{opacity:1; transform:none; filter:none;} }
+  .row.me .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--bubble-me); color:#fff; border-bottom-right-radius:7px; }
+  .row.you .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--peer-color); color:#fff; border-bottom-left-radius:7px; }
+  .bubble.emoji-only{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:none !important; box-shadow:none; font-size:52px; padding:2px 6px; }
+  .seen{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:15px; margin-top:3px; height:18px; opacity:0; transform:scale(.2); }
+  .seen.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:seenpop 1.3s var(--spring) forwards; }
+  @keyframes seenpop{
+    0%{ opacity:0; transform:scale(.2);}
+    14%{ opacity:1; transform:scale(1.25);}   /* ポッ (~0.18s) */
+    23%{ transform:scale(1);}
+    77%{ opacity:1; transform:scale(1);}       /* hold ~0.7s after pop, ~1s total visible */
+    100%{ opacity:0; transform:scale(.2);}     /* ぽって消える 0.3s */
+  }
+  /* typing */
+  .typing{touch-action:pan-y!important;overscroll-behavior-x:none!important; align-self:flex-start; transition:opacity .5s ease, transform .5s ease; }
+  .typing.out{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0; transform:translateY(5px); }
+  .typing .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--bubble-you); display:inline-flex; gap:5px; padding:13px 16px; align-items:center; }
+  .typing .d{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:8px; height:8px; border-radius:50%; background:#b0b0b6; animation:tdot 1.2s var(--spring) infinite; }
+  .typing .d:nth-child(2){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay:.18s; } .typing .d:nth-child(3){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay:.36s; }
+  @keyframes tdot{ 0%,60%,100%{ transform:scale(.6); opacity:.5;} 30%{ transform:scale(1.15); opacity:1;} }
+
+  /* ===== 入力バー(画像準拠ミニマル: 上にグレー線 / Text / 右に ・haptic と →send) ===== */
+  .input-wrap{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; padding:6px 14px calc(8px + var(--safe-b)); background:var(--bg); }
+  .input-wrap::before{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:''; display:block; height:3px; border-radius:2px; background:rgba(0,0,0,.28); margin:0 2px 10px; }   /* 上のグレー区切り線 */
+  .input-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:8px; }
+  .ta{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    flex:1 1 auto; border:none; outline:none; resize:none; font-size:22px; line-height:1.3; max-height:120px;
+    background:none; padding:4px 2px; color:var(--ink); font-family:inherit;
+    -webkit-user-select:text; user-select:text;
+  }
+  .ta::placeholder{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#c7c7cc; }
+  .send{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:42px; height:42px; border:none; cursor:pointer; flex:0 0 auto; background:none; color:var(--ink); display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring), opacity .2s; }
+  .send:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.82); }
+  .send.arrow img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:38px; height:38px; object-fit:contain; display:block; }
+  .send.arrow[disabled]{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.35; }
+  /* 入力バーのボタン(Aa / 絵文字 小さめ / haptic ・) */
+  .in-btn{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:34px; height:34px; flex:0 0 auto; border:none; background:none; cursor:pointer; padding:0; font-size:20px; font-weight:700; color:var(--ink); font-family:-apple-system,"SF Pro Display","SF Pro Text",system-ui,sans-serif; display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring); }
+  .in-btn:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.84); }
+  .in-btn.sm{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; font-size:18px; opacity:.85; }
+  .in-btn.dot img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:22px; height:22px; object-fit:contain; }
+  .in-btn img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:26px; height:26px; object-fit:contain; }
+  /* 引用プレビュー(左に色バー: 自分=自分色 / 相手=相手色) */
+  .quote-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; padding:6px 4px 10px; }
+  .quote-bar-line{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:4px; align-self:stretch; min-height:28px; border-radius:2px; background:var(--accent); flex:0 0 auto; }
+  .quote-bar-text{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; font-size:13px; color:var(--sub); line-height:1.4; max-height:46px; overflow:hidden; white-space:pre-wrap; word-break:break-word; }
+  .quote-bar-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:28px; height:28px; border:none; background:rgba(0,0,0,.06); border-radius:50%; color:var(--ink); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .quote-bar-x:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+  /* 選んだ絵文字が中央でポップ */
+  .emoji-pop{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:42%; z-index:200; font-size:120px; pointer-events:none; opacity:0; transform:translate(-50%,-50%) scale(.3); animation:emojiPop 1s var(--spring) forwards; will-change:transform,opacity; }
+  @keyframes emojiPop{ 0%{ transform:translate(-50%,-50%) scale(.3); opacity:0; } 22%{ transform:translate(-50%,-50%) scale(1.3); opacity:1; } 65%{ transform:translate(-50%,-50%) scale(1.08); opacity:1; } 100%{ transform:translate(-50%,-62%) scale(.95); opacity:0; } }
+  /* Aa 文字スタイルシート（白フロスト blur22 / saturate220）*/
+  .style-sheet{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.5); -webkit-backdrop-filter:blur(22px) saturate(220%); backdrop-filter:blur(22px) saturate(220%); }
+  .sty-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:6px 16px calc(16px + var(--safe-b)); display:flex; flex-direction:column; gap:12px; }
+  .sty-types{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .sty-type{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:2px solid transparent; background:rgba(0,0,0,.06); border-radius:16px; padding:9px 16px; font-size:14px; font-weight:700; color:var(--ink); cursor:pointer; transition:border-color .3s, background .2s, transform .2s var(--spring); }
+  .sty-type:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.94); }
+  .sty-type.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; border-color:var(--accent); }          /* タップで枠が0.3sで青 */
+  .sty-colors{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:12px; justify-content:center; }
+  .sty-sw{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; border-radius:50%; cursor:pointer;  transition:transform .2s var(--spring); }
+  .sty-sw.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1.25); box-shadow:0 0 0 3px #fff, 0 0 0 5px var(--accent); }
+  .sty-input{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; min-height:84px; max-height:200px; border:none; outline:none; background:rgba(255,255,255,.6); border-radius:16px; padding:14px; font-size:16px; line-height:1.4; color:var(--ink); resize:none; -webkit-user-select:text; user-select:text; }
+  .sty-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:10px; align-items:center; }
+  .sty-add{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:rgba(0,0,0,.07); border-radius:16px; padding:12px 18px; font-size:15px; font-weight:700; color:var(--ink); cursor:pointer; flex:0 0 auto; transition:transform .2s var(--spring); }
+  .sty-add:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.92); }
+  .sty-send{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; border:none; background:var(--accent); color:#fff; border-radius:18px; padding:14px; font-size:16px; font-weight:800; cursor:pointer; transition:transform .2s var(--spring); }
+  .sty-send:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.96); }
+  /* スタイル付きメッセージ表示 */
+  .bubble.sty{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.05) !important; box-shadow:none; color:var(--ink); }
+  .bubble.sty-caption{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; font-weight:600; opacity:.9; }
+  .bubble.sty-quote{touch-action:pan-y!important;overscroll-behavior-x:none!important; border-left:3px solid currentColor; padding-left:13px; font-style:italic; opacity:.95; }
+  .sty-li{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; padding-left:18px; line-height:1.5; }
+  .sty-li::before{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:'•'; position:absolute; left:3px; opacity:.7; }
+  .vt-trans{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:28px; height:28px; object-fit:contain; vertical-align:middle; }
+  /* 翻訳表示: 受信メッセージの下にグラスでスライドアップ(scale .7→1 / 0.5s) */
+  .msg-tr{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:5px; max-width:100%; font-size:13px; font-weight:600; color:var(--ink); background:rgba(255,255,255,.5); -webkit-backdrop-filter:blur(14px) saturate(200%); backdrop-filter:blur(14px) saturate(200%); border-radius:14px; padding:7px 12px; opacity:0; transform:translateY(12px) scale(.7); transform-origin:left bottom; transition:opacity .5s, transform .5s var(--spring);  word-break:break-word; }
+  .msg-tr.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; transform:translateY(0) scale(1); }
+  /* 画像メッセージ */
+  .bubble.img{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:4px; background:rgba(0,0,0,.05); }
+  .row.me .bubble.img, .row.you .bubble.img{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.06); }
+  .msg-img{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; max-width:min(240px,62vw); width:auto; max-height:300px; border-radius:15px; object-fit:cover; cursor:pointer; }
+  /* 動画メッセージ */
+  .bubble.vid{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:4px; background:rgba(0,0,0,.05); display:flex; flex-direction:column; gap:6px; }
+  .msg-vid{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; display:block; max-width:min(240px,62vw); border-radius:15px; overflow:hidden; cursor:pointer; background:#000; }
+  .msg-vid-poster{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; width:100%; max-height:300px; object-fit:contain; opacity:.9; }
+  .msg-vid-play{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:54px; height:54px; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; pointer-events:none; }
+  .msg-vid-el{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; width:100%; max-height:340px; border-radius:15px; background:#000; }
+  .in-btn.vid img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:26px; height:26px; object-fit:contain; }
+  /* 動画 添付ポップ */
+  .vid-scrim{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:118; background:rgba(0,0,0,.35); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .3s; }
+  .vid-scrim.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+  .vid-sheet{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; bottom:0; z-index:119; max-width:560px; margin:0 auto; background:var(--bg); border-radius:24px 24px 0 0; padding:18px 18px calc(20px + env(safe-area-inset-bottom)); box-shadow:0 -16px 50px rgba(0,0,0,.25); transform:translateY(110%); transition:transform .42s var(--spring); }
+  .vid-sheet.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateY(0); }
+  .vid-list{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-direction:column; gap:8px; max-height:38vh; overflow-y:auto; margin-bottom:14px; }
+  .vid-item{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:12px; background:rgba(0,0,0,.05); border-radius:14px; padding:8px 10px; }
+  .vid-item-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:44px; height:44px; object-fit:contain; flex:0 0 auto; }
+  .vid-item-nm{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .vid-item-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:28px; height:28px; border:none; background:rgba(0,0,0,.06); border-radius:50%; color:var(--ink); cursor:pointer; }
+  .vid-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:10px; }
+  .vid-add{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; padding:13px 18px; border:none; border-radius:16px; background:rgba(0,0,0,.06); color:var(--ink); font-size:15px; font-weight:700; cursor:pointer; }
+  .vid-send{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; padding:13px; border:none; border-radius:16px; background:var(--accent); color:#fff; font-size:16px; font-weight:700; cursor:pointer; }
+  .vid-edit{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; margin-top:12px; padding:11px; border:none; background:none; color:var(--accent); font-size:14px; font-weight:600; cursor:pointer; }
+  /* cinema-studio エディタ オーバーレイ */
+  .cine-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:500; background:#000; opacity:0; visibility:hidden; transition:opacity .4s; }
+  .cine-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; }
+  .cine-frame{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .cine-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:max(env(safe-area-inset-top),14px); right:14px; z-index:2; width:40px; height:40px; border:none; border-radius:50%; background:rgba(0,0,0,.5); color:#fff; font-size:18px; cursor:pointer; }
+  /* 汎用アプリ オーバーレイ(0.5s scale .77→1) */
+  .app-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:500; background:#000; transform:scale(.77); opacity:0; visibility:hidden; transition:transform .5s var(--spring), opacity .4s, visibility .5s; }
+  .app-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; visibility:visible; }
+  .app-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:0; left:0; right:0; height:max(env(safe-area-inset-top),28px); z-index:2; display:flex; align-items:flex-end; justify-content:center; padding-bottom:5px; cursor:grab; touch-action:none; }
+  .app-grip{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:38px; height:5px; border-radius:99px; background:rgba(255,255,255,.5); }
+  .app-frame{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; width:100%; height:100%; border:0; }
+  /* ZIP 圧縮パネル(glass) */
+  .zip-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:560; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.4); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0; visibility:hidden; transition:opacity .35s, visibility .35s; }
+  .zip-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; }
+  .zip-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:min(94vw,520px); background:rgba(228,228,233,.72); -webkit-backdrop-filter:blur(40px) saturate(180%); backdrop-filter:blur(40px) saturate(180%); border-radius:26px; padding:22px 16px 16px; box-shadow:0 30px 80px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.6); color:#1c1c1e; transform:scale(.9); transition:transform .4s var(--spring); }
+  .zip-ov.show .zip-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); }
+  .zip-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:14px; left:14px; width:22px; height:22px; border:none; border-radius:50%; background:#ff3b30; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .zip-ttl{touch-action:pan-y!important;overscroll-behavior-x:none!important; text-align:center; font-size:18px; font-weight:600; margin:2px 0 18px; }
+  .zip-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:10px; align-items:stretch; }
+  .zip-pick{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; display:flex; align-items:center; gap:10px; padding:12px 14px; border:none; border-radius:16px; background:rgba(255,255,255,.75); font-size:16px; font-weight:600; color:#1c1c1e; cursor:pointer; box-shadow:inset 0 0 0 .5px rgba(0,0,0,.06); }
+  .zip-badge{touch-action:pan-y!important;overscroll-behavior-x:none!important; min-width:30px; height:30px; padding:0 8px; border-radius:50%; background:#0a84ff; color:#fff; font-weight:800; display:inline-flex; align-items:center; justify-content:center; font-size:15px; }
+  .zip-act{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; padding:12px 16px; border:none; border-radius:16px; background:rgba(255,255,255,.55); font-size:16px; font-weight:700; color:#1c1c1e; cursor:pointer; transition:opacity .2s; }
+  .zip-act:disabled{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.4; cursor:default; }
+  /* 会話に戻る 丸ボタン(全アプリ共通・glass・iOS風) */
+  .app-home{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:max(env(safe-area-inset-top),10px); left:12px; z-index:3; width:46px; height:46px; border:none; border-radius:50%; padding:0; cursor:pointer; display:grid; place-items:center; background:rgba(255,255,255,.16); -webkit-backdrop-filter:blur(22px) saturate(180%); backdrop-filter:blur(22px) saturate(180%); box-shadow:0 6px 18px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.3); transition:transform .2s var(--spring); }
+  .app-home:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.84); }
+  .app-home img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; object-fit:contain; display:block; pointer-events:none; }
+  /* アプリ内 会話通知バナー(iOS風glass) */
+  .app-noti{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom) + 14px); z-index:4; border-radius:20px; padding:12px 14px; background:rgba(38,38,44,.5); -webkit-backdrop-filter:blur(26px) saturate(180%); backdrop-filter:blur(26px) saturate(180%); box-shadow:0 14px 40px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.18); color:#fff; transform:translateY(170%); opacity:0; transition:transform .45s var(--spring), opacity .35s; touch-action:none; cursor:grab; }
+  .app-noti.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateY(0); opacity:1; }
+  .app-noti-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; }
+  .app-noti-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.16); display:grid; place-items:center; font-size:18px; flex:0 0 auto; }
+  .app-noti-tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-width:0; }
+  .app-noti-nm{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; font-weight:700; }
+  .app-noti-bd{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; opacity:.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .app-noti-reply{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:8px; max-height:0; overflow:hidden; opacity:0; transition:max-height .35s var(--spring), opacity .3s, margin-top .35s; }
+  .app-noti.open .app-noti-reply{touch-action:pan-y!important;overscroll-behavior-x:none!important; max-height:60px; opacity:1; margin-top:10px; }
+  .app-noti-in{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; border:none; border-radius:14px; padding:9px 12px; font-size:16px; background:rgba(255,255,255,.16); color:#fff; }
+  .app-noti-in::placeholder{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:rgba(255,255,255,.5); }
+  .app-noti-send{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; border:none; border-radius:14px; padding:0 16px; background:#0a84ff; color:#fff; font-size:18px; font-weight:700; cursor:pointer; }
+  /* アクティビティ */
+  .act-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:520; background:rgba(0,0,0,.45); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); display:flex; align-items:center; justify-content:center; padding:24px; opacity:0; visibility:hidden; transform:scale(.96); transition:opacity .4s, transform .5s var(--spring), visibility .4s; }
+  .act-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; transform:scale(1); }
+  .act-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:min(92vw,420px); background:rgba(28,28,30,.96); border-radius:22px; padding:22px; box-shadow:0 30px 80px rgba(0,0,0,.5); color:#fff; }
+  .act-ttl{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:24px; font-weight:800; text-align:center; }
+  .act-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; color:rgba(255,255,255,.6); text-align:center; margin:6px 0 16px; }
+  .act-list{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,.06); border-radius:14px; padding:8px; }
+  .act-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; justify-content:space-between; padding:9px 10px; border-radius:10px; }
+  .act-row-nm{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:15px; }
+  .act-quit{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:#ff3b30; color:#fff; font-size:13px; font-weight:700; padding:6px 14px; border-radius:99px; cursor:pointer; }
+  .act-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:max(env(safe-area-inset-top),14px); left:14px; width:30px; height:30px; border:none; border-radius:50%; background:rgba(0,0,0,.5); color:#fff; cursor:pointer; }
+  /* ドラッグ中の合図 */
+  #scrChat.dragover .msgs{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1.1); }   /* 添付ドラッグ中: 点線やめてscale1.1拡大(0.5s ease・戻りも) */
+  .send[disabled]{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.35; }
+  .send.blocked{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#c7c7cc !important; }
+  .send.shake{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:sendShake .5s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes sendShake{ 0%,100%{transform:translateX(0);} 18%{transform:translateX(-7px);} 36%{transform:translateX(6px);} 54%{transform:translateX(-4px);} 72%{transform:translateX(3px);} 88%{transform:translateX(-1px);} }
+  .prof-actions{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:10px; justify-content:center; margin-top:18px; }
+  .prof-act{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:rgba(0,0,0,.05); border-radius:14px; padding:10px 18px; font-size:14px; font-weight:700; color:var(--ink); cursor:pointer; transition:transform .2s var(--spring); }
+  .prof-act:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.95); }
+
+  /* ===== emoji palette ===== */
+  .sheet-mask{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:9500; background:rgba(0,0,0,.18); opacity:0; pointer-events:none; transition:opacity .3s; }   /* 設定等のsheetを最前列に */
+  .sheet-mask.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+  .sheet{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:absolute; left:0; right:0; bottom:0; z-index:9501; background:rgba(248,248,250,.96);
+    backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
+    border-radius:22px 22px 0 0;
+    transform:translateY(100%); transition:transform .42s var(--spring); padding-bottom:var(--safe-b);
+  }
+  .sheet.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateY(0); }
+  .sheet-grab{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:38px; height:5px; border-radius:3px; background:rgba(0,0,0,.18); margin:9px auto 4px; }
+  .cat-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:4px; overflow-x:auto; padding:6px 12px; scrollbar-width:none; }
+  .cat-row::-webkit-scrollbar{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  .cat{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:38px; height:38px; border-radius:50%; border:none; background:none; font-size:21px; cursor:pointer; opacity:.5; transition:opacity .2s, background .2s; }
+  .cat.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; background:rgba(0,0,0,.08); }
+  .emoji-grid{touch-action:pan-y!important;overscroll-behavior-x:none!important; height:230px; overflow-y:auto; -webkit-overflow-scrolling:touch; display:grid; grid-template-columns:repeat(8,1fr); gap:2px; padding:4px 10px 10px; }
+  .emoji-grid button{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:none; font-size:28px; padding:6px 0; cursor:pointer; border-radius:10px; transition:transform .12s, background .15s; }
+  .emoji-grid button:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1.35); background:rgba(0,0,0,.06); }
+
+  /* ===== connect sheet ===== */
+  .cn-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:6px 22px 26px; text-align:center; }
+  .cn-body h2{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:20px; font-weight:800; margin:2px 0 4px; }
+  .cn-body p{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; color:var(--sub); font-weight:600; line-height:1.7; margin:0 0 18px; }
+  .qbox{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:230px; height:230px; margin:6px auto 16px; border-radius:20px; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .qbox img,.qbox canvas{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:206px; height:206px; image-rendering:pixelated; }
+  .qbox.scan{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#000; position:relative; }
+  .qbox.scan video{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; height:100%; object-fit:cover; }
+  .scan-frame{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:24px; border:3px solid rgba(255,255,255,.9); border-radius:16px; }
+  .cn-actions{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .pastebox{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; border:none; outline:none; background:rgba(0,0,0,.045); border-radius:14px; padding:12px; font-size:13px; resize:none; height:64px; -webkit-user-select:text; user-select:text; font-family:inherit; color:var(--ink); margin-bottom:6px; }
+  .hint{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:12px; color:var(--sub); margin-top:10px; line-height:1.6; }
+  .spinner{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px;height:30px;border:3px solid rgba(0,0,0,.12);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite;margin:30px auto; }
+  @keyframes spin{ to{transform:rotate(360deg);} }
+
+  /* ===== dynamic island connect prompt ===== */
+  .island{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:absolute; left:50%; top:calc(var(--safe-t) + 8px); transform:translateX(-50%) translateY(-160%);
+    z-index:60; width:min(360px,calc(100% - 24px)); background:#0c0c0c; color:#fff; border-radius:30px;
+    padding:14px 16px; display:flex; align-items:center; gap:12px; 
+    transition:transform .5s var(--spring), opacity .5s; opacity:0;
+  }
+  .island.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) translateY(0); opacity:1; }
+  .island .grab{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:6px; left:50%; transform:translateX(-50%); width:34px; height:4px; border-radius:2px; background:rgba(255,255,255,.3); }
+  .island .ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:46px; height:46px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:24px; background:#1f1f22; box-shadow:inset 0 0 0 2px rgba(255,255,255,.18); }
+  .island .tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; font-size:15px; font-weight:600; line-height:1.35; }
+  .island .ok{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:46px; height:46px; border-radius:50%; border:none; background:#34c759; color:#fff; font-size:22px; cursor:pointer; flex:0 0 auto; }
+  .island .ok:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.9); }
+
+  /* ===== add to home ===== */
+  .a2h{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:80; background:rgba(255,255,255,.97); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; opacity:0; pointer-events:none; transition:opacity .4s; }
+  .a2h.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+  .a2h h2{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:21px; font-weight:800; margin:0 0 10px; }
+  .a2h p{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:14px; color:var(--sub); line-height:1.9; font-weight:600; margin:0; }
+  .a2h .share-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:30px; margin:0 4px; vertical-align:-4px; }
+  .a2h .close{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:30px; font-size:14px; color:var(--accent); font-weight:700; cursor:pointer; background:none; border:none; }
+  .a2h .arrow{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; bottom:calc(20px + var(--safe-b)); left:50%; transform:translateX(-50%); font-size:34px; animation:bob 1.4s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{ transform:translateX(-50%) translateY(0);} 50%{ transform:translateX(-50%) translateY(8px);} }
+
+  /* toast */
+  /* Dynamic Island風 文字通知（白地・黒字・大きめ・radius77・エラーは左右シェイク） */
+  .toast{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:calc(var(--safe-t) + 12px); transform:translateX(-50%) translateY(-180%); z-index:90; background:#fff; color:#000; padding:19px 32px; border-radius:77px; font-size:20px; font-weight:800; letter-spacing:.3px; opacity:0; pointer-events:none; transition:opacity .35s, transform .5s var(--spring); max-width:88%; text-align:center; line-height:1.3; }
+  /* オフライン island（フォルダ?＋インターネット接続を促す）*/
+  .off-island{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; bottom:calc(26px + var(--safe-b)); transform:translateX(-50%) translateY(190%); z-index:96; background:#0c0c0c; color:#fff; border-radius:32px; padding:36px 30px 18px; min-width:300px; max-width:min(440px,88%); text-align:center;  transition:transform .55s var(--spring), opacity .4s; opacity:0; pointer-events:none; }
+  .off-island.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) translateY(0); opacity:1; }
+  .off-island.out{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) scale(.6); opacity:0; transition:transform .5s var(--glide), opacity .5s; }   /* オンライン復帰: 0.5sスケールダウンで消える */
+  .off-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:-30px; left:50%; transform:translateX(-50%); width:68px; height:54px; object-fit:contain; }
+  .off-tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:16px; font-weight:700; line-height:1.45; }
+  .toast.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.err{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:nshake .55s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes nshake{ 0%,100%{transform:translateX(-50%) translateY(0);} 12%{transform:translateX(calc(-50% - 13px)) translateY(0);} 26%{transform:translateX(calc(-50% + 12px)) translateY(0);} 40%{transform:translateX(calc(-50% - 9px)) translateY(0);} 56%{transform:translateX(calc(-50% + 6px)) translateY(0);} 72%{transform:translateX(calc(-50% - 4px)) translateY(0);} 86%{transform:translateX(calc(-50% + 2px)) translateY(0);} }
+  .hidden{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none !important; }
+
+  /* ===== profile sheet ===== */
+  #profSheet{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.92); opacity:0; transform-origin:50% 100%; transition:transform .5s ease, opacity .35s ease; background:rgba(248,248,250,.66); -webkit-backdrop-filter:blur(44px) saturate(220%); backdrop-filter:blur(44px) saturate(220%); }
+  #profSheet.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; }   /* iOS風: slideではなくscaleup ease・よりglass/彩度up */
+  .prof-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:16px 26px 34px; }
+  .vtoggles{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-wrap:wrap; justify-content:center; gap:16px 18px; margin:8px 0 26px; }
+  .vt-col{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-direction:column; align-items:center; gap:18px; }
+  .vtoggle{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:76px; height:166px; border-radius:42px; background:#8e8e93; position:relative; cursor:pointer; transition:background .35s var(--glide); }
+  .vtoggle .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:6px; width:64px; height:64px; border-radius:50%; bottom:6px; background:radial-gradient(circle at 38% 30%, #ffffff, #d4d4d9); box-shadow:inset 0 1px 0 rgba(255,255,255,.85); transition:bottom .42s var(--spring), background .35s; }
+  .vtoggle.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#eef0f4; }
+  .vtoggle.on .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; bottom:96px; background:radial-gradient(circle at 38% 30%, #6cb8ff, #0a84ff); }
+  .vt-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:30px; line-height:1; }
+  .profile-pill{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:14px; padding:8px 24px 8px 8px; border-radius:48px; background:var(--me-color,#ff7ad9); width:fit-content; max-width:86%; margin:0 auto; }
+  .pp-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:62px; height:62px; flex:0 0 auto; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:31px; }
+  .pp-name{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:30px; font-weight:800; color:#111; padding-right:6px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ===== add friend screen（2ボックス: 縦向き=縦並び / 横向き=横並び・シンプル）===== */
+  #scrAdd{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#fff; padding:0 18px; }
+  .add-wrap{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; width:100%; max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:14px; padding:calc(var(--safe-t) + 12px) 0 12px; min-height:0; }
+  @media (orientation:landscape){ .add-wrap{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex-direction:row; } }
+  .add-scan{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 0; min-width:0; min-height:0; border-radius:24px; background:#e9e9ec; text-align:center; cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.6); transition:transform .2s var(--spring); position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .add-scan:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.985); }
+  .add-scan .ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:42px; } .add-scan .lb{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:20px; font-weight:800; margin-top:8px; color:#1c1c1e; }
+  .add-scan.scanning{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#000; }
+  .add-scanview{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; display:none; }
+  .add-scan.scanning .add-scanview{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; } .add-scan.scanning .ic,.add-scan.scanning .lb{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  .add-scanview video{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; height:100%; object-fit:cover; }
+  .add-me{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 0; min-width:0; min-height:0; border-radius:24px; background:#e9e9ec; padding:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:inset 0 1px 0 rgba(255,255,255,.6); }
+  .add-me .qbox{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:auto; height:auto; min-width:140px; min-height:140px; background:transparent; box-shadow:none; margin:0; }
+  .add-me .qbox canvas, .add-me .qbox img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:150px; height:150px; max-width:42vmin; max-height:42vmin; }
+  .add-me .ulab{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:15px; font-weight:700; color:#666; margin-top:10px; }
+  .add-me .uname{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:24px; font-weight:700; letter-spacing:1px; border-top:2px solid rgba(0,0,0,.12); margin-top:8px; padding-top:8px; min-width:60%; text-align:center; -webkit-user-select:text; user-select:text; }
+  .add-foot{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:100%; max-width:860px; margin:0 auto; display:flex; align-items:center; gap:14px; padding:8px 0 calc(10px + var(--safe-b)); }
+  .add-back{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:56px; height:56px; border-radius:50%; background:#8e8e93; color:#fff; border:none; font-size:28px; cursor:pointer; flex:0 0 auto; transition:transform .2s var(--spring); }
+  .add-back:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.88); }
+  .add-qronly{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; text-align:center; color:rgba(235,235,245,.6); font-size:15px; font-weight:600; padding:17px 16px; min-width:0; }   /* 友達追加=QRのみ（名前入力 type other's user name は廃止。user idは今後） */
+  /* haptic-message 廃止: 入力バーの触覚ボタンを非表示（送信側も cxhap を付けない） */
+  .in-btn.dot{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none !important; }
+
+  /* ===== power icon ===== */
+  .prof-power{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:12px; left:18px; width:36px; height:36px; border:none; background:none; cursor:pointer; color:#1c1c1e; display:flex; align-items:center; justify-content:center; z-index:3; transition:transform .2s var(--spring); }
+  .prof-power:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.84); }
+  .prof-power svg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:25px; height:25px; }
+
+  /* ===== editable name ===== */
+  .me-name.editing, .pp-name.editing{touch-action:pan-y!important;overscroll-behavior-x:none!important; outline:none; }
+  input.name-edit{touch-action:pan-y!important;overscroll-behavior-x:none!important; font:inherit; font-weight:inherit; color:inherit; text-align:center; background:rgba(0,0,0,.05); border:none; border-radius:10px; padding:2px 8px; outline:none; -webkit-user-select:text; user-select:text; max-width:60vw; }
+
+  /* ===== slide to delete (tog.html風) ===== */
+  .del-mask{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:95; background:rgba(0,0,0,0); -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px); pointer-events:none; transition:background .45s var(--glide), backdrop-filter .45s; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:calc(var(--safe-t) + 84px); }
+  .del-mask.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.86); -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px); pointer-events:auto; }
+  .del-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; font-weight:700; font-size:19px; margin-bottom:30px; opacity:0; transform:translateY(10px); transition:opacity .45s .1s, transform .45s .1s; }
+  .del-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:rgba(255,255,255,.5); font-size:13px; margin-top:16px; font-weight:500; opacity:0; transition:opacity .45s .15s; text-align:center; padding:0 30px; }
+  .del-mask.show .del-title,.del-mask.show .del-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; transform:none; }
+  .slider-wrapper{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:300px; height:64px; opacity:0; transform:translateY(14px); transition:opacity .5s var(--spring), transform .5s var(--spring); }
+  .del-mask.show .slider-wrapper{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; transform:none; }
+  .slider-wrapper.fade-out{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0 !important; pointer-events:none; }
+  .slider-track{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; border-radius:36px; background:rgba(120,120,128,.16); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); box-shadow:inset 0 0 0 .6px rgba(255,255,255,.28), inset 0 1px 1px rgba(255,255,255,.12); display:flex; align-items:center; overflow:hidden; }
+  .slider-inner{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:0; top:0; height:100%; width:64px; border-radius:36px; background:rgba(255,255,255,.1); }
+  .slider-label{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:80px; right:18px; color:rgba(255,255,255,.85); font-size:16px; font-weight:500; letter-spacing:.5px; opacity:.85; pointer-events:none; }
+  .slider-knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:4px; left:4px; width:56px; height:56px; border-radius:50%; background:rgba(72,72,78,.55); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; z-index:5; box-shadow:inset 0 0 0 .6px rgba(255,255,255,.3); cursor:grab; touch-action:none; }
+  .slider-knob:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; cursor:grabbing; }
+  .slider-knob svg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:28px; height:28px; }
+  .del-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; bottom:calc(48px + var(--safe-b)); left:50%; transform:translateX(-50%); width:62px; height:62px; border-radius:50%; background:rgba(120,120,128,.22); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); color:#fff; font-size:23px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 0 .6px rgba(255,255,255,.2); opacity:0; transition:opacity .45s .2s, transform .2s var(--spring); }
+  .del-mask.show .del-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; }
+  .del-x:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) scale(.9); }
+
+  /* ===== composer風 横スクロール絵文字バー ===== */
+  .emoji-grid.row-mode{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; height:auto; grid-template-columns:none; overflow-x:auto; overflow-y:hidden; padding:8px 10px 14px; gap:0; }
+  .emoji-grid.row-mode button{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; font-size:32px; padding:4px 8px; }
+
+  /* ===== Aa: 吹き出し⇄文字モード（文字は相手の濃い色）===== */
+  #app.textmode .row .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:none !important; box-shadow:none !important; padding:3px 8px; font-size:34px; font-weight:700; line-height:1.22; }
+  #app.textmode .row.me .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:var(--ink); }
+  #app.textmode .row.you .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:var(--peer-color); }
+  #app.textmode .bubble.emoji-only{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:54px; }
+  #app.textmode .typing .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:none !important; box-shadow:none !important; padding:3px 8px; font-size:16px; }   /* Aaオン時: 相手の入力中(・・・)に吹き出し枠なし */
+
+  /* ===== iOS風ローダー（読み込み/重い時）===== */
+  .loader{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:130; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.55); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .3s; }
+  .loader.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+  .spin-scale{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1.8); opacity:0; transition:transform .3s var(--spring), opacity .3s; }
+  .loader.show .spin-scale{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; }
+  .spin-rot{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:62px; height:62px; display:block; animation:spinRot 1s linear infinite; }
+  .loader-cancel{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; bottom:24%; transform:translateX(-50%) scale(0); opacity:0; border:none; background:rgba(0,0,0,.07); color:var(--ink); font-size:15px; font-weight:700; padding:11px 28px; border-radius:24px; cursor:pointer; transition:transform .3s var(--spring), opacity .3s; }
+  .loader.cancelable .loader-cancel{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) scale(1); opacity:1; }
+  .loader-cancel:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) scale(.9); }
+  @keyframes spinRot{ to{ transform:rotate(360deg); } }
+
+  /* 通知ONにできない時：knobが左右に震える */
+  .vtoggle.shake .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:knobShake .5s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes knobShake{ 0%,100%{transform:translateX(0);} 15%{transform:translateX(-7px);} 30%{transform:translateX(6px);} 45%{transform:translateX(-5px);} 60%{transform:translateX(4px);} 75%{transform:translateX(-2px);} }
+
+  /* ===== 感情エモジ・ピッカー（ネコ⇄人間トグル・0.5sで出入り）===== */
+  .epick{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:110; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.72); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); opacity:0; pointer-events:none; transition:opacity .5s var(--glide); }
+  .epick.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+  .epick-stage{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:320px; height:344px; transform:scale(.55); opacity:.4; transition:transform .5s var(--spring), opacity .5s; }
+  .epick.show .epick-stage{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; }
+  .epick-orb{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:160px; top:150px; width:226px; height:226px; transform:translate(-50%,-50%); border-radius:50%;
+    background:radial-gradient(circle at 50% 46%, #fdfbff 0 17%, #efe9f5 17% 21%, #f7f2fb 21% 38%, #e9e2f1 38% 42%, #f4eef9 42% 64%, #ece4f2 64% 68%, #f7f3fb 68%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
+  .epick-em{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; width:62px; height:62px; border:none; background:none; font-size:42px; line-height:1; cursor:pointer; transform:translate(-50%,-50%); padding:0; animation:emoIn .3s var(--spring) both; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  @keyframes emoIn{ from{ opacity:0; transform:translate(-50%,-50%) scale(.12);} to{ opacity:1; transform:translate(-50%,-50%) scale(1);} }
+  .epick-em:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:none; transform:translate(-50%,-50%) scale(1.35); }
+  /* 名前変更チェック */
+  .name-check{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:28px; height:28px; object-fit:contain; opacity:0; flex:0 0 auto; }
+  .name-check.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:nameCheck 1.4s ease forwards; }
+  @keyframes nameCheck{ 0%{opacity:0; transform:scale(.6);} 30%{opacity:1; transform:scale(1);} 68%{opacity:1; transform:scale(1);} 100%{opacity:0; transform:scale(1);} }
+  .epick-toggle{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:160px; bottom:-4px; transform:translateX(-50%); width:66px; height:66px; border-radius:50%; border:none; cursor:pointer; font-size:34px; display:flex; align-items:center; justify-content:center;  transition:transform .2s var(--spring); }
+  .epick-toggle:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) scale(.9); }
+  .epick-toggle.cat{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(12,12,12,.5); -webkit-backdrop-filter:blur(16px) saturate(160%); backdrop-filter:blur(16px) saturate(160%); }
+  .epick-toggle.human{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.5); -webkit-backdrop-filter:blur(16px) saturate(160%); backdrop-filter:blur(16px) saturate(160%); }
+  /* 中央に「選択中の絵文字」を最前面で表示。選ぶとポップ */
+  .epick-center{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:160px; top:150px; transform:translate(-50%,-50%); width:96px; height:96px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:60px; line-height:1; z-index:6; pointer-events:none; }
+  .epick-center.pop{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:epickCtrPop .42s var(--spring); }
+  @keyframes epickCtrPop{ 0%{ transform:translate(-50%,-50%) scale(.3); opacity:.2; } 55%{ transform:translate(-50%,-50%) scale(1.28); } 100%{ transform:translate(-50%,-50%) scale(1); opacity:1; } }
+
+  /* ===== ハンドオフ（引き継ぎ）===== */
+  .prof-handoff{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:12px; right:18px; width:36px; height:36px; border:none; background:none; cursor:pointer; padding:0; z-index:3; transition:transform .2s var(--spring); }
+  .prof-handoff:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.84); }
+  .prof-handoff img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:31px; height:31px; object-fit:contain; }
+  .reg-handoff{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; right:22px; bottom:calc(24px + var(--safe-b)); width:56px; height:56px; border:none; background:none; cursor:pointer; padding:0; z-index:2; transition:transform .2s var(--spring); }
+  .reg-handoff:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+  .reg-handoff img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:56px; height:56px; object-fit:contain; }
+
+  #scrHandoff{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#fff; }
+  .ho-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; padding:0 30px; }
+  .ho-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:33px; font-weight:300; line-height:1.35; letter-spacing:.5px; color:#111; }
+  .ho-warn{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#ff3b30; font-size:15px; font-weight:600; line-height:1.6; margin-top:18px; }
+  .ho-label{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#bcbcc2; font-size:28px; font-weight:600; margin-top:42px; }
+  .ho-line{touch-action:pan-y!important;overscroll-behavior-x:none!important; height:2px; background:rgba(0,0,0,.1); margin:10px 0 16px; border-radius:2px; }
+  .ho-code{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:46px; font-weight:600; letter-spacing:10px; text-align:center; color:#111; -webkit-user-select:text; user-select:text; }
+  .ho-foot{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; padding:10px 24px calc(10px + var(--safe-b)); }
+
+  #scrPass{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#fff; }
+  .pass-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; display:flex; align-items:center; justify-content:center; }
+  .pass-dots{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:26px; }
+  .pass-dots .pd{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:22px; height:22px; border-radius:50%; background:#c7c7cc; transition:background .15s, transform .15s var(--spring); }
+  .pass-dots .pd.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#111; transform:scale(1.06); }
+  .pass-foot{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; display:flex; align-items:center; gap:18px; padding:10px 30px calc(20px + var(--safe-b)); }
+  .pass-hint{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#8a8a8e; font-size:23px; font-weight:400; }
+  .pass-input{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; opacity:0; pointer-events:none; height:1px; width:1px; bottom:0; }
+
+  .ho-island{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:calc(var(--safe-t) + 8px); transform:translateX(-50%) translateY(-170%); z-index:62; width:min(330px,calc(100% - 30px)); background:#0c0c0c; color:#fff; border-radius:30px; padding:16px 18px 18px; text-align:center; box-shadow:0 20px 50px -16px rgba(255, 255, 255, 0.6); transition:transform .5s var(--spring), opacity .5s; opacity:0; }
+  .ho-island.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) translateY(0); opacity:1; }
+  .hoi-q{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:rgba(255,255,255,.72); font-size:16px; font-weight:500; margin-bottom:12px; }
+  .hoi-btn{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; border:none; border-radius:22px; background:#2b2b2e; color:#fff; font-size:22px; font-weight:600; padding:14px; cursor:pointer; transition:transform .2s var(--spring); }
+  .hoi-btn:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.97); }
+
+  /* ===== CSSエディタ ===== */
+  .prof-css{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; margin:20px auto 0; width:46px; height:46px; border:none; background:none; cursor:pointer; padding:0; transition:transform .2s var(--spring); }
+  .prof-css:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.88); }
+  .prof-css img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:46px; height:46px; object-fit:contain; }
+  #cssSheet{touch-action:pan-y!important;overscroll-behavior-x:none!important; transition:transform .3s var(--spring); }
+  .css-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:6px 16px calc(16px + var(--safe-b)); }
+  .css-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; font-weight:800; color:var(--sub); letter-spacing:.5px; text-align:center; margin-bottom:8px; }
+  .css-area{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; height:210px; border:none; outline:none; background:rgba(0,0,0,.045); border-radius:14px; padding:14px; font-family:ui-monospace,Menlo,monospace; font-size:13px; line-height:1.5; color:var(--ink); resize:none; -webkit-user-select:text; user-select:text; }
+  .css-head{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; justify-content:space-between; padding:2px 2px 8px; }
+  .css-head .css-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin:0; }
+  .css-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:34px; height:34px; flex:0 0 auto; border:none; background:rgba(0,0,0,.07); border-radius:50%; font-size:16px; cursor:pointer; color:var(--ink); display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring); }
+  .css-close:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+  .css-resize{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  /* 分割ビュー: 横長ラップトップ → CSSは右パネル、Mainは左に縮む（隠れない・ドラッグでリサイズ）*/
+  @media (orientation:landscape) and (min-width:760px){
+    #app.css-split{touch-action:pan-y!important;overscroll-behavior-x:none!important; right:var(--cssw,360px); }
+    #app.css-split #cssSheet, #app.css-split #cssSheet.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; top:8px; right:8px; bottom:8px; left:auto; width:calc(var(--cssw,360px) - 16px); height:auto; transform:none; border-radius:20px; box-shadow:0 22px 54px -18px rgba(255, 255, 255, 0.42); display:flex; flex-direction:column; }
+    #app.css-split #cssSheet .sheet-grab{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+    #app.css-split #cssSheet .css-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; display:flex; flex-direction:column; min-height:0; padding:14px; }
+    #app.css-split #cssSheet .css-area{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-height:0; height:auto; }
+    #app.css-split #cssSheet .css-resize{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; position:absolute; left:-13px; top:0; bottom:0; width:26px; cursor:col-resize; z-index:6; }
+    #app.css-split #cssSheet .css-resize::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:''; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:5px; height:58px; border-radius:3px; background:rgba(0,0,0,.5); }
+  }
+  /* 狭い/縦向き → 下半分に分割（コンテンツは上に残る）*/
+  @media (orientation:portrait), (max-width:759px){
+    #app.css-split{touch-action:pan-y!important;overscroll-behavior-x:none!important; bottom:46vh; }
+    #app.css-split #cssSheet, #app.css-split #cssSheet.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; bottom:0; top:auto; height:46vh; transform:none; border-radius:22px 22px 0 0; display:flex; flex-direction:column; }
+    #app.css-split #cssSheet .css-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+    #app.css-split #cssSheet .css-area{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-height:0; height:auto; }
+  }
+
+  /* iOS Safari(非PWA)はホーム画面追加を促す */
+  .reg-a2h{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:22px; font-weight:800; color:var(--ink); margin:8px 0 4px; }
+  .reg-a2h-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; color:var(--sub); font-weight:600; line-height:1.9; margin-top:12px; }
+  /* ハンドオフ glassボタン→6桁入力 */
+  .ho-glass-wrap{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:24px; display:flex; justify-content:center; }
+  .ho-glass{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; border-radius:33px; padding:10px 24px; font-size:14px; font-weight:700; color:var(--ink); cursor:pointer; background:rgba(255,255,255,.5); -webkit-backdrop-filter:blur(16px) saturate(160%); backdrop-filter:blur(16px) saturate(160%); box-shadow:0 8px 24px -10px rgba(255, 255, 255, 0.22), inset 0 1px 0 rgba(255,255,255,.65); transition:transform .2s var(--spring); }
+  .ho-glass:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.95); }
+  .ho-glass-input{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; border:none; outline:none; border-radius:33px; padding:11px 22px; font-size:18px; font-weight:700; letter-spacing:4px; text-align:center; color:var(--ink); background:rgba(255,255,255,.55); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); box-shadow:0 8px 24px -10px rgba(255, 255, 255, 0.22), inset 0 1px 0 rgba(255,255,255,.65); width:200px; -webkit-user-select:text; user-select:text; }
+  .ho-glass-wrap.editing .ho-glass{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  .ho-glass-wrap.editing .ho-glass-input{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:inline-block; animation:hoMorph .3s var(--spring); }
+  @keyframes hoMorph{ from{ transform:scale(.78); opacity:0;} to{ transform:scale(1); opacity:1;} }
+
+  /* Instagram風スプラッシュ */
+  .splash{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:200; background:#fff; display:flex; align-items:center; justify-content:center; transition:opacity .5s; }
+  .splash.hide{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0; pointer-events:none; }
+  .splash-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:118px; height:auto; object-fit:contain; transform:scale(.8); opacity:0; animation:splashIn .4s ease forwards; }
+  @keyframes splashIn{ to{ transform:scale(1); opacity:1; } }
+  .splash.hide .splash-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:splashOut .5s var(--spring) forwards; }
+  @keyframes splashOut{ to{ transform:scale(1.55); opacity:0; } }
+
+  /* ===== haptic mode picker（入力バー上に右寄せ縦スタック・下から出る）===== */
+  .hap-pop{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; right:10px; bottom:calc(62px + var(--safe-b)); z-index:50; display:flex; flex-direction:column-reverse; gap:14px; opacity:0; pointer-events:none; transition:opacity .25s; }
+  .hap-pop.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+  .hap-item{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:68px; height:68px; flex:0 0 auto; border:none; border-radius:18px; background:rgba(245,245,247,.92); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%); cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px -8px rgba(0,0,0,.3); transform:translateY(16px) scale(.5); opacity:0; transition:transform .35s var(--spring), opacity .3s, box-shadow .2s; }
+  .hap-pop.show .hap-item{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:none; opacity:1; }
+  .hap-pop.show .hap-item:nth-child(1){touch-action:pan-y!important;overscroll-behavior-x:none!important; transition-delay:0s; }
+  .hap-pop.show .hap-item:nth-child(2){touch-action:pan-y!important;overscroll-behavior-x:none!important; transition-delay:.05s; }
+  .hap-pop.show .hap-item:nth-child(3){touch-action:pan-y!important;overscroll-behavior-x:none!important; transition-delay:.1s; }
+  .hap-pop.show .hap-item:nth-child(4){touch-action:pan-y!important;overscroll-behavior-x:none!important; transition-delay:.15s; }
+  .hap-item:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.86) !important; }
+  .hap-item.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(10,132,255,.18); box-shadow:0 8px 24px -8px rgba(0,0,0,.3); }   /* 枠なし: リングをやめ淡いaccent地で選択表現 */
+  .hap-item img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:48px; height:48px; object-fit:contain; pointer-events:none; }
+  .hap-mask{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:49; }
+  /* 引用つきメッセージ(バブル内の引用元) */
+  .q-quoted{touch-action:pan-y!important;overscroll-behavior-x:none!important; border-left:3px solid currentColor; padding:2px 0 2px 9px; margin-bottom:5px; font-size:13px; opacity:.85; white-space:pre-wrap; word-break:break-word; max-height:54px; overflow:hidden; }
+  /* haptic bubble — タップで反応 */
+  .bubble.hap{touch-action:pan-y!important;overscroll-behavior-x:none!important; cursor:pointer; }
+  .bubble.hap::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:attr(data-hap-badge); position:absolute; top:-9px; right:2px; font-size:10px; font-weight:800; opacity:.6; background:rgba(0,0,0,.07); border-radius:6px; padding:1px 4px; line-height:1.5; pointer-events:none; }
+  /* ===== message context menu ===== */
+  .msg-ctx{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; right:16px; z-index:82; background:rgba(248,248,250,.96); -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%); border-radius:16px; min-width:148px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,.16); transform-origin:top right; }
+  .msg-ctx:not(.hidden){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:ctxIn .22s var(--spring) both; }
+  @keyframes ctxIn{ from{ opacity:0; transform:scale(.86);} to{ opacity:1; transform:none;} }
+  .msg-ctx-item{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; border:none; background:none; text-align:right; padding:14px 18px; font-size:17px; font-weight:600; color:var(--ink); cursor:pointer; display:block; }
+  .msg-ctx-item.danger{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#ff3b30; }
+  .msg-ctx-item:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.06); }
+  .msg-ctx-mask{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:81; }
+  /* ===== suspended screen (Liquid Glass: アカウント使用不可) ===== */
+  .suspended-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:fixed; inset:0; z-index:4000; overflow:hidden;
+    --su-tp:#1c1c1e; --su-ts:#3c3c43; --su-tt:rgba(60,60,67,.6); --su-tq:rgba(60,60,67,.42);
+    --su-sep:rgba(60,60,67,.14);
+    --su-gft:rgba(255,255,255,.7); --su-gfb:rgba(255,255,255,.42); --su-gfs:rgba(255,255,255,.78);
+    --su-gbd:rgba(255,255,255,.6); --su-gil:rgba(255,255,255,.95); --su-gig:rgba(255,255,255,.35);
+    --su-gs1:rgba(0,0,0,.04); --su-gs2:rgba(0,0,0,.10); --su-gs4:rgba(0,0,0,.24);
+    --su-handle:rgba(60,60,67,.3); --su-bg:#f1eff5;
+    --su-eios:cubic-bezier(.32,.72,0,1); --su-eout:cubic-bezier(.16,1,.3,1);
+    color:var(--su-tp); -webkit-font-smoothing:antialiased; font-feature-settings:"palt";
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Hiragino Sans","ヒラギノ角ゴシック",system-ui,sans-serif;
+    background:
+      radial-gradient(ellipse 80% 50% at 10% -10%, #ffd6e8 0%, transparent 55%),
+      radial-gradient(ellipse 70% 60% at 100% 25%, #c5dcff 0%, transparent 55%),
+      radial-gradient(ellipse 60% 55% at 50% 115%, #ffe2bf 0%, transparent 60%),
+      radial-gradient(ellipse 90% 60% at -10% 110%, #dac9ff 0%, transparent 55%),
+      var(--su-bg);
+  }
+  .suspended-ov *, .suspended-ov *::before, .suspended-ov *::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  @media (prefers-color-scheme:dark){
+    .suspended-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+      --su-tp:#fff; --su-ts:#ebebf5; --su-tt:rgba(235,235,245,.6); --su-tq:rgba(235,235,245,.42);
+      --su-sep:rgba(84,84,88,.7);
+      --su-gft:rgba(55,55,62,.68); --su-gfb:rgba(38,38,44,.5); --su-gfs:rgba(60,60,65,.78);
+      --su-gbd:rgba(255,255,255,.14); --su-gil:rgba(255,255,255,.18); --su-gig:rgba(255,255,255,.05);
+      --su-gs1:rgba(0,0,0,.3); --su-gs2:rgba(0,0,0,.45); --su-gs4:rgba(0,0,0,.75);
+      --su-handle:rgba(235,235,245,.3); --su-bg:#000;
+      background:
+        radial-gradient(ellipse 80% 50% at 10% -10%, #3d1929 0%, transparent 55%),
+        radial-gradient(ellipse 70% 60% at 100% 25%, #1a2647 0%, transparent 55%),
+        radial-gradient(ellipse 60% 55% at 50% 115%, #3f2f17 0%, transparent 60%),
+        radial-gradient(ellipse 90% 60% at -10% 110%, #2c1e4f 0%, transparent 55%),
+        var(--su-bg);
+    }
+  }
+  .suspended-ov .help-button{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:absolute; top:calc(env(safe-area-inset-top,0px) + 16px); right:20px;
+    width:40px; height:40px; border-radius:50%; border:none; cursor:pointer; z-index:10;
+    background:linear-gradient(155deg, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 60%), var(--su-gfs);
+    -webkit-backdrop-filter:blur(36px) saturate(200%); backdrop-filter:blur(36px) saturate(200%);
+    box-shadow:inset 0 0 0 .5px var(--su-gbd), inset 0 1px .5px var(--su-gil), inset 0 -1px .5px rgba(0,0,0,.08), inset 0 0 12px var(--su-gig), 0 1px 2px var(--su-gs1), 0 6px 20px var(--su-gs2);
+    display:flex; align-items:center; justify-content:center; color:var(--su-tp);
+    transition:transform .25s var(--su-eout), box-shadow .25s var(--su-eout);
+    -webkit-user-select:none; user-select:none;
+  }
+  .suspended-ov .help-button:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.88); }
+  .suspended-ov .help-button svg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:18px; height:18px; opacity:.85; pointer-events:none; }
+  .suspended-ov .hero{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; pointer-events:none; -webkit-user-select:none; user-select:none; }
+  .suspended-ov .hero-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:22px; font-weight:700; letter-spacing:-.45px; color:var(--su-tp); margin-bottom:8px; line-height:1.3; }
+  .suspended-ov .hero-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:14px; font-weight:400; letter-spacing:-.1px; color:var(--su-tq); line-height:1.5; }
+  .suspended-ov .backdrop{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; background:rgba(0,0,0,0); -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px); z-index:100; pointer-events:none; transition:background .55s var(--su-eios), backdrop-filter .55s var(--su-eios), -webkit-backdrop-filter .55s var(--su-eios); }
+  .suspended-ov .backdrop.visible{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.34); -webkit-backdrop-filter:blur(8px) saturate(120%); backdrop-filter:blur(8px) saturate(120%); pointer-events:auto; }
+  .suspended-ov .sheet{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+    position:fixed; left:50%; bottom:12px; transform:translate3d(-50%, calc(100% + 24px), 0);
+    width:min(640px, calc(100vw - 24px)); height:min(86dvh,820px); max-height:calc(100dvh - 32px);
+    background:radial-gradient(120% 90% at 20% -10%, rgba(255,255,255,.55) 0%, transparent 55%), radial-gradient(140% 100% at 100% 110%, rgba(255,255,255,.2) 0%, transparent 55%), linear-gradient(180deg, var(--su-gft) 0%, var(--su-gfb) 100%);
+    -webkit-backdrop-filter:blur(60px) saturate(200%); backdrop-filter:blur(60px) saturate(200%);
+    border-radius:28px;
+    box-shadow:inset 0 0 0 .5px var(--su-gbd), inset 0 1.5px 0 var(--su-gil), inset 0 -1px 0 rgba(0,0,0,.05), inset 0 0 60px var(--su-gig), 0 2px 8px var(--su-gs1), 0 18px 48px var(--su-gs2), 0 40px 100px var(--su-gs4);
+    z-index:101; overflow:hidden; display:flex; flex-direction:column; will-change:transform;
+    transition:transform .55s var(--su-eios);
+  }
+  @media (max-width:600px){
+    .suspended-ov .sheet{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100vw; left:0; bottom:0; margin:0; border-radius:16px 16px 0 0; max-height:92dvh; height:92dvh; transform:translate3d(0,100%,0);
+      box-shadow:inset 0 0 0 .5px var(--su-gbd), inset 0 1.5px 0 var(--su-gil), inset 0 0 60px var(--su-gig), 0 -2px 8px var(--su-gs1), 0 -18px 48px var(--su-gs2); }
+    .suspended-ov .sheet.visible{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translate3d(0,0,0); }
+  }
+  @media (min-width:601px){ .suspended-ov .sheet.visible{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translate3d(-50%,0,0); } }
+  .suspended-ov .sheet-drag{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex-shrink:0; padding:10px 0 4px; display:flex; justify-content:center; cursor:grab; touch-action:none; -webkit-user-select:none; user-select:none; }
+  .suspended-ov .sheet-drag:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; cursor:grabbing; }
+  .suspended-ov .sheet-drag-handle{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:36px; height:5px; border-radius:3px; background:var(--su-handle); transition:background .2s ease, width .3s var(--su-eout); }
+  .suspended-ov .sheet-drag.dragging .sheet-drag-handle{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:42px; background:var(--su-tt); }
+  .suspended-ov .sheet-header{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex-shrink:0; padding:14px 28px 20px; text-align:center; -webkit-user-select:none; user-select:none; position:relative; }
+  .suspended-ov .sheet-header::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:""; position:absolute; left:0; right:0; bottom:0; height:.5px; background:var(--su-sep); }
+  .suspended-ov .sheet-header h1{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:22px; font-weight:700; letter-spacing:-.5px; color:var(--su-tp); line-height:1.25; }
+  .suspended-ov .sheet-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:28px 28px 56px; touch-action:pan-y; }
+  .suspended-ov .sheet-body::-webkit-scrollbar{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:0; }
+  .suspended-ov .sheet-body p{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:14.5px; line-height:1.75; color:var(--su-ts); letter-spacing:-.1px; text-align:center; }
+  .suspended-ov .sheet-body p + p{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:14px; }
+  .suspended-ov .sheet-body h2{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:19px; font-weight:700; letter-spacing:-.4px; color:var(--su-tp); text-align:center; margin:36px 0 16px; line-height:1.3; }
+  .suspended-ov .sheet-body section:first-child h2:first-child{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:0; }
+  .suspended-ov.en .hero-title, .suspended-ov.en .sheet-header h1, .suspended-ov.en .sheet-body h2{touch-action:pan-y!important;overscroll-behavior-x:none!important; letter-spacing:-.6px; }
+  .suspended-ov.en .sheet-body p{touch-action:pan-y!important;overscroll-behavior-x:none!important; text-align:left; letter-spacing:-.05px; }
+  @media (prefers-reduced-motion:reduce){ .suspended-ov .sheet, .suspended-ov .backdrop, .suspended-ov .help-button, .suspended-ov .sheet-drag-handle{touch-action:pan-y!important;overscroll-behavior-x:none!important; transition-duration:.15s !important; } }
+  /* 入場: bg(全体)を1s・中身を scale.8→1(0.7s ease)+blur(0.5s) */
+  .suspended-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0; transition:opacity 1s ease; }
+  .suspended-ov.in{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; }
+  .suspended-ov .hero{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.8); filter:blur(8px); transition:transform .7s ease, filter .5s ease; }
+  .suspended-ov.in .hero{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); filter:blur(0px); }
+
+  /* ===== icon emoji picker (送信/設定) ===== */
+  .icon-epick{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:111; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.72); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); opacity:0; pointer-events:none; transition:opacity .5s var(--glide); }
+  .icon-epick.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+  .icon-epick-stage{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:280px; height:280px; }
+  .icon-epick-center{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:76px; height:76px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:44px; border:none; cursor:pointer; background:rgba(0,0,0,.07); box-shadow:inset 0 1px 0 rgba(255,255,255,.6); z-index:2; transition:transform .2s var(--spring); }
+  .icon-epick-center:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translate(-50%,-50%) scale(.9); }
+  .icon-epick-item{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; width:52px; height:52px; border:none; background:none; font-size:34px; line-height:1; cursor:pointer; transform:translate(-50%,-50%); padding:0; display:flex; align-items:center; justify-content:center; animation:iconEpickIn .3s var(--spring) both; }
+  .icon-epick-item:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translate(-50%,-50%) scale(1.4) !important; animation:none !important; }
+  @keyframes iconEpickIn{ from{ opacity:0; transform:translate(-50%,-50%) scale(.12);} to{ opacity:1; transform:translate(-50%,-50%) scale(1);} }
+  @keyframes iconEpickOut{ 0%{ opacity:1; transform:translate(-50%,-50%) scale(1);} 35%{ opacity:1; transform:translate(-50%,-50%) scale(1.6);} 100%{ opacity:0; transform:translate(-50%,-50%) scale(0);} }
+  .icon-epick-center.confirm{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:iconEpickOut .45s var(--glide) forwards; pointer-events:none; }
+  /* list bubble → 2col grid */
+  .bubble.sty-list{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:grid; grid-template-columns:1fr 1fr; gap:2px 8px; }
+
+  /* ===== spotlight 検索オーバーレイ（Shadow DOMインライン・iframe不使用）===== */
+  /* 検索は黒で覆わず、後ろの“今までのチャット画面”を薄くぼかして見せる（macOS Spotlight風）。アニメは従来どおり */
+  .search-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:9000; background:transparent; opacity:0; pointer-events:none; transform:scale(1.04); transition:opacity .4s var(--glide), transform .4s var(--glide); }   /* blur/暗幕を撤去＝後ろのチャットがそのまま透ける(iOS Spotlight風) */
+  .search-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; transform:none; }
+  /* Shadow DOM ホスト。isolation:isolate で spotlight の z-index を内側に閉じ込め、✕ボタンを常に上に。
+     position:fixed の中身は（transformが無いので）実ビューポート基準＝iframeの env(safe-area)=0 問題が消える */
+  .search-ov .search-host{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:1; isolation:isolate; }
+  .search-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:calc(var(--safe-t) + 10px); right:14px; z-index:5; width:40px; height:40px; border:none; border-radius:50%; background:rgba(120,120,128,.5); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); color:#fff; font-size:19px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 0 .6px rgba(255,255,255,.3); }
+  .search-close:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.9); }
+
+  /* ===== CSS EDITOR: VS(Monaco)モード ===== */
+  .css-head-btns{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .css-vs{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:34px; height:34px; flex:0 0 auto; border:none; background:rgba(0,0,0,.07); border-radius:9px; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring), background .2s; }
+  .css-vs:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+  .css-pick{touch-action:pan-y!important;overscroll-behavior-x:none!important; min-width:34px; height:34px; flex:0 0 auto; border:none; background:rgba(0,0,0,.07); border-radius:9px; cursor:pointer; padding:0 8px; font-size:16px; display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring), background .2s; }
+  .css-pick:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+  .css-pick.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--accent); color:#fff; font-size:12px; font-weight:800; }
+  #app.css-picking #mask{touch-action:pan-y!important;overscroll-behavior-x:none!important; pointer-events:none; opacity:.15; }   /* ピック中はマスクを透過=要素を直接タップできる */
+  .css-vs.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(10,132,255,.16); box-shadow:inset 0 0 0 1.5px var(--accent); }
+  .css-vs img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:22px; height:22px; object-fit:contain; }
+  .css-monaco{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; width:100%; height:210px; border-radius:14px; overflow:hidden; background:#1e1e1e; }
+  #app.vsmode #cssSheet .css-area{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  #app.vsmode #cssSheet .css-monaco{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; }
+  #app.vsmode #cssSheet .css-area{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+  @media (orientation:landscape) and (min-width:760px){ #app.css-split #cssSheet .css-monaco{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-height:0; height:auto; } }
+  @media (orientation:portrait), (max-width:759px){ #app.css-split #cssSheet .css-monaco{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-height:0; height:auto; } }
+
+  /* ═══════════ Pre1 Notch 全面リスキン（既存構造の上にガラス/グラデ/角丸を統一） ═══════════ */
+  /* チャットヘッダ: ライトガラス */
+  .chat-head{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.55) !important; -webkit-backdrop-filter:blur(28px) saturate(180%) !important; backdrop-filter:blur(28px) saturate(180%) !important; border-bottom:0.5px solid rgba(255,255,255,.5) !important; }
+  .back{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:var(--accent2); }
+  /* バブル: you=ガラス白 / me=Pre1アクセントグラデ・角丸大(squircle感) */
+  .row.you .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.66) !important; -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%); color:var(--ink) !important; border:0.5px solid rgba(255,255,255,.6); box-shadow:0 6px 18px rgba(60,60,67,.10), inset 0 1px 0 rgba(255,255,255,.5); border-radius:21px; border-bottom-left-radius:7px; }
+  .row.me .bubble{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:linear-gradient(135deg,#0a84ff,#af52de) !important; color:#fff !important; border-radius:21px; border-bottom-right-radius:7px; box-shadow:0 8px 22px rgba(160,53,191,.22), inset 0 1px 0 rgba(255,255,255,.22); }
+  /* 入力バー: ガラスのピル + 送信=グラデ丸 */
+  .input-wrap{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:transparent !important; }
+  .input-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.6); -webkit-backdrop-filter:blur(28px) saturate(180%); backdrop-filter:blur(28px) saturate(180%); border:0.5px solid rgba(255,255,255,.55); border-radius:26px; padding:5px 6px 5px 14px; box-shadow:0 10px 28px rgba(20,30,80,.12), inset 0 1px 0 rgba(255,255,255,.6); }
+  .send{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:linear-gradient(135deg,#ed2c50,#a035bf) !important; color:#fff !important; border-radius:50% !important; box-shadow:0 6px 18px rgba(160,53,191,.3); }
+  .send img{touch-action:pan-y!important;overscroll-behavior-x:none!important; filter:brightness(0) invert(1); }
+  /* シート全般: Pre1 グラスドロワー（profSheet等の専用上書きはそのまま優先） */
+  .sheet{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,0) !important; -webkit-backdrop-filter:blur(36px) saturate(180%) !important; backdrop-filter:blur(36px) saturate(180%) !important; border-radius:28px 28px 0 0 !important; border-top:0.5px solid rgba(255,255,255,.6); box-shadow:0 -20px 60px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.6); }
+  .sheet-grab{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(60,60,67,.25); width:38px; height:5px; }
+  .qbox{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:0.5px solid rgba(255,255,255,.6); box-shadow:0 8px 22px rgba(20,30,80,.10); }
+  /* 登録カード: Pre1 グラスカード */
+  .reg-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,0) !important; -webkit-backdrop-filter:blur(36px) saturate(180%); backdrop-filter:blur(36px) saturate(180%); border:0.5px solid rgba(255,255,255,.55); border-radius:33px; box-shadow:0 18px 50px rgba(140,80,220,.10), 0 4px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.6); }
+  #scrReg .field{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.5); border:0.5px solid rgba(0,0,0,.06); border-radius:16px; }
+  #scrReg .btn{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:linear-gradient(120deg,#ed2c50,#a035bf) !important; color:#fff; box-shadow:0 6px 24px rgba(160,53,191,.25); }
+  /* Dynamic Island(接続プロンプト)を Pre1 ライトガラス notch に */
+  .island{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.78) !important; color:#000 !important; -webkit-backdrop-filter:blur(28px) saturate(180%); backdrop-filter:blur(28px) saturate(180%); border:0.5px solid rgba(255,255,255,.55); box-shadow:0 14px 40px rgba(0,0,0,.18); border-radius:33px; }
+  .island .tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#000; }
+  .island .ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.55); box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); color:#000; }
+  .island .grab{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.18); }
+  /* add-to-home: Pre1 グラデ背景 */
+  .a2h{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--app-bg) !important; }
+  /* ── Pre1 リスキン part2: 残り全画面/カード ── */
+  #scrAdd, #scrHandoff, #scrPass{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--app-bg) !important; }   /* ベタ白→Pre1グラデ */
+  .add-scan, .add-me{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.5) !important; -webkit-backdrop-filter:blur(28px) saturate(180%); backdrop-filter:blur(28px) saturate(180%); border:0.5px solid rgba(255,255,255,.55); box-shadow:0 10px 28px rgba(20,30,80,.10), inset 0 1px 0 rgba(255,255,255,.6); }
+  .vid-sheet{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,0) !important; -webkit-backdrop-filter:blur(36px) saturate(180%); backdrop-filter:blur(36px) saturate(180%); border-top:0.5px solid rgba(255,255,255,.6); border-radius:28px 28px 0 0 !important; box-shadow:0 -20px 60px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.6); }
+  .name-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--app-bg) !important; }
+  .ho-code, .pass-dots .pd.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:var(--ink); }
+  /* お気に入りの曲（貼る）を削除 */
+  #profSong{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none !important; }
+  /* 検索フォールバック（spotlightが出ない端末でも"何があっても出る"簡易連絡先検索・Pre1ガラス） */
+  .search-fb{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; z-index:6; display:none; align-items:flex-start; justify-content:center; padding:60px 18px 18px; pointer-events:none; }
+  .search-fb.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; pointer-events:auto; }
+  .search-fb-panel{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; max-width:560px; background:rgba(255,255,255,.72); -webkit-backdrop-filter:blur(36px) saturate(180%); backdrop-filter:blur(36px) saturate(180%); border:0.5px solid rgba(255,255,255,.6); border-radius:28px; box-shadow:0 30px 80px rgba(0,0,0,.2); overflow:hidden; }
+  .search-fb-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:0.5px solid rgba(0,0,0,.06); }
+  .search-fb-mag{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:18px; opacity:.6; }
+  #searchFbInput{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1; border:none; outline:none; background:none; font-size:17px; color:var(--ink); min-width:0; -webkit-user-select:text; user-select:text; }
+  .search-fb-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:rgba(0,0,0,.06); width:30px; height:30px; border-radius:50%; cursor:pointer; color:var(--ink); font-size:14px; flex:0 0 auto; }
+  .search-fb-list{touch-action:pan-y!important;overscroll-behavior-x:none!important; max-height:62vh; overflow-y:auto; }
+  .search-fb-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer; }
+  .search-fb-row:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.05); }
+  .search-fb-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:42px; height:42px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; }
+  .search-fb-nm{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:16px; font-weight:700; color:var(--ink); }
+  .search-fb-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:12px; color:var(--sub); }
+  .search-fb-empty{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:30px; text-align:center; color:var(--sub); font-size:14px; }
+
+
+/* ===== index-extras.css ===== */
+/* index-extras.css — index版だけの追加スタイル（build-index.mjs が shaketoshake.css 末尾へ連結） */
+
+/* ===== 入力バー刷新（📎 / 🫨 / Aa ⇄ 文字入力） ===== */
+.input-bar.composer{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; gap:10px; min-height:48px; }
+.ib-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:42px; height:42px; flex:0 0 auto; border:none; background:none; cursor:pointer; padding:0; font-size:27px; line-height:1; display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring), opacity .3s; }
+.ib-ic:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.84); }
+.ib-cluster{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+.ib-aa{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; background:none; cursor:pointer; font-family:-apple-system,"SF Pro Display","SF Pro Text",system-ui,sans-serif; font-size:30px; font-weight:400; color:#bcd7ff; letter-spacing:1px; padding:0 8px; margin-left:auto; transition:opacity .3s, transform .25s var(--spring); }
+.ib-aa:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.9); }
+.ib-mini{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:42px; flex:0 0 auto; border:none; background:none; cursor:pointer; font-size:28px; font-weight:300; color:var(--accent); display:none; align-items:center; justify-content:center; padding:0; transition:transform .2s var(--spring); }
+.ib-mini:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+.composer.collapsed .ta,
+.composer.collapsed #vidBtn,
+.composer.collapsed #hapticBtn,
+.composer.collapsed #sendBtn,
+.composer.collapsed .ib-mini{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none !important; }
+.composer.collapsed .ib-cluster{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; animation:ibFadeIn .3s var(--glide); }
+.composer.collapsed .ib-aa{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; animation:ibFadeIn .3s var(--glide); }
+.composer.expanded .ib-cluster,
+.composer.expanded .ib-aa{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none !important; }
+.composer.expanded .ib-mini{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; animation:ibFadeIn .3s var(--glide); }
+.composer.expanded .ta{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; animation:aaMorph .3s var(--spring); }
+.composer.expanded #vidBtn,
+.composer.expanded #hapticBtn{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; }
+.composer.expanded #sendBtn{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; animation:ibFadeIn .3s var(--glide); }
+@keyframes aaMorph{ from{ opacity:0; transform:translateX(-10px) scaleX(.9); } to{ opacity:1; transform:none; } }
+@keyframes ibFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+
+/* ===== 設定（プロフィール）シート 再設計＝index専用 ===== *
+ * 不具合: 旧 #profSheet.show{z-index:300} が、共有マスク .sheet-mask#mask (z-index:9500) の
+ *   "下" に潜らせていた → 中央下のユーザーピルを押しても暗幕の裏で設定が見えない。
+ * 対処: マスク(9500)より上の 9600 へ。マスク自体は他シート(emoji/css等 z9501)を巻き込むので触らない。
+ *   併せてレイアウト/トグル/ピル/アクションを一新（機能のidは温存＝app.jsの配線そのまま）。 */
+#profSheet{touch-action:pan-y!important;overscroll-behavior-x:none!important;
+  position:fixed !important;            /* #app基準のabsolute継承を断つ＝実ビューポート下端にアンカー(確実表示) */
+  left:50% !important; right:auto !important; bottom:0 !important; top:auto !important;
+  width:min(100%,440px) !important;
+  z-index:9700 !important;              /* mask9500/他sheet9501 より確実に上＝最前列 */
+  transform:translateX(-50%) translateY(100%) !important;  /* 起点は画面の完全に下＝下から登る */
+  opacity:1 !important;                 /* 透明起点を廃止＝中断/競合でも消えない(確実表示) */
+  visibility:visible !important;
+  transform-origin:50% 100%;
+  border-radius:30px 30px 0 0;
+  background:rgba(250,250,252,.72);
+  -webkit-backdrop-filter:blur(50px) saturate(200%); backdrop-filter:blur(50px) saturate(200%);
+  box-shadow:0 -14px 70px -16px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.7);
+  transition:transform 1s cubic-bezier(.22,.61,.36,1) !important;  /* 1秒・滑らかに下から上へ */
+}
+#profSheet.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-50%) translateY(0) !important; opacity:1 !important; visibility:visible !important; }
+#profSheet .sheet-grab{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.16); margin-top:11px; }
+
+/* ===== フルブリード設計（index専用・前のsafe-areaガードを置換） =====
+ * 旧: #app の padding で全体を safe-area 分インセット → 別背景画面で白い上下余白(=窓枠)。
+ * 新: 背景は端から端までフルブリード(padding撤去)。文字/ボタンは --safe-t/--safe-b(=実env値)で
+ *     status bar / ホームインジケータだけ避ける(Instagram等のネイティブ同様)。
+ *  ※ベースは --safe-t/--safe-b を 0px固定にして #app padding に依存していたのを、ここで実env値へ。 */
+:root{touch-action:pan-y!important;overscroll-behavior-x:none!important; --safe-t: env(safe-area-inset-top); --safe-b: env(safe-area-inset-bottom); }
+#app{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:0 !important; }                 /* 背景フルブリード（白い上下余白を撤去・端から端まで） */
+#scrChat{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding-top: var(--safe-t); }       /* チャットヘッダがノッチ裏に隠れない保護 */
+
+/* ===== 検索を最前列に確実に出す ===== */
+.search-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed !important; z-index:9720 !important; }   /* #app基準のabsolute→実ビューポート全面。マスク9500/シート9501/設定9700/s2s 9700 より上＝確実に最前列 */
+.prof-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:14px 24px calc(30px + var(--safe-b)); }
+
+/* トグル群: 縦ピル型スイッチを少しコンパクト＆クリーンに */
+.vtoggles{touch-action:pan-y!important;overscroll-behavior-x:none!important; gap:14px 16px; margin:6px 0 24px; }
+.vt-col{touch-action:pan-y!important;overscroll-behavior-x:none!important; gap:14px; }
+.vtoggle{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:66px; height:142px; border-radius:36px; background:#c7c7cc; box-shadow:inset 0 1px 3px rgba(0,0,0,.12); transition:background .35s var(--glide); }
+.vtoggle .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; left:6px; width:54px; height:54px; bottom:6px; background:radial-gradient(circle at 38% 30%,#fff,#e9e9ee); box-shadow:0 2px 6px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.9); transition:bottom .42s var(--spring); }
+.vtoggle.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#34c759; }
+.vtoggle.on .knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; bottom:82px; background:radial-gradient(circle at 38% 30%,#fff,#f2fff5); }
+.vt-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:27px; opacity:.92; }
+
+/* プロフィールピル */
+.profile-pill{touch-action:pan-y!important;overscroll-behavior-x:none!important; gap:14px; padding:7px 22px 7px 7px; border-radius:44px; box-shadow:0 8px 24px -10px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.45); }
+.pp-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:58px; height:58px; font-size:29px; box-shadow:inset 0 1px 0 rgba(255,255,255,.5); }
+.pp-name{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:27px; }
+
+/* アクション行 */
+.prof-actions{touch-action:pan-y!important;overscroll-behavior-x:none!important; gap:10px; margin-top:20px; }
+.prof-act{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.06); border-radius:15px; padding:11px 18px; font-weight:800; }
+.prof-act:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.95); background:rgba(0,0,0,.1); }
+.prof-power, .prof-handoff{touch-action:pan-y!important;overscroll-behavior-x:none!important; z-index:2; }
+
+/* ===== シェイクカメラ（共通・リッチ） ===== */
+.cam-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; top:0; bottom:0; z-index:600; background:#000; opacity:0; visibility:hidden; transition:opacity .35s var(--glide), visibility .35s; }
+.cam-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; }
+.cam-stage{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; overflow:hidden; }
+.cam-video{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000; transition:filter .15s; }
+.cam-video.shakefx{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:camShakeFx .18s steps(2) infinite; }
+@keyframes camShakeFx{ 0%{ transform:translate(0,0); } 50%{ transform:translate(-2px,1px); } 100%{ transform:translate(2px,-1px); } }
+.cam-grain{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; pointer-events:none; opacity:0; mix-blend-mode:overlay; transition:opacity .3s; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>"); }
+.cam-ov.digi .cam-grain{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.16; }
+.cam-shutter{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
+.cam-shutter.flash{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:camFlash .2s ease; }   /* 0.2s ぽってフラッシュ */
+@keyframes camFlash{ 0%{ opacity:0; } 30%{ opacity:.92; } 100%{ opacity:0; } }
+.cam-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:max(env(safe-area-inset-top),14px); left:14px; z-index:6; width:42px; height:42px; border:none; border-radius:50%; background:rgba(0,0,0,.45); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); color:#fff; font-size:20px; cursor:pointer; }
+.cam-close:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.88); }
+.cam-hint{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:0; right:0; top:max(env(safe-area-inset-top),14px); z-index:5; text-align:center; color:rgba(255,255,255,.92); font-size:15px; font-weight:700; letter-spacing:.3px; text-shadow:0 1px 8px rgba(0,0,0,.6); padding:0 60px; }
+.cam-count{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:42%; transform:translate(-50%,-50%) scale(.3); z-index:5; font-size:120px; font-weight:800; color:#fff; opacity:0; pointer-events:none; text-shadow:0 4px 30px rgba(0,0,0,.5); }
+.cam-count.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:camCount 1s var(--spring); }
+@keyframes camCount{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.3); } 30%{ opacity:1; transform:translate(-50%,-50%) scale(1.12); } 80%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(1); } }
+
+.cam-bottom{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:0; right:0; bottom:calc(max(env(safe-area-inset-bottom),20px) + 8px); z-index:4; display:flex; align-items:center; justify-content:center; gap:18px; padding:0 18px; }
+.cam-side{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:54px; height:54px; flex:0 0 auto; border:none; border-radius:50%; background:rgba(245,245,247,.92); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%); cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px -8px rgba(0,0,0,.5); transition:transform .2s var(--spring); }
+.cam-side:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.9); }
+.cam-side img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; object-fit:contain; pointer-events:none; }
+.cam-side-badge{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:-4px; right:-4px; min-width:20px; height:20px; border-radius:10px; background:#ff9500; color:#fff; font-size:12px; font-weight:800; display:none; align-items:center; justify-content:center; padding:0 5px; }
+.cam-side-badge.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; }
+.cam-side-badge.pop{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:camBadgePop .3s var(--spring); }
+@keyframes camBadgePop{ from{ transform:scale(.3); } to{ transform:scale(1); } }
+.cam-modes{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; padding:8px; border-radius:40px; background:rgba(40,40,46,.5); -webkit-backdrop-filter:blur(26px) saturate(180%); backdrop-filter:blur(26px) saturate(180%); box-shadow:0 14px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.16); }
+.cam-modes.denied{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:camDeny .5s cubic-bezier(.36,.07,.19,.97); }
+@keyframes camDeny{ 0%,100%{ transform:translateX(0); } 15%{ transform:translateX(-9px); } 30%{ transform:translateX(8px); } 45%{ transform:translateX(-6px); } 60%{ transform:translateX(4px); } 75%{ transform:translateX(-2px); } }
+.cam-mode{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:58px; height:58px; flex:0 0 auto; border:none; border-radius:50%; background:rgba(255,255,255,.08); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:28px; line-height:1; transition:transform .2s var(--spring), background .25s; }
+.cam-mode img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:36px; height:36px; object-fit:contain; pointer-events:none; }
+.cam-mode:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.9); }
+.cam-mode.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:linear-gradient(150deg,#ff2d9b,#9b30ff); box-shadow:0 6px 20px -4px rgba(155,48,255,.7); }
+
+.cam-filters{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:16px; right:16px; bottom:calc(max(env(safe-area-inset-bottom),20px) + 80px); z-index:5; padding:14px 18px; border-radius:22px; background:rgba(30,30,36,.72); -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%); box-shadow:0 18px 50px rgba(0,0,0,.5); transform:translateY(16px); opacity:0; pointer-events:none; transition:transform .3s var(--spring), opacity .25s; }
+.cam-filters.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:none; opacity:1; pointer-events:auto; }
+.cam-srow{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:12px; margin:8px 0; }
+.cam-slab{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:64px; flex:0 0 auto; color:#fff; font-size:13px; font-weight:700; }
+.cam-srow input[type=range]{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; accent-color:#ff2d9b; }
+.cam-fx{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; margin-top:8px; color:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+.cam-fx input{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:20px; height:20px; accent-color:#ff2d9b; }
+
+.cam-pick{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; top:0; bottom:0; z-index:660; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; background:rgba(10,10,12,.93); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
+.cam-pick.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; }
+.cam-pick-ttl{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; font-size:19px; font-weight:800; }
+.cam-pick-grid{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:12px; flex-wrap:wrap; justify-content:center; max-width:560px; }
+.cam-pick-cell{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:130px; height:170px; border:none; border-radius:16px; overflow:hidden; cursor:pointer; padding:0; box-shadow:0 0 0 2px transparent; transition:box-shadow .2s, transform .2s var(--spring); background:#000; }
+.cam-pick-cell img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; height:100%; object-fit:cover; }
+.cam-pick-cell.best{touch-action:pan-y!important;overscroll-behavior-x:none!important; box-shadow:0 0 0 3px #ff2d9b; transform:scale(1.03); }
+.cam-pick-bestbadge{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:8px; left:8px; font-size:11px; font-weight:800; color:#fff; background:#ff2d9b; border-radius:8px; padding:2px 7px; opacity:0; }
+.cam-pick-cell.best .cam-pick-bestbadge{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; }
+.cam-pick-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:12px; }
+.cam-pick-redo{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; border-radius:18px; padding:13px 22px; background:rgba(255,255,255,.14); color:#fff; font-size:15px; font-weight:700; cursor:pointer; }
+.cam-pick-post{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; border-radius:18px; padding:13px 26px; background:linear-gradient(150deg,#ff2d9b,#9b30ff); color:#fff; font-size:16px; font-weight:800; cursor:pointer; }
+
+/* iOS確実触覚: 本物の透明スイッチをボタン全面に重ねる（opacity:0のみ＝appearance等は触らない＝触覚が出る） */
+.hap-sw{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; width:100%; height:100%; margin:0; padding:0; opacity:0; border:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+
+/* ===== ベストショット・レビュー（段階1: バー/上スワイプ選択/右スワイプ削除/撮り直し） ===== */
+.cam-rev-hero{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:min(80vw,340px); aspect-ratio:3/4; border-radius:22px; overflow:hidden; background:#000; box-shadow:0 18px 50px rgba(0,0,0,.55); }
+.cam-rev-hero img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; height:100%; object-fit:cover; display:block; }
+.cam-rev-herobadge{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:12px; top:12px; font-size:12px; font-weight:800; color:#fff; background:linear-gradient(90deg,#ff2d9b,#ff6f3c); padding:4px 12px; border-radius:999px; letter-spacing:.02em; box-shadow:0 4px 14px rgba(255,45,155,.5); }
+.cam-rev-hint{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:rgba(255,255,255,.72); font-size:12.5px; font-weight:600; margin-top:-6px; }
+.cam-rev-bar{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:14px; align-items:flex-end; justify-content:center; padding:18px 18px 16px; border-radius:22px; max-width:92vw; background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 60%, rgba(255,255,255,.92) 100%); }
+.cam-rev-cell{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:88px; height:116px; }
+.cam-rev-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:0; top:50%; transform:translateY(-50%); width:50px; height:50px; border:none; border-radius:50%; background:#ff3b30; color:#fff; display:flex; align-items:center; justify-content:center; padding:0; box-shadow:0 6px 16px rgba(255,59,48,.5); opacity:0; pointer-events:none; transition:opacity .18s; }
+.cam-rev-x svg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:24px; height:24px; }
+.cam-rev-cell.revealed .cam-rev-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
+.cam-rev-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:100%; height:100%; border-radius:14px; overflow:hidden; background:#000; box-shadow:0 6px 18px rgba(0,0,0,.3); transition:transform .26s var(--spring); will-change:transform; touch-action:none; }
+.cam-rev-card img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+.cam-rev-tag{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:6px; top:6px; font-size:10px; font-weight:800; color:#fff; background:#ff2d9b; border-radius:7px; padding:2px 6px; opacity:0; }
+.cam-rev-cell.best .cam-rev-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; box-shadow:0 0 0 3px #ff2d9b, 0 8px 22px rgba(255,45,155,.42); transform:translateY(-8px); }
+.cam-rev-cell.best .cam-rev-tag{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; }
+.cam-rev-actions{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:14px; }
+.cam-rev-redo,.cam-rev-post{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; border-radius:999px; font-weight:800; cursor:pointer; }
+.cam-rev-redo{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:13px 26px; background:rgba(255,255,255,.16); color:#fff; font-size:15px; }
+.cam-rev-post{touch-action:pan-y!important;overscroll-behavior-x:none!important; padding:13px 28px; background:linear-gradient(90deg,#ff2d9b,#ff6f3c); color:#fff; font-size:16px; box-shadow:0 8px 22px rgba(255,45,155,.45); }
+
+/* ===== プロフィール: お気に入りの曲（URL貼り付け→埋め込み） ===== */
+.prof-song{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin:16px auto 4px; max-width:340px; }
+.psong-ttl{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:12px; font-weight:800; color:var(--sub); letter-spacing:.4px; margin-bottom:8px; text-align:center; }
+.psong-add{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; width:100%; border:1.5px dashed rgba(0,0,0,.18); background:rgba(0,0,0,.03); border-radius:16px; padding:13px; font-size:14px; font-weight:700; color:var(--sub); cursor:pointer; transition:transform .2s var(--spring); }
+.psong-add:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.97); }
+.psong-input-row{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:8px; }
+.psong-input{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-width:0; border:none; outline:none; background:rgba(0,0,0,.05); border-radius:14px; padding:12px 14px; font-size:16px; color:var(--ink); -webkit-user-select:text; user-select:text; }
+.psong-ok{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; border:none; border-radius:14px; padding:0 18px; background:var(--accent); color:#fff; font-size:15px; font-weight:800; cursor:pointer; }
+.psong-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; border-radius:16px; overflow:hidden; background:rgba(0,0,0,.04); box-shadow:inset 0 0 0 1px rgba(0,0,0,.05); }
+.psong-head{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; padding:10px 12px; }
+.psong-chip{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; font-size:12px; font-weight:800; color:#fff; border-radius:9px; padding:4px 9px; background:#888; }
+.svc-spotify .psong-chip{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#1db954; }
+.svc-soundcloud .psong-chip{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#ff5500; }
+.svc-apple .psong-chip{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#fa2d48; }
+.svc-youtube .psong-chip{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#ff0000; }
+.psong-url{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-width:0; font-size:12px; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.psong-play, .psong-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:34px; height:34px; border:none; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring); }
+.psong-play{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:var(--accent); color:#fff; }
+.psong-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.08); color:var(--ink); }
+.psong-play:active, .psong-x:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.85); }
+.psong-slot:empty{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+.psong-frame{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; width:100%; border:0; }
+
+/* ===== 友達プロフィールカード（相手の🎵） ===== */
+.fcard-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; top:0; bottom:0; z-index:320; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(0,0,0,.4); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
+.fcard-ov.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; }
+.fcard{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:min(92vw,360px); background:rgba(248,248,250,.97); -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%); border-radius:24px; padding:24px 20px; box-shadow:0 30px 80px rgba(0,0,0,.4); text-align:center; transform:scale(.9); transition:transform .4s var(--spring); }
+.fcard-ov.show .fcard{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); }
+.fcard-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:80px; height:80px; border-radius:50%; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:40px; box-shadow:inset 0 1px 0 rgba(255,255,255,.5); overflow:hidden; }
+.fcard-name{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:21px; font-weight:800; color:var(--ink); margin-bottom:16px; }
+.fcard-song.empty{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; color:var(--sub); font-weight:600; padding:14px; }
+
+
+/* ===== index-s2s.css ===== */
+/* index-s2s.css — Shake to Shake（一覧トップ note バナー＋撮影導入ダイアログ） PHASE 1 */
+
+/* ===== 一覧トップ note バナー（緑のスタック風・先端丸リング） ===== */
+.s2s-banner{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; display:flex; align-items:center; gap:14px; margin:2px 2px 14px; padding:12px 14px; border-radius:22px; cursor:pointer;
+  background:linear-gradient(135deg,#34d3a6 0%,#7bd56b 46%,#f0a64e 100%);
+  box-shadow:0 12px 30px -12px rgba(52,200,160,.5), inset 0 1px 0 rgba(255,255,255,.35);
+  -webkit-tap-highlight-color:transparent; transition:transform .2s var(--spring); }
+.s2s-banner:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.985); }
+.s2s-banner::before, .s2s-banner::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:''; position:absolute; left:0; right:0; top:0; bottom:0; border-radius:22px; z-index:-1; background:linear-gradient(135deg,#2fcaa0,#6cc95f 50%,#e89a45); }
+.s2s-banner::before{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateY(6px) scale(.97); opacity:.5; }
+.s2s-banner::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateY(12px) scale(.94); opacity:.28; }
+.s2s-stack{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:58px; height:58px; flex:0 0 auto; }
+.s2s-thumb{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:58px; height:58px; border-radius:16px; object-fit:cover; box-shadow:0 4px 12px rgba(0,0,0,.25); background:#fff; }
+.s2s-thumb.empty{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:58px; height:58px; flex:0 0 auto; flex-direction:row; grid-column:auto; padding:0; box-sizing:border-box; display:flex; align-items:center; justify-content:center; font-size:28px; background:rgba(255,255,255,.88); }
+.s2s-ring{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; right:-7px; bottom:-7px; width:30px; height:30px; }
+.s2s-ring svg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; transform:rotate(-90deg); }
+.s2s-ring circle{touch-action:pan-y!important;overscroll-behavior-x:none!important; fill:none; stroke-width:4; }
+.s2s-ring circle.bg{touch-action:pan-y!important;overscroll-behavior-x:none!important; stroke:rgba(255,255,255,.4); }
+.s2s-ring circle.prog{touch-action:pan-y!important;overscroll-behavior-x:none!important; stroke:#ff2d9b; stroke-linecap:round; stroke-dasharray:125.6; stroke-dashoffset:42; }   /* 先端丸いリング */
+.s2s-ring span{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:0; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:#1c1c1e; }
+.s2s-meta{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-width:0; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.18); }
+.s2s-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:16px; font-weight:800; letter-spacing:.2px; }
+.s2s-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:12px; font-weight:600; opacity:.96; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+.s2s-go{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:46px; height:46px; border:none; border-radius:50%; cursor:pointer; font-size:24px; background:rgba(255,255,255,.92); box-shadow:0 6px 16px -4px rgba(0,0,0,.3); display:flex; align-items:center; justify-content:center; transition:transform .2s var(--spring); }
+.s2s-go:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.88) rotate(-8deg); }
+
+/* ===== 撮影導入ダイアログ（端末フレーム→0.5sで消えてカメラ） ===== */
+.s2s-intro{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; top:0; bottom:0; z-index:650; display:flex; align-items:center; justify-content:center; padding:24px;
+  background:rgba(18,18,22,.93); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0; visibility:hidden; pointer-events:none; transition:opacity .3s var(--glide), visibility .3s; }   /* 非表示時はタップを透過＝裏のUI(検索/設定/＋)を塞がない */
+.s2s-intro.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; pointer-events:auto; }
+.s2s-intro-in{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-direction:column; align-items:center; gap:24px; transform:scale(.82); opacity:0; transition:transform .42s var(--spring), opacity .35s; }
+.s2s-intro.show .s2s-intro-in{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; }
+.s2s-frame{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; display:flex; align-items:center; justify-content:center; }
+.s2s-frame img{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:auto; max-width:60vw; max-height:44vh; object-fit:contain; filter:drop-shadow(0 0 22px rgba(120,160,255,.4)); }
+.s2s-frame.noimg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:150px; height:290px; border-radius:34px; box-shadow:0 0 0 4px #0c0c0c, 0 0 26px 4px rgba(120,160,255,.5), inset 0 0 0 7px #fff; }
+/* mac.png/visionpro.png 不在時のCSSフォールバック枠 */
+.s2s-frame.s2s-mac.noimg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:300px; height:188px; border-radius:14px 14px 5px 5px; box-shadow:0 0 0 5px #0c0c0c, 0 0 26px 4px rgba(120,160,255,.5), inset 0 0 0 9px #fff; }
+.s2s-frame.s2s-mac.noimg::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:''; position:absolute; left:50%; bottom:-13px; transform:translateX(-50%); width:356px; height:13px; border-radius:0 0 12px 12px; background:#0c0c0c; box-shadow:0 0 22px 2px rgba(120,160,255,.4); }
+.s2s-frame.s2s-vision.noimg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:320px; height:152px; border-radius:80px / 72px; box-shadow:0 0 0 6px #0c0c0c, 0 0 30px 5px rgba(120,160,255,.55), inset 0 0 0 10px #fff; }
+.s2s-emo{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:32%; max-width:120px; animation:s2sShake .5s ease-in-out infinite; }
+@keyframes s2sShake{ 0%,100%{ transform:translate(-50%,-50%) rotate(-8deg); } 50%{ transform:translate(-50%,-50%) rotate(8deg); } }
+.s2s-intro-tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; font-size:21px; font-weight:800; letter-spacing:.4px; text-align:center; text-shadow:0 1px 10px rgba(0,0,0,.5); }
+
+/* バナー: ウィンドウ内(シェイクタイム)は脈動 */
+.s2s-banner.active{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:s2sPulse 1.6s ease-in-out infinite; box-shadow:0 12px 34px -10px rgba(255,45,155,.6), inset 0 1px 0 rgba(255,255,255,.4); }
+@keyframes s2sPulse{ 0%,100%{ filter:saturate(1); } 50%{ filter:saturate(1.22) brightness(1.05); } }
+
+/* ===== 横断フィード ===== */
+.s2s-feed{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; top:0; bottom:0; z-index:640; background:rgba(12,12,16,.62); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); opacity:0; visibility:hidden; transition:opacity .35s var(--glide), visibility .35s; display:flex; flex-direction:column; }
+.s2s-feed.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; }
+.s2s-feed-head{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:calc(max(env(safe-area-inset-top),14px) + 4px) 18px 12px; }
+.s2s-feed-ttl{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:20px; font-weight:900; color:#fff; letter-spacing:.3px; }
+.s2s-feed-x{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:40px; height:40px; border:none; border-radius:50%; background:rgba(255,255,255,.16); color:#fff; font-size:18px; cursor:pointer; }
+.s2s-feed-list{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:4px 14px calc(20px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:16px; }
+.s2s-feed-empty{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:rgba(255,255,255,.7); text-align:center; font-size:14px; font-weight:600; padding:60px 20px; line-height:1.8; }
+.s2s-feed-none{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:64px !important; padding:16px 20px 0 !important; line-height:1.1; }   /* 相手がいない＝😪を上に大きく */
+.s2s-post{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.06); border-radius:22px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
+.s2s-post-head{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; padding:12px 14px; }
+.s2s-post-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:38px; height:38px; flex:0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; overflow:hidden; }
+.s2s-post-nm{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; min-width:0; color:#fff; font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.s2s-post-tm{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; color:rgba(255,255,255,.55); font-size:12px; font-weight:600; }
+.s2s-post-imgs{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:6px; overflow-x:auto; padding:0 10px 10px; scrollbar-width:none; }
+.s2s-post-imgs::-webkit-scrollbar{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
+.s2s-post-img{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:78%; max-width:340px; aspect-ratio:3/4; object-fit:cover; border-radius:16px; background:#000; }
+.s2s-post-img.best{touch-action:pan-y!important;overscroll-behavior-x:none!important; box-shadow:0 0 0 3px #ff2d9b; }
+.s2s-post-act{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:10px; padding:0 14px 14px; }
+.s2s-post-re, .s2s-post-del{touch-action:pan-y!important;overscroll-behavior-x:none!important; border:none; border-radius:14px; padding:9px 16px; font-size:14px; font-weight:800; cursor:pointer; }
+.s2s-post-re{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.16); color:#fff; }
+.s2s-post-del{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,59,48,.22); color:#ff6b60; }
+
+/* ===== 「始める」直後の導入ダイアログ（最前列・0.3s・滑らか） ===== */
+.s2s-ob{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9700; background:#000; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .3s var(--glide,ease), visibility .3s; }   /* 非表示時はタップを透過。これが無いと opacity:0 でも全画面を塞ぎ、設定ピル/検索/＋が無反応になる(根本原因) */
+.s2s-ob.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; pointer-events:auto; }
+.s2s-ob-back{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:calc(max(env(safe-area-inset-top),14px) + 6px); left:16px; width:46px; height:46px; border:none; background:none; color:#fff; cursor:pointer; padding:0; opacity:.92; -webkit-tap-highlight-color:transparent; transition:transform .25s var(--spring,ease); }
+.s2s-ob-back svg{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:30px; height:30px; }
+.s2s-ob-back:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(-3px) scale(.9); }
+.s2s-ob-in{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:50%; width:min(86vw,330px); box-sizing:border-box; display:flex; flex-direction:column; align-items:center; text-align:center;
+  transform:translate(-50%,calc(-50% + 16px)) scale(.97); opacity:0; transition:transform .3s var(--spring,ease), opacity .3s ease; }
+.s2s-ob.show .s2s-ob-in{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translate(-50%,-50%) scale(1); opacity:1; }
+.s2s-ob-emo{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:118px; height:118px; object-fit:contain; margin:0 auto 6px; animation:s2sObShake .62s ease-in-out infinite; }
+.s2s-ob-emo.txt{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:92px; line-height:118px; }
+@keyframes s2sObShake{ 0%,100%{ transform:rotate(-7deg); } 50%{ transform:rotate(7deg); } }
+.s2s-ob-h{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:37px; font-weight:900; line-height:1.1; letter-spacing:.5px; margin:8px 0 14px; background:linear-gradient(180deg,#ff7ad0,#ff2d9b 88%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:#ff2d9b; text-shadow:0 0 34px rgba(255,45,155,.3); }
+.s2s-ob-seen{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; gap:10px; width:100%; max-width:300px; box-sizing:border-box; cursor:pointer; -webkit-tap-highlight-color:transparent; margin-bottom:30px; }
+.s2s-ob-seen-ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:26px; flex:0 0 auto; }
+.s2s-ob-seen-tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:1 1 auto; text-align:left; color:#fff; font-size:21px; font-weight:800; }
+.s2s-ob-sw{touch-action:pan-y!important;overscroll-behavior-x:none!important; flex:0 0 auto; width:62px; height:36px; border-radius:20px; background:rgba(255,255,255,.22); position:relative; transition:background .3s var(--glide,ease); }
+.s2s-ob-sw.on{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:linear-gradient(90deg,#ff2d9b,#ff5fc0); }
+.s2s-ob-knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:3px; left:3px; width:30px; height:30px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.35); transition:transform .3s var(--spring,ease); }
+.s2s-ob-sw.on .s2s-ob-knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:translateX(26px); }
+.s2s-ob-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; max-width:340px; text-align:center; color:rgba(255,255,255,.55); font-size:14px; font-weight:600; margin:0 0 26px; line-height:1.6; }
+.s2s-ob-later{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:rgba(255,255,255,.55); font-size:13px; font-weight:600; margin:30px 0 14px; }
+.s2s-ob-notif{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; max-width:300px; box-sizing:border-box; border:none; border-radius:16px; background:rgba(245,245,247,.94); color:#1c1c1e; font-size:16px; font-weight:800; padding:16px; cursor:pointer;
+  box-shadow:0 10px 30px -10px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.6); transition:transform .2s var(--spring,ease), background .3s, color .3s; }
+.s2s-ob-notif:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.97); }
+.s2s-ob-notif.done{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#34c759; color:#fff; }
+.s2s-ob-skip{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:20px; border:none; background:none; color:#fff; font-size:16px; font-weight:800; cursor:pointer; padding:10px 20px; opacity:.95; -webkit-tap-highlight-color:transparent; }
+.s2s-ob-skip:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.55; }
+
+/* ===== 近接ペアリング（端末ペアリング / 引き継ぎ・紐付け）===== */
+.pair-ov{touch-action:pan-y!important;overscroll-behavior-x:none!important; z-index:9700; }                                   /* .fcard-ov を流用しつつ最前面（profSheet z9501 より上）*/
+.pair-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; flex-direction:column; align-items:stretch; gap:0; padding:26px 22px 18px; }
+.pair-card .pair-dev{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:auto; height:138px; max-width:70%; object-fit:contain; margin:2px auto 14px; display:block; filter:drop-shadow(0 10px 22px rgba(80,120,255,.18)); }
+.pair-title{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:30px; line-height:1.1; font-weight:800; color:var(--ink); text-align:center; letter-spacing:-.01em; }
+.pair-title.sm{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:22px; }
+.pair-sub{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:15px; color:var(--sub); font-weight:600; text-align:center; margin:8px 4px 0; line-height:1.5; }
+.pair-hint{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:11px; color:var(--sub); font-weight:600; text-align:center; margin:14px 4px 6px; opacity:.85; }
+.pair-body{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:15px; color:var(--sub); font-weight:600; text-align:center; margin:12px 6px 2px; line-height:1.6; }
+.pair-primary{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:16px; border:none; border-radius:16px; background:var(--accent); color:#fff; font-size:18px; font-weight:700; padding:15px 16px; cursor:pointer; -webkit-tap-highlight-color:transparent; transition:transform .18s var(--spring), filter .18s; }
+.pair-primary:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.975); filter:brightness(.94); }
+.pair-text{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:6px; border:none; background:none; color:var(--ink); font-size:18px; font-weight:600; padding:13px; cursor:pointer; -webkit-tap-highlight-color:transparent; border-radius:14px; }
+.pair-text:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(0,0,0,.05); }
+.pair-text.accent{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:var(--accent); }
+.pair-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:4px; border:none; background:none; color:var(--ink); font-size:17px; font-weight:600; padding:11px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.pair-close:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:.5; }
+.pair-swap{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:10px; border:none; background:none; color:var(--accent); font-size:13px; font-weight:700; padding:6px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+/* リング表示（表示役 / F）— 青い粒子リング＋中央にスキャン可能なドットQR */
+.pair-ring-wrap{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:230px; height:230px; margin:2px auto 16px; }
+.pair-ring-cv{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; width:100%; height:100%; display:block; }
+.pair-qr{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:150px; height:150px; border-radius:18px; overflow:hidden; box-shadow:0 6px 22px rgba(0,0,0,.14); background:#fff; }
+.pair-qr canvas{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; width:100%!important; height:100%!important; }
+.pair-qr .spinner{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin:64px auto; }
+/* カメラ読取（読取役 / G）— 常にダーク・緑リング枠 */
+.pair-scan-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#2c2c2e; padding:14px 14px 16px; }
+.pair-scanview{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:min(78vw,300px); height:min(78vw,300px); margin:6px auto 12px; border-radius:22px; overflow:hidden; background:#000; }
+.pair-scanview video{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.pair-scanframe{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:72%; height:72%; border:4px solid #34c759; border-radius:50%; box-shadow:0 0 0 2000px rgba(0,0,0,.18), 0 0 22px rgba(52,199,89,.5); pointer-events:none; }
+.pair-scan-cap{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; font-size:18px; font-weight:700; text-align:center; padding:6px 4px 2px; }
+.pair-scan-card .pair-swap{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#64a7ff; }
+.pair-scan-card .pair-close{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; }
+.pair-eyes{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:.86em; }
+/* ライト/ダーク：白カード群はダークで暗いガラスに（スキャンカードは常時ダーク）*/
+@media (prefers-color-scheme: dark){
+  .pair-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(30,30,34,.94); }
+  .pair-card .pair-title, .pair-card .pair-close, .pair-card .pair-text{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; }
+  .pair-card .pair-text:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:rgba(255,255,255,.08); }
+  .pair-qr{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#fff; }                              /* QRは読取安定のため常に白地 */
+}
+
+/* ★ touch-action 例外: 横操作が必須の要素のみ native 動作へ。戻る/進むは JS の端ガード＋履歴トラップで封殺するので安全。 */
+canvas, video, model-viewer, input[type="range"], input[type="color"], [contenteditable], [contenteditable] *, [data-hswipe], [data-hscroll], .hscroll, .h-scroll, .carousel, .swiper, .swiper-wrapper, .timeline, .timeline *{ touch-action:auto !important; }

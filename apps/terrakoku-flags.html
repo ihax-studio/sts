@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Earth to Earth</title>
+<link rel="stylesheet" href="styles-t's.css">
+<style>
+  /* === 言語/国旗マッピング用: 文字UI・右バー・左下ドックを排除 === */
+  #notch, #eraRail, #catRail, #dock, #searchPill,
+  .overlay, #pinHoverHUD, #ftRing { display: none !important; }
+  /* self-contained reset (styles-t's.css が無い環境でも地球儀が全画面で出る) */
+  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; }
+  #bootMask { position: fixed; inset: 0; background: #000; opacity: 1; pointer-events: none;
+    transition: opacity 1s ease; z-index: 50; }
+  #bootMask.lit { opacity: 0; }
+</style>
+</head>
+<body>
+
+<!-- 起動暗幕 (1s フェード) -->
+<div id="bootMask"></div>
+
+<!-- UI レイヤ (0.8s フェードイン) -->
+<div id="uiLayer">
+
+<!-- Notch Year HUD: compact 表示 / expand 時は年スライダ -->
+<div id="notch" class="glass">
+  <div class="compact">
+    <div class="icon">🌍</div>
+    <div class="year-line">
+      <div class="year" id="notchYear">A.D. 2026</div>
+      <div class="era" id="notchEra">令和 <span class="romaji">Reiwa</span></div>
+    </div>
+    <div class="chip">SCRUB</div>
+  </div>
+  <div class="expanded-pane">
+    <div class="exp-top">
+      <div>
+        <div class="exp-year" id="expYear">A.D. 2026</div>
+        <div class="exp-era" id="expEra">令和 <span class="romaji">Reiwa</span></div>
+      </div>
+      <div class="exp-close" id="notchClose">✕</div>
+    </div>
+    <div class="yearSliderWrap">
+      <div class="yearSliderTrack"></div>
+      <div class="yearSliderFill" id="ysFill"></div>
+      <input type="range" class="yearSlider" id="yearSlider" min="-10000" max="2030" value="2026" step="1" />
+      <div class="yearSliderTicks" id="ysTicks"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Era Timeline (right rail) — weather統合 iOS 風 -->
+<div id="eraRail">
+  <div class="eraRailWeather loading" id="railWeather" title="天気 / 中心地">
+    <div class="regionIcon bootIn" id="regionIcon">
+      <img data-key="us"   alt="" />
+      <img data-key="afr"  alt="" />
+      <img data-key="asia" alt="" />
+      <img data-key="aust" alt="" />
+    </div>
+    <span class="temp">--°C</span>
+  </div>
+  <div class="eraRailScroll" id="eraRailScroll"></div>
+</div>
+
+<!-- Category Rail (right bottom) -->
+<div id="catRail"></div>
+
+<!-- Search Pill -->
+<div id="searchPill" class="glass">
+  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16 16l5 5"/></svg>
+  <input id="searchInput" type="text" placeholder="年・場所・事件で検索  例: 平安 / 794 / ローマ / ナイル" autocomplete="off" />
+  <div id="searchHint">↵ で移動</div>
+</div>
+
+<!-- Bottom Left Dock -->
+<div id="dock">
+  <div class="iconChip" id="btnClock" title="年を選ぶ">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+  </div>
+  <div class="textChip" id="btnMode" title="2D/3D 切替">3D</div>
+  <div class="iconChip" id="btnStack" title="タイムマシン">
+    <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="3" rx="1.2"/><rect x="4" y="11" width="16" height="3" rx="1.2"/><rect x="4" y="16" width="16" height="3" rx="1.2"/></svg>
+  </div>
+  <div class="iconChip" id="btnSaveCurrent" title="現在地を保存">
+    <svg viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></svg>
+  </div>
+  <div class="iconChip" id="btnSaved" title="保存済み一覧">
+    <svg viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z" fill="rgba(255,255,255,.85)" stroke="none"/></svg>
+    <div class="badge" id="savedBadge" style="display:none">0</div>
+  </div>
+</div>
+
+<!-- (handoff badge は撤去) -->
+
+<!-- Pin hover HUD -->
+<div id="pinHoverHUD"><span id="pinHoverIcon">📍</span><span id="pinHoverText"></span></div>
+
+<!-- ForceTouch Ring -->
+<div id="ftRing"></div>
+
+<!-- TimeMachine Overlay -->
+<div class="overlay" id="stackOverlay">
+  <div class="stackPanel glass">
+    <div class="stackHeader">
+      <span>⟳</span><span>TimeMachine</span>
+      <span class="x" id="stackClose">✕</span>
+    </div>
+    <div id="stackInner"></div>
+    <div class="stackFooter">
+      <button id="stackUp" title="前">▲</button>
+      <div class="counter" id="stackCounter">1 / 1</div>
+      <button id="stackDown" title="次">▼</button>
+    </div>
+  </div>
+</div>
+
+<!-- Saved Overlay -->
+<div class="overlay" id="savedOverlay" style="align-items:flex-end;justify-content:flex-start;">
+  <div class="savedPanel glass" style="margin:0 0 86px 22px;">
+    <div class="savedTitle">📌 保存済みの場所<span class="x" id="savedClose">✕</span></div>
+    <div class="savedList" id="savedList"></div>
+  </div>
+</div>
+
+</div><!-- /#uiLayer -->
+
+<!-- Embedded event data -->
+<script type="application/json" id="EVENTS_DATA">[{"year":-3500,"title":"シュメール 都市国家成立","summary":"ウルク・ウルで楔形文字使用。","lat":31.32,"lon":45.64,"kind":"world","url":"https://ja.wikipedia.org/wiki/シュメール","level":"basic"},{"year":-3100,"title":"エジプト統一王朝","summary":"ナルメル王、上下エジプト統一。","lat":29.97,"lon":31.13,"kind":"world","url":"https://ja.wikipedia.org/wiki/古代エジプト","level":"basic"},{"year":-2334,"title":"アッカド帝国 サルゴン","summary":"メソポタミア最初の領域国家。","lat":33.1,"lon":44.1,"kind":"world","url":"https://ja.wikipedia.org/wiki/アッカド","level":"advanced"},{"year":-1792,"title":"ハンムラビ法典","summary":"バビロン第1王朝、同害復讐。","lat":32.54,"lon":44.42,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ハンムラビ法典","level":"basic"},{"year":-1500,"title":"ヒッタイト 鉄器使用","summary":"アナトリア、製鉄技術と戦車。","lat":40.02,"lon":34.62,"kind":"science","url":"https://ja.wikipedia.org/wiki/ヒッタイト","level":"basic"},{"year":-1286,"title":"カデシュの戦い","summary":"エジプト・ヒッタイト、現存最古の和平条約。","lat":34.57,"lon":36.51,"kind":"war","url":"https://ja.wikipedia.org/wiki/カデシュの戦い","level":"advanced"},{"year":-1020,"title":"ヘブライ王国","summary":"サウル→ダビデ→ソロモン、エルサレム神殿。","lat":31.78,"lon":35.23,"kind":"religion","url":"https://ja.wikipedia.org/wiki/イスラエル王国","level":"basic"},{"year":-612,"title":"アッシリア滅亡","summary":"新バビロニア+メディアでニネヴェ陥落。","lat":36.36,"lon":43.15,"kind":"war","url":"https://ja.wikipedia.org/wiki/アッシリア","level":"advanced"},{"year":-550,"title":"アケメネス朝建国","summary":"キュロス2世、サトラップ制・王の道・王の目。","lat":29.94,"lon":52.89,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アケメネス朝","level":"basic"},{"year":-525,"title":"アケメネス朝 オリエント統一","summary":"カンビュセス2世エジプト征服。","lat":30.04,"lon":31.24,"kind":"world","url":"https://ja.wikipedia.org/wiki/アケメネス朝","level":"basic"},{"year":-776,"title":"古代オリンピック開始","summary":"オリンピアで第1回開催。","lat":37.638,"lon":21.63,"kind":"culture","url":"https://ja.wikipedia.org/wiki/古代オリンピック","level":"basic"},{"year":-594,"title":"ソロンの改革","summary":"アテネ、債務奴隷禁止・財産政治。","lat":37.97,"lon":23.72,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ソロン","level":"basic"},{"year":-508,"title":"クレイステネスの改革","summary":"アテネ民主政の基礎、陶片追放。","lat":37.97,"lon":23.72,"kind":"politics","url":"https://ja.wikipedia.org/wiki/クレイステネス","level":"basic"},{"year":-490,"title":"マラトンの戦い","summary":"アテネがダレイオス1世軍を撃退。","lat":38.15,"lon":23.96,"kind":"war","url":"https://ja.wikipedia.org/wiki/マラトンの戦い","level":"basic"},{"year":-480,"title":"サラミスの海戦","summary":"テミストクレス指揮、ペルシア海軍撃破。","lat":37.96,"lon":23.5,"kind":"war","url":"https://ja.wikipedia.org/wiki/サラミスの海戦","level":"basic"},{"year":-443,"title":"ペリクレス時代","summary":"アテネ民主政の最盛期、パルテノン神殿。","lat":37.97,"lon":23.73,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ペリクレス","level":"basic"},{"year":-431,"title":"ペロポネソス戦争","summary":"アテネ vs スパルタ、ギリシア衰退の始まり。","lat":37.07,"lon":22.43,"kind":"war","url":"https://ja.wikipedia.org/wiki/ペロポネソス戦争","level":"basic"},{"year":-334,"title":"アレクサンドロス東征","summary":"マケドニア、グラニコス→イッソス→アルベラ。","lat":36.51,"lon":36.16,"kind":"war","url":"https://ja.wikipedia.org/wiki/アレクサンドロス3世","level":"basic"},{"year":-323,"title":"アレクサンドロス没・後継者戦争","summary":"ヘレニズム3王国分立。","lat":33.32,"lon":44.42,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ディアドコイ戦争","level":"advanced"},{"year":-509,"title":"ローマ共和政成立","summary":"王政追放、コンスル・元老院体制。","lat":41.89,"lon":12.49,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ローマ共和政","level":"basic"},{"year":-451,"title":"12表法","summary":"ローマ最古の成文法、平民保護。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/十二表法","level":"basic"},{"year":-367,"title":"リキニウス・セクスティウス法","summary":"コンスル1名は平民、公有地占有制限。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/リキニウス・セクスティウス法","level":"advanced"},{"year":-264,"title":"第1次ポエニ戦争","summary":"ローマ vs カルタゴ、シチリア争奪。","lat":37.5,"lon":14.0,"kind":"war","url":"https://ja.wikipedia.org/wiki/ポエニ戦争","level":"basic"},{"year":-218,"title":"第2次ポエニ戦争 ハンニバル","summary":"アルプス越え、カンナエの戦い。","lat":41.3,"lon":16.13,"kind":"war","url":"https://ja.wikipedia.org/wiki/カンナエの戦い","level":"basic"},{"year":-146,"title":"カルタゴ滅亡 / コリントス破壊","summary":"ローマ地中海覇権確立。","lat":36.85,"lon":10.32,"kind":"war","url":"https://ja.wikipedia.org/wiki/カルタゴ","level":"basic"},{"year":-133,"title":"グラックス兄弟改革","summary":"ティベリウス→ガイウス、土地法・市民権。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/グラックス兄弟","level":"basic"},{"year":-60,"title":"第1回三頭政治","summary":"カエサル・ポンペイウス・クラッスス。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/三頭政治","level":"basic"},{"year":-44,"title":"カエサル暗殺","summary":"3月15日、ブルートゥスら元老院派。","lat":41.8925,"lon":12.4853,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ガイウス・ユリウス・カエサル","level":"basic"},{"year":-27,"title":"ローマ帝政開始","summary":"オクタウィアヌスがアウグストゥス称号。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アウグストゥス","level":"basic"},{"year":96,"title":"五賢帝時代開始","summary":"ネルウァ→マルクス・アウレリウス。パクス・ロマーナ最盛。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/五賢帝","level":"basic"},{"year":212,"title":"アントニヌス勅令","summary":"全帝国民にローマ市民権付与。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アントニヌス勅令","level":"advanced"},{"year":235,"title":"軍人皇帝時代","summary":"3世紀の危機、約50年で20余の皇帝。","lat":41.89,"lon":12.48,"kind":"politics","url":"https://ja.wikipedia.org/wiki/軍人皇帝","level":"advanced"},{"year":284,"title":"ディオクレティアヌス即位","summary":"四帝分治制、専制君主政へ。","lat":43.51,"lon":16.44,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ディオクレティアヌス","level":"advanced"},{"year":313,"title":"ミラノ勅令","summary":"コンスタンティヌス、キリスト教公認。","lat":45.46,"lon":9.19,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ミラノ勅令","level":"basic"},{"year":325,"title":"ニケーア公会議","summary":"アタナシウス派正統、アリウス派異端。","lat":40.43,"lon":29.72,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ニカイア公会議","level":"basic"},{"year":392,"title":"テオドシウス キリスト教国教化","summary":"他宗教禁止。","lat":41.01,"lon":28.98,"kind":"religion","url":"https://ja.wikipedia.org/wiki/テオドシウス1世","level":"basic"},{"year":395,"title":"ローマ帝国 東西分裂","summary":"テオドシウス没後、東ローマ＝ビザンツへ。","lat":41.01,"lon":28.98,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ローマ帝国","level":"basic"},{"year":476,"title":"西ローマ帝国滅亡","summary":"オドアケルがロムルス・アウグストゥルス退位。","lat":44.41,"lon":12.2,"kind":"politics","url":"https://ja.wikipedia.org/wiki/西ローマ帝国","level":"basic"},{"year":-2500,"title":"インダス文明","summary":"モヘンジョ・ダロ、ハラッパー、計画都市。","lat":27.32,"lon":68.13,"kind":"world","url":"https://ja.wikipedia.org/wiki/インダス文明","level":"basic"},{"year":-1500,"title":"アーリヤ人侵入・ヴェーダ時代","summary":"カースト制成立、リグ・ヴェーダ。","lat":28.61,"lon":77.21,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ヴェーダ時代","level":"basic"},{"year":-563,"title":"釈迦 誕生","summary":"ルンビニ、仏教の祖。","lat":27.46,"lon":83.27,"kind":"religion","url":"https://ja.wikipedia.org/wiki/釈迦","level":"basic"},{"year":-317,"title":"マウリヤ朝建国","summary":"チャンドラグプタ、パータリプトラ。","lat":25.61,"lon":85.14,"kind":"politics","url":"https://ja.wikipedia.org/wiki/マウリヤ朝","level":"basic"},{"year":-268,"title":"アショーカ王即位","summary":"ダルマ政治、仏教保護。","lat":25.61,"lon":85.14,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アショーカ","level":"basic"},{"year":130,"title":"クシャーナ朝 カニシカ王","summary":"ガンダーラ美術、大乗仏教普及。","lat":33.99,"lon":71.46,"kind":"culture","url":"https://ja.wikipedia.org/wiki/クシャーナ朝","level":"basic"},{"year":320,"title":"グプタ朝建国","summary":"チャンドラグプタ1世、ヒンドゥー化。","lat":25.32,"lon":82.97,"kind":"politics","url":"https://ja.wikipedia.org/wiki/グプタ朝","level":"basic"},{"year":-1600,"title":"殷 王朝","summary":"甲骨文字、青銅器、殷墟。","lat":36.1,"lon":114.32,"kind":"world","url":"https://ja.wikipedia.org/wiki/殷","level":"basic"},{"year":-1046,"title":"周 牧野の戦い","summary":"武王が殷紂王を倒し周建国。封建制。","lat":35.3,"lon":113.92,"kind":"politics","url":"https://ja.wikipedia.org/wiki/牧野の戦い","level":"basic"},{"year":-770,"title":"春秋時代開始","summary":"周の東遷 洛邑、諸侯割拠。","lat":34.62,"lon":112.45,"kind":"politics","url":"https://ja.wikipedia.org/wiki/春秋時代","level":"basic"},{"year":-551,"title":"孔子生誕","summary":"魯国曲阜、儒教の祖。","lat":35.58,"lon":116.99,"kind":"religion","url":"https://ja.wikipedia.org/wiki/孔子","level":"basic"},{"year":-403,"title":"戦国時代開始","summary":"晋の韓・魏・趙分割。諸子百家。","lat":35.04,"lon":111.0,"kind":"politics","url":"https://ja.wikipedia.org/wiki/戦国時代_(中国)","level":"basic"},{"year":-221,"title":"秦 中国統一","summary":"始皇帝、郡県制・度量衡統一・万里の長城。","lat":34.34,"lon":108.94,"kind":"politics","url":"https://ja.wikipedia.org/wiki/秦","level":"basic"},{"year":-202,"title":"前漢成立","summary":"劉邦 高祖、長安都。郡国制。","lat":34.27,"lon":108.93,"kind":"politics","url":"https://ja.wikipedia.org/wiki/前漢","level":"basic"},{"year":-141,"title":"武帝即位","summary":"儒教国教化、衛青で匈奴撃退、塩鉄専売。","lat":34.27,"lon":108.93,"kind":"politics","url":"https://ja.wikipedia.org/wiki/武帝_(漢)","level":"basic"},{"year":-139,"title":"張騫 西域派遣","summary":"シルクロード交易拡大の端緒。","lat":38.93,"lon":100.45,"kind":"discovery","url":"https://ja.wikipedia.org/wiki/張騫","level":"basic"},{"year":8,"title":"新 王莽簒奪","summary":"前漢を倒し新建国、周制復古。","lat":34.27,"lon":108.93,"kind":"politics","url":"https://ja.wikipedia.org/wiki/新","level":"advanced"},{"year":25,"title":"後漢成立","summary":"劉秀 光武帝、洛陽都。","lat":34.62,"lon":112.45,"kind":"politics","url":"https://ja.wikipedia.org/wiki/後漢","level":"basic"},{"year":184,"title":"黄巾の乱","summary":"張角率いる太平道蜂起、後漢衰退。","lat":35.5,"lon":117.5,"kind":"war","url":"https://ja.wikipedia.org/wiki/黄巾の乱","level":"basic"},{"year":220,"title":"三国時代開始","summary":"魏・呉・蜀分立。","lat":30.66,"lon":104.07,"kind":"politics","url":"https://ja.wikipedia.org/wiki/三国時代_(中国)","level":"basic"},{"year":527,"title":"ユスティニアヌス即位","summary":"ローマ法大全、ハギア・ソフィア再建、旧西方領土再征服。","lat":41.0086,"lon":28.9802,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ユスティニアヌス1世","level":"basic"},{"year":726,"title":"聖像禁止令","summary":"レオン3世、東西教会対立深化。","lat":41.01,"lon":28.98,"kind":"religion","url":"https://ja.wikipedia.org/wiki/聖像破壊運動","level":"basic"},{"year":1054,"title":"東西教会大シスマ","summary":"ローマとコンスタンティノープル相互破門。","lat":41.01,"lon":28.98,"kind":"religion","url":"https://ja.wikipedia.org/wiki/シスマ","level":"basic"},{"year":610,"title":"ムハンマド 啓示開始","summary":"メッカのヒラー山、イスラーム教成立。","lat":21.4225,"lon":39.8262,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ムハンマド・イブン・アブドゥッラーフ","level":"basic"},{"year":622,"title":"ヒジュラ","summary":"ムハンマドのメディナ移住、イスラム暦元年。","lat":24.4686,"lon":39.6142,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ヒジュラ","level":"basic"},{"year":632,"title":"正統カリフ時代開始","summary":"アブー・バクル、大征服。","lat":24.47,"lon":39.61,"kind":"politics","url":"https://ja.wikipedia.org/wiki/正統カリフ","level":"basic"},{"year":661,"title":"ウマイヤ朝成立","summary":"ムアーウィヤ、ダマスカス都、世襲化。","lat":33.5138,"lon":36.2765,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ウマイヤ朝","level":"basic"},{"year":711,"title":"イベリア征服 西ゴート滅亡","summary":"ターリク、ジブラルタル海峡渡河。","lat":36.14,"lon":-5.35,"kind":"war","url":"https://ja.wikipedia.org/wiki/グアダレーテ河畔の戦い","level":"basic"},{"year":732,"title":"トゥール・ポワティエ間の戦い","summary":"カール・マルテル、イスラーム軍北上阻止。","lat":46.58,"lon":0.34,"kind":"war","url":"https://ja.wikipedia.org/wiki/トゥール・ポワティエ間の戦い","level":"basic"},{"year":750,"title":"アッバース朝成立","summary":"ウマイヤ朝打倒、マワーリー平等化。","lat":33.32,"lon":44.42,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アッバース朝","level":"basic"},{"year":751,"title":"タラス河畔の戦い","summary":"アッバース朝 vs 唐、製紙法西伝。","lat":42.52,"lon":72.23,"kind":"war","url":"https://ja.wikipedia.org/wiki/タラス河畔の戦い","level":"basic"},{"year":762,"title":"バグダード遷都","summary":"マンスール、円城都市、最盛期へ。","lat":33.3152,"lon":44.3661,"kind":"politics","url":"https://ja.wikipedia.org/wiki/バグダード","level":"basic"},{"year":909,"title":"ファーティマ朝成立","summary":"シーア派、北アフリカ→カイロ建設 969。","lat":30.04,"lon":31.24,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ファーティマ朝","level":"basic"},{"year":1038,"title":"セルジューク朝成立","summary":"トゥグリル・ベク、スンナ派、バグダード入城 1055。","lat":36.2,"lon":59.61,"kind":"politics","url":"https://ja.wikipedia.org/wiki/セルジューク朝","level":"basic"},{"year":1071,"title":"マラーズギルドの戦い","summary":"セルジューク朝、ビザンツ撃破、アナトリア進出。","lat":39.14,"lon":42.54,"kind":"war","url":"https://ja.wikipedia.org/wiki/マラーズギルドの戦い","level":"advanced"},{"year":481,"title":"メロヴィング朝建国","summary":"クローヴィス、フランク王国、カトリック改宗 496。","lat":50.85,"lon":4.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/メロヴィング朝","level":"basic"},{"year":752,"title":"カロリング朝開始","summary":"ピピン、メロヴィング朝廃位・教皇から戴冠。","lat":49.12,"lon":6.18,"kind":"politics","url":"https://ja.wikipedia.org/wiki/カロリング朝","level":"basic"},{"year":800,"title":"カール大帝 戴冠","summary":"教皇レオ3世、西ローマ皇帝として戴冠。","lat":41.9022,"lon":12.4533,"kind":"politics","url":"https://ja.wikipedia.org/wiki/カール大帝","level":"basic"},{"year":843,"title":"ヴェルダン条約","summary":"フランク王国3分割。","lat":49.16,"lon":5.38,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ヴェルダン条約","level":"basic"},{"year":870,"title":"メルセン条約","summary":"中部フランク再分割、独仏伊の原型。","lat":50.86,"lon":5.74,"kind":"politics","url":"https://ja.wikipedia.org/wiki/メルセン条約","level":"basic"},{"year":962,"title":"神聖ローマ帝国成立","summary":"オットー1世戴冠。","lat":41.9,"lon":12.45,"kind":"politics","url":"https://ja.wikipedia.org/wiki/神聖ローマ帝国","level":"basic"},{"year":1066,"title":"ヘイスティングズの戦い","summary":"ノルマン征服、ウィリアム1世がイングランド王に。","lat":50.9114,"lon":0.487,"kind":"war","url":"https://ja.wikipedia.org/wiki/ヘイスティングズの戦い","level":"basic"},{"year":1077,"title":"カノッサの屈辱","summary":"ハインリヒ4世がグレゴリウス7世に謝罪、聖職叙任権闘争。","lat":44.49,"lon":10.45,"kind":"religion","url":"https://ja.wikipedia.org/wiki/カノッサの屈辱","level":"basic"},{"year":1096,"title":"第1回十字軍","summary":"ウルバヌス2世のクレルモン教会会議。エルサレム王国建国 1099。","lat":31.78,"lon":35.23,"kind":"war","url":"https://ja.wikipedia.org/wiki/第1回十字軍","level":"basic"},{"year":1122,"title":"ヴォルムス協約","summary":"聖職叙任権闘争終結。","lat":49.63,"lon":8.36,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ヴォルムス協約","level":"basic"},{"year":1187,"title":"サラディン エルサレム奪回","summary":"アイユーブ朝、十字軍国家衰退。","lat":31.78,"lon":35.23,"kind":"war","url":"https://ja.wikipedia.org/wiki/サラーフッディーン","level":"basic"},{"year":1198,"title":"インノケンティウス3世即位","summary":"教皇権の絶頂、第4回十字軍。","lat":41.9022,"lon":12.4533,"kind":"religion","url":"https://ja.wikipedia.org/wiki/インノケンティウス3世","level":"advanced"},{"year":1215,"title":"マグナ・カルタ","summary":"ジョン王、貴族の権利保証、立憲主義の起源。","lat":51.4439,"lon":-0.5601,"kind":"politics","url":"https://ja.wikipedia.org/wiki/マグナ・カルタ","level":"basic"},{"year":1241,"title":"ワールシュタットの戦い","summary":"モンゴル軍、ドイツ・ポーランド連合軍撃破。","lat":51.13,"lon":16.18,"kind":"war","url":"https://ja.wikipedia.org/wiki/ワールシュタットの戦い","level":"basic"},{"year":1265,"title":"シモン・ド・モンフォール議会","summary":"イングランド議会の起源、平民代表参加。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/シモン・ド・モンフォール","level":"advanced"},{"year":1295,"title":"模範議会","summary":"エドワード1世、両院制議会の原型。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/模範議会","level":"advanced"},{"year":1303,"title":"アナーニ事件","summary":"フィリップ4世、ボニファティウス8世捕縛、教皇権衰退。","lat":41.73,"lon":13.16,"kind":"religion","url":"https://ja.wikipedia.org/wiki/アナーニ事件","level":"basic"},{"year":1309,"title":"教皇のバビロン捕囚","summary":"アヴィニョン遷座、フランス王影響下。","lat":43.95,"lon":4.81,"kind":"religion","url":"https://ja.wikipedia.org/wiki/教皇のバビロン捕囚","level":"basic"},{"year":1339,"title":"百年戦争開始","summary":"英 vs 仏、王位継承・フランドル毛織物産地。","lat":50.3,"lon":3.4,"kind":"war","url":"https://ja.wikipedia.org/wiki/百年戦争","level":"basic"},{"year":1347,"title":"黒死病 大流行","summary":"欧州人口1/3減、農奴解放・社会変動。","lat":41.0,"lon":12.0,"kind":"economy","url":"https://ja.wikipedia.org/wiki/黒死病","level":"basic"},{"year":1358,"title":"ジャックリーの乱","summary":"フランス農民反乱、百年戦争・ペスト下の不満。","lat":49.27,"lon":2.51,"kind":"economy","url":"https://ja.wikipedia.org/wiki/ジャックリーの乱","level":"basic"},{"year":1378,"title":"教会大シスマ","summary":"ローマ・アヴィニョンに2教皇分立 〜1417。","lat":41.9,"lon":12.45,"kind":"religion","url":"https://ja.wikipedia.org/wiki/教会大分裂","level":"basic"},{"year":1381,"title":"ワット・タイラーの乱","summary":"イングランド農民反乱、ジョン・ボール。","lat":51.5,"lon":-0.13,"kind":"economy","url":"https://ja.wikipedia.org/wiki/ワット・タイラーの乱","level":"basic"},{"year":1414,"title":"コンスタンツ公会議","summary":"シスマ収拾、フスを焚刑。","lat":47.66,"lon":9.18,"kind":"religion","url":"https://ja.wikipedia.org/wiki/コンスタンツ公会議","level":"basic"},{"year":1429,"title":"ジャンヌ・ダルク オルレアン解放","summary":"百年戦争転機、シャルル7世戴冠。","lat":47.9,"lon":1.91,"kind":"war","url":"https://ja.wikipedia.org/wiki/ジャンヌ・ダルク","level":"basic"},{"year":1453,"title":"百年戦争終結 / コンスタンティノープル陥落","summary":"オスマン メフメト2世、ビザンツ滅亡。","lat":41.0082,"lon":28.9784,"kind":"war","url":"https://ja.wikipedia.org/wiki/コンスタンティノープルの陥落","level":"basic"},{"year":1492,"title":"レコンキスタ完了","summary":"グラナダ陥落、ナスル朝滅亡。","lat":37.18,"lon":-3.6,"kind":"war","url":"https://ja.wikipedia.org/wiki/レコンキスタ","level":"basic"},{"year":1206,"title":"モンゴル帝国成立","summary":"テムジン、クリルタイでチンギス・ハン即位。","lat":47.9077,"lon":106.8832,"kind":"politics","url":"https://ja.wikipedia.org/wiki/モンゴル帝国","level":"basic"},{"year":1234,"title":"金 滅亡","summary":"オゴデイ、華北制圧。","lat":39.9,"lon":116.4,"kind":"war","url":"https://ja.wikipedia.org/wiki/金朝","level":"basic"},{"year":1258,"title":"アッバース朝滅亡","summary":"フレグ、バグダード破壊、イル・ハン国建国。","lat":33.32,"lon":44.42,"kind":"war","url":"https://ja.wikipedia.org/wiki/フレグ","level":"basic"},{"year":1271,"title":"元 国号制定 フビライ","summary":"首都大都 北京、南宋へ南進。","lat":39.9042,"lon":116.4074,"kind":"politics","url":"https://ja.wikipedia.org/wiki/元","level":"basic"},{"year":1279,"title":"南宋滅亡 崖山","summary":"陸秀夫が幼帝を抱いて入水。","lat":21.92,"lon":113.05,"kind":"war","url":"https://ja.wikipedia.org/wiki/崖山の戦い","level":"basic"},{"year":1351,"title":"紅巾の乱","summary":"白蓮教徒、元朝衰退。","lat":32.05,"lon":118.78,"kind":"economy","url":"https://ja.wikipedia.org/wiki/紅巾の乱","level":"basic"},{"year":1368,"title":"明 建国","summary":"朱元璋 洪武帝、南京都。","lat":32.0603,"lon":118.7969,"kind":"politics","url":"https://ja.wikipedia.org/wiki/明","level":"basic"},{"year":1402,"title":"永楽帝即位","summary":"靖難の役の勝者、北京遷都 1421、紫禁城。","lat":39.92,"lon":116.39,"kind":"politics","url":"https://ja.wikipedia.org/wiki/永楽帝","level":"basic"},{"year":1405,"title":"鄭和 南海遠征","summary":"宝船艦隊、東南アジア・インド・東アフリカ。","lat":5.42,"lon":100.33,"kind":"discovery","url":"https://ja.wikipedia.org/wiki/鄭和","level":"basic"},{"year":1370,"title":"ティムール朝建国","summary":"サマルカンド、中央アジア、アンカラの戦い 1402。","lat":39.65,"lon":66.97,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ティムール朝","level":"basic"},{"year":1299,"title":"オスマン朝成立","summary":"オスマン1世、アナトリア西部。","lat":40.18,"lon":29.07,"kind":"politics","url":"https://ja.wikipedia.org/wiki/オスマン帝国","level":"basic"},{"year":1488,"title":"バルトロメウ・ディアス 喜望峰到達","summary":"ポルトガル、インド航路の鍵。","lat":-34.36,"lon":18.47,"kind":"discovery","url":"https://ja.wikipedia.org/wiki/バルトロメウ・ディアス","level":"basic"},{"year":1492,"title":"コロンブス 新大陸到達","summary":"サンサルバドル島上陸、スペイン王室支援。","lat":24.057,"lon":-74.4784,"kind":"discovery","url":"https://ja.wikipedia.org/wiki/クリストファー・コロンブス","level":"basic"},{"year":1494,"title":"トルデシリャス条約","summary":"スペイン・ポルトガル新世界分割。","lat":41.5,"lon":-5.0,"kind":"politics","url":"https://ja.wikipedia.org/wiki/トルデシリャス条約","level":"basic"},{"year":1498,"title":"ヴァスコ・ダ・ガマ インド航路開拓","summary":"カリカット到達、香辛料直接貿易。","lat":11.25,"lon":75.78,"kind":"discovery","url":"https://ja.wikipedia.org/wiki/ヴァスコ・ダ・ガマ","level":"basic"},{"year":1517,"title":"ルター 95か条の論題","summary":"ヴィッテンベルク、贖宥状批判、宗教改革開始。","lat":51.8665,"lon":12.6469,"kind":"religion","url":"https://ja.wikipedia.org/wiki/95か条の論題","level":"basic"},{"year":1519,"title":"マゼラン世界周航","summary":"1522 帰還、地球球体説実証。","lat":-52.5,"lon":-68.5,"kind":"discovery","url":"https://ja.wikipedia.org/wiki/フェルディナンド・マゼラン","level":"basic"},{"year":1521,"title":"アステカ征服 コルテス","summary":"テノチティトラン陥落。","lat":19.4326,"lon":-99.1332,"kind":"war","url":"https://ja.wikipedia.org/wiki/アステカ","level":"basic"},{"year":1533,"title":"インカ征服 ピサロ","summary":"アタワルパ処刑、クスコ占領。","lat":-13.53,"lon":-71.97,"kind":"war","url":"https://ja.wikipedia.org/wiki/インカ帝国","level":"basic"},{"year":1534,"title":"イギリス国教会成立","summary":"ヘンリ8世、首長法、ローマと断絶。","lat":51.5,"lon":-0.13,"kind":"religion","url":"https://ja.wikipedia.org/wiki/イングランド国教会","level":"basic"},{"year":1536,"title":"カルヴァン ジュネーヴ改革","summary":"予定説、商工業者支持。","lat":46.2,"lon":6.14,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ジャン・カルヴァン","level":"basic"},{"year":1545,"title":"トリエント公会議","summary":"対抗宗教改革、教皇権再確認 〜1563。","lat":46.07,"lon":11.12,"kind":"religion","url":"https://ja.wikipedia.org/wiki/トリエント公会議","level":"basic"},{"year":1555,"title":"アウクスブルクの和議","summary":"領邦君主の宗派選択権、ルター派公認。","lat":48.37,"lon":10.9,"kind":"religion","url":"https://ja.wikipedia.org/wiki/アウクスブルクの和議","level":"basic"},{"year":1545,"title":"ポトシ銀山発見","summary":"南米銀大量流出、価格革命の引き金。","lat":-19.58,"lon":-65.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/ポトシ","level":"basic"},{"year":1571,"title":"レパントの海戦","summary":"スペイン・ヴェネツィア連合、オスマン撃破。","lat":38.27,"lon":21.32,"kind":"war","url":"https://ja.wikipedia.org/wiki/レパントの海戦","level":"basic"},{"year":1581,"title":"ネーデルラント独立宣言","summary":"オラニエ公ウィレム指導、北部7州。","lat":52.1,"lon":5.18,"kind":"politics","url":"https://ja.wikipedia.org/wiki/オランダ独立戦争","level":"basic"},{"year":1588,"title":"アルマダ海戦","summary":"イングランド、スペイン無敵艦隊撃破。","lat":50.5,"lon":-2.0,"kind":"war","url":"https://ja.wikipedia.org/wiki/アルマダの海戦","level":"basic"},{"year":1598,"title":"ナントの王令","summary":"アンリ4世、ユグノー戦争終結、信仰自由。","lat":47.22,"lon":-1.55,"kind":"religion","url":"https://ja.wikipedia.org/wiki/ナントの勅令","level":"basic"},{"year":1600,"title":"イギリス東インド会社","summary":"アジア交易独占権。","lat":51.51,"lon":-0.08,"kind":"economy","url":"https://ja.wikipedia.org/wiki/イギリス東インド会社","level":"basic"},{"year":1602,"title":"オランダ東インド会社","summary":"世界最初の株式会社。","lat":52.37,"lon":4.9,"kind":"economy","url":"https://ja.wikipedia.org/wiki/オランダ東インド会社","level":"basic"},{"year":1618,"title":"三十年戦争開始","summary":"ベーメン プラハ窓外投擲事件、宗教+主権戦争。","lat":50.09,"lon":14.4,"kind":"war","url":"https://ja.wikipedia.org/wiki/三十年戦争","level":"basic"},{"year":1642,"title":"ピューリタン革命","summary":"クロムウェル、議会派 vs 国王派。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/イングランド内戦","level":"basic"},{"year":1648,"title":"ウェストファリア条約","summary":"三十年戦争終結、主権国家体制成立、神聖ローマ形骸化。","lat":51.96,"lon":7.63,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ヴェストファーレン条約","level":"basic"},{"year":1649,"title":"チャールズ1世処刑","summary":"イングランド共和政成立。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/チャールズ1世_(イングランド王)","level":"basic"},{"year":1660,"title":"イギリス王政復古","summary":"チャールズ2世。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/王政復古_(イングランド)","level":"basic"},{"year":1661,"title":"ルイ14世 親政開始","summary":"朕は国家なり、ヴェルサイユ宮殿、コルベール重商主義。","lat":48.8,"lon":2.12,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ルイ14世_(フランス王)","level":"basic"},{"year":1688,"title":"名誉革命","summary":"ジェームズ2世追放、ウィリアム3世+メアリ2世。権利章典 1689。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/名誉革命","level":"basic"},{"year":1526,"title":"ムガル帝国成立","summary":"バーブル、パーニーパットの戦い。","lat":29.39,"lon":76.97,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ムガル帝国","level":"basic"},{"year":1556,"title":"アクバル即位 ムガル","summary":"ジズヤ廃止、ヒンドゥーと融和。","lat":27.18,"lon":78.02,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アクバル","level":"basic"},{"year":1683,"title":"第2次ウィーン包囲失敗","summary":"オスマン衰退の起点、カルロヴィッツ条約 1699。","lat":48.21,"lon":16.37,"kind":"war","url":"https://ja.wikipedia.org/wiki/第二次ウィーン包囲","level":"basic"},{"year":1644,"title":"明清交替","summary":"李自成北京占領、清がそれを倒し入関。","lat":39.92,"lon":116.39,"kind":"politics","url":"https://ja.wikipedia.org/wiki/明清交替","level":"basic"},{"year":1689,"title":"ネルチンスク条約","summary":"清・ロシア国境画定、康熙帝。","lat":51.97,"lon":116.59,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ネルチンスク条約","level":"basic"},{"year":1701,"title":"スペイン継承戦争開始","summary":"1713 ユトレヒト条約で英が植民地拡大。","lat":52.09,"lon":5.12,"kind":"war","url":"https://ja.wikipedia.org/wiki/スペイン継承戦争","level":"basic"},{"year":1740,"title":"オーストリア継承戦争","summary":"プロイセン マリア・テレジアからシュレジエン奪取。","lat":50.07,"lon":14.43,"kind":"war","url":"https://ja.wikipedia.org/wiki/オーストリア継承戦争","level":"basic"},{"year":1756,"title":"七年戦争","summary":"英仏世界戦争、1763 パリ条約で英の覇権。","lat":50.85,"lon":4.35,"kind":"war","url":"https://ja.wikipedia.org/wiki/七年戦争","level":"basic"},{"year":1757,"title":"プラッシーの戦い","summary":"クライヴ、英東インド会社がベンガル支配。","lat":23.8,"lon":88.25,"kind":"war","url":"https://ja.wikipedia.org/wiki/プラッシーの戦い","level":"basic"},{"year":1772,"title":"第1回ポーランド分割","summary":"プロイセン・ロシア・オーストリア。","lat":52.23,"lon":21.01,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ポーランド分割","level":"basic"},{"year":1765,"title":"産業革命 ジェニー紡績機","summary":"ハーグリーヴス、英国綿工業革新。","lat":53.48,"lon":-2.24,"kind":"economy","url":"https://ja.wikipedia.org/wiki/産業革命","level":"basic"},{"year":1769,"title":"ワット 蒸気機関改良","summary":"産業革命の動力源確立。","lat":55.86,"lon":-4.25,"kind":"science","url":"https://ja.wikipedia.org/wiki/ジェームズ・ワット","level":"basic"},{"year":1773,"title":"ボストン茶会事件","summary":"代表なくして課税なし、独立革命の引き金。","lat":42.36,"lon":-71.05,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ボストン茶会事件","level":"basic"},{"year":1776,"title":"アメリカ独立宣言","summary":"7月4日、フィラデルフィア、ジェファソン起草。","lat":39.9489,"lon":-75.15,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アメリカ独立宣言","level":"basic"},{"year":1783,"title":"パリ条約 米独立承認","summary":"13植民地独立確定。","lat":48.85,"lon":2.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/パリ条約_(1783年)","level":"basic"},{"year":1787,"title":"アメリカ合衆国憲法","summary":"三権分立、連邦制。","lat":39.9489,"lon":-75.15,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アメリカ合衆国憲法","level":"basic"},{"year":1789,"title":"フランス革命勃発","summary":"バスティーユ襲撃、人権宣言。","lat":48.853,"lon":2.3692,"kind":"politics","url":"https://ja.wikipedia.org/wiki/フランス革命","level":"basic"},{"year":1793,"title":"ルイ16世処刑","summary":"ジャコバン派恐怖政治、ロベスピエール。","lat":48.8656,"lon":2.3211,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ルイ16世","level":"basic"},{"year":1799,"title":"ナポレオン ブリュメール18日","summary":"統領政府、第一統領ナポレオン。","lat":48.85,"lon":2.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ブリュメールのクーデター","level":"basic"},{"year":1804,"title":"ナポレオン皇帝即位 / 民法典","summary":"ナポレオン法典、所有権・契約自由・法の前の平等。","lat":48.853,"lon":2.3499,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ナポレオン・ボナパルト","level":"basic"},{"year":1815,"title":"ワーテルローの戦い / ウィーン会議","summary":"ナポレオン没落、メッテルニヒ正統主義。","lat":50.68,"lon":4.41,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ウィーン会議","level":"basic"},{"year":1819,"title":"シモン・ボリバル ラテンアメリカ独立","summary":"大コロンビア成立、独立運動の指導者。","lat":4.71,"lon":-74.07,"kind":"politics","url":"https://ja.wikipedia.org/wiki/シモン・ボリバル","level":"basic"},{"year":1823,"title":"モンロー宣言","summary":"米州相互不干渉原則。","lat":38.9,"lon":-77.04,"kind":"politics","url":"https://ja.wikipedia.org/wiki/モンロー教書","level":"basic"},{"year":1830,"title":"七月革命","summary":"シャルル10世退位、ルイ・フィリップ即位。","lat":48.85,"lon":2.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/フランス7月革命","level":"basic"},{"year":1832,"title":"イギリス第1回選挙法改正","summary":"腐敗選挙区廃止、産業資本家に選挙権。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/選挙法改正","level":"basic"},{"year":1838,"title":"チャーティスト運動","summary":"人民憲章、男子普通選挙要求。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/チャーティスト","level":"basic"},{"year":1846,"title":"穀物法廃止","summary":"自由貿易主義の勝利、コブデン・ブライト。","lat":51.5,"lon":-0.13,"kind":"economy","url":"https://ja.wikipedia.org/wiki/穀物法","level":"basic"},{"year":1848,"title":"二月革命 / 諸国民の春","summary":"フランス第二共和政、欧州各地で蜂起。","lat":48.85,"lon":2.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/フランス2月革命","level":"basic"},{"year":1848,"title":"共産党宣言","summary":"マルクス・エンゲルス、万国の労働者よ団結せよ。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/共産党宣言","level":"basic"},{"year":1853,"title":"クリミア戦争","summary":"ロシア vs 英仏オスマン、ナイチンゲール。","lat":44.61,"lon":33.52,"kind":"war","url":"https://ja.wikipedia.org/wiki/クリミア戦争","level":"basic"},{"year":1861,"title":"イタリア統一 王国成立","summary":"サルデーニャ→カヴール+ガリバルディ。","lat":41.9,"lon":12.49,"kind":"politics","url":"https://ja.wikipedia.org/wiki/イタリア統一運動","level":"basic"},{"year":1861,"title":"ロシア農奴解放令","summary":"アレクサンドル2世。","lat":55.75,"lon":37.62,"kind":"politics","url":"https://ja.wikipedia.org/wiki/農奴解放令","level":"basic"},{"year":1861,"title":"南北戦争開始","summary":"リンカーン、奴隷制廃止と連邦維持。","lat":32.78,"lon":-79.93,"kind":"war","url":"https://ja.wikipedia.org/wiki/南北戦争","level":"basic"},{"year":1863,"title":"奴隷解放宣言","summary":"リンカーン、ゲティスバーグ演説。","lat":38.9,"lon":-77.04,"kind":"politics","url":"https://ja.wikipedia.org/wiki/奴隷解放宣言","level":"basic"},{"year":1869,"title":"スエズ運河開通","summary":"レセップス、地中海と紅海。","lat":30.45,"lon":32.34,"kind":"economy","url":"https://ja.wikipedia.org/wiki/スエズ運河","level":"basic"},{"year":1871,"title":"ドイツ帝国成立","summary":"ヴェルサイユ宮殿でヴィルヘルム1世戴冠、ビスマルク。","lat":48.8,"lon":2.12,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ドイツ帝国","level":"basic"},{"year":1871,"title":"パリ・コミューン","summary":"世界初の労働者自治政権、72日で崩壊。","lat":48.85,"lon":2.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/パリ・コミューン","level":"basic"},{"year":1840,"title":"アヘン戦争","summary":"南京条約 1842、香港割譲・5港開港・賠償金。","lat":22.55,"lon":114.05,"kind":"war","url":"https://ja.wikipedia.org/wiki/アヘン戦争","level":"basic"},{"year":1851,"title":"太平天国の乱","summary":"洪秀全、滅満興漢、〜1864。","lat":23.13,"lon":113.26,"kind":"war","url":"https://ja.wikipedia.org/wiki/太平天国の乱","level":"basic"},{"year":1856,"title":"アロー戦争","summary":"1860 北京条約、外国公使北京駐在。","lat":39.9,"lon":116.4,"kind":"war","url":"https://ja.wikipedia.org/wiki/アロー戦争","level":"basic"},{"year":1857,"title":"インド大反乱 シパーヒー","summary":"1858 ムガル滅亡。","lat":26.85,"lon":80.95,"kind":"war","url":"https://ja.wikipedia.org/wiki/インド大反乱","level":"basic"},{"year":1861,"title":"洋務運動","summary":"曾国藩・李鴻章、中体西用。","lat":39.9,"lon":116.4,"kind":"economy","url":"https://ja.wikipedia.org/wiki/洋務運動","level":"basic"},{"year":1877,"title":"インド帝国成立","summary":"ヴィクトリア女王が皇帝兼任。","lat":28.61,"lon":77.21,"kind":"politics","url":"https://ja.wikipedia.org/wiki/インド帝国","level":"basic"},{"year":1894,"title":"日清戦争","summary":"下関条約 1895、台湾・遼東半島割譲、賠償金2億両。","lat":38.93,"lon":125.76,"kind":"war","url":"https://ja.wikipedia.org/wiki/日清戦争","level":"basic"},{"year":1898,"title":"戊戌の変法 / 米西戦争","summary":"康有為、光緒帝。米はフィリピン・グアム獲得。","lat":39.9,"lon":116.4,"kind":"politics","url":"https://ja.wikipedia.org/wiki/戊戌の変法","level":"basic"},{"year":1900,"title":"義和団事件","summary":"扶清滅洋、8カ国連合軍、北京議定書 1901。","lat":39.9,"lon":116.4,"kind":"war","url":"https://ja.wikipedia.org/wiki/義和団の乱","level":"basic"},{"year":1911,"title":"辛亥革命","summary":"孫文、武昌蜂起、1912 中華民国成立、清滅亡。","lat":30.59,"lon":114.31,"kind":"politics","url":"https://ja.wikipedia.org/wiki/辛亥革命","level":"basic"},{"year":1882,"title":"三国同盟成立","summary":"独・墺・伊。","lat":52.52,"lon":13.4,"kind":"politics","url":"https://ja.wikipedia.org/wiki/三国同盟_(1882年)","level":"basic"},{"year":1884,"title":"ベルリン会議 アフリカ分割","summary":"ビスマルク、列強アフリカ分割の原則。","lat":52.52,"lon":13.4,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ベルリン会議_(アフリカ分割)","level":"basic"},{"year":1898,"title":"ファショダ事件","summary":"英縦断 vs 仏横断、英仏接近の契機。","lat":9.9,"lon":32.1,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ファショダ事件","level":"basic"},{"year":1899,"title":"南アフリカ戦争","summary":"ブール戦争、英の金・ダイヤ獲得 〜1902。","lat":-26.2,"lon":28.04,"kind":"war","url":"https://ja.wikipedia.org/wiki/南アフリカ戦争","level":"basic"},{"year":1902,"title":"日英同盟","summary":"極東のロシア南下牽制。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日英同盟","level":"basic"},{"year":1904,"title":"日露戦争 / 英仏協商","summary":"ポーツマス条約 1905、南満州権益。","lat":38.93,"lon":121.63,"kind":"war","url":"https://ja.wikipedia.org/wiki/日露戦争","level":"basic"},{"year":1907,"title":"三国協商成立","summary":"英仏協商+英露協商で完成。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/三国協商","level":"basic"},{"year":1687,"title":"ニュートン プリンキピア","summary":"万有引力の法則・運動法則。","lat":52.2053,"lon":0.1218,"kind":"science","url":"https://ja.wikipedia.org/wiki/プリンキピア","level":"basic"},{"year":1690,"title":"ロック 統治二論","summary":"社会契約・抵抗権、米独立に影響。","lat":51.5,"lon":-0.13,"kind":"politics","url":"https://ja.wikipedia.org/wiki/統治二論","level":"basic"},{"year":1748,"title":"モンテスキュー 法の精神","summary":"三権分立論。","lat":44.84,"lon":-0.58,"kind":"politics","url":"https://ja.wikipedia.org/wiki/法の精神","level":"basic"},{"year":1762,"title":"ルソー 社会契約論","summary":"人民主権、フランス革命に影響。","lat":46.2,"lon":6.14,"kind":"politics","url":"https://ja.wikipedia.org/wiki/社会契約論","level":"basic"},{"year":1776,"title":"アダム・スミス 国富論","summary":"見えざる手、自由放任 laissez-faire。","lat":55.95,"lon":-3.19,"kind":"economy","url":"https://ja.wikipedia.org/wiki/国富論","level":"basic"},{"year":1859,"title":"種の起源 出版","summary":"ダーウィン進化論。","lat":51.5074,"lon":-0.1278,"kind":"science","url":"https://ja.wikipedia.org/wiki/種の起源","level":"basic"},{"year":1914,"title":"サラエボ事件 / WW1勃発","summary":"オーストリア皇太子暗殺、欧州大戦。","lat":43.8563,"lon":18.4131,"kind":"war","url":"https://ja.wikipedia.org/wiki/第一次世界大戦","level":"basic"},{"year":1917,"title":"ロシア革命","summary":"ボリシェビキ十月革命、レーニン。","lat":59.9343,"lon":30.3351,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ロシア革命","level":"basic"},{"year":1918,"title":"WW1終結 / 14か条","summary":"ウィルソン、民族自決・国際連盟構想。","lat":38.9,"lon":-77.04,"kind":"politics","url":"https://ja.wikipedia.org/wiki/十四か条の平和原則","level":"basic"},{"year":1919,"title":"ヴェルサイユ条約 / 五四運動","summary":"ドイツ巨額賠償、中国で反帝運動。","lat":48.8,"lon":2.12,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ヴェルサイユ条約","level":"basic"},{"year":1920,"title":"国際連盟成立","summary":"ジュネーヴ本部、米不参加・独ソ排除。","lat":46.2,"lon":6.14,"kind":"politics","url":"https://ja.wikipedia.org/wiki/国際連盟","level":"basic"},{"year":1921,"title":"ワシントン会議","summary":"海軍軍縮・四カ国条約・九カ国条約。","lat":38.9,"lon":-77.04,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ワシントン会議","level":"basic"},{"year":1922,"title":"ソヴィエト連邦成立","summary":"USSR、計画経済へ。","lat":55.7558,"lon":37.6173,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ソビエト連邦","level":"basic"},{"year":1922,"title":"ムッソリーニ ローマ進軍","summary":"ファシスト政権成立。","lat":41.9,"lon":12.49,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ローマ進軍","level":"basic"},{"year":1925,"title":"ロカルノ条約","summary":"西欧国境相互保証、独の国際連盟加盟へ。","lat":46.17,"lon":8.79,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ロカルノ条約","level":"basic"},{"year":1928,"title":"不戦条約","summary":"パリ、戦争放棄。","lat":48.85,"lon":2.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/不戦条約","level":"basic"},{"year":1929,"title":"世界恐慌","summary":"ニューヨーク株式市場大暴落、大恐慌へ。","lat":40.7069,"lon":-74.0113,"kind":"economy","url":"https://ja.wikipedia.org/wiki/世界恐慌","level":"basic"},{"year":1931,"title":"満州事変","summary":"柳条湖事件、関東軍。","lat":41.8,"lon":123.43,"kind":"war","url":"https://ja.wikipedia.org/wiki/満州事変","level":"basic"},{"year":1933,"title":"ヒトラー政権 / ニューディール","summary":"全権委任法、F・ローズベルト TVA・NIRA。","lat":52.52,"lon":13.4,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ナチス・ドイツ","level":"basic"},{"year":1935,"title":"イタリア エチオピア侵攻","summary":"国際連盟の経済制裁無力。","lat":9.03,"lon":38.74,"kind":"war","url":"https://ja.wikipedia.org/wiki/第二次エチオピア戦争","level":"basic"},{"year":1936,"title":"スペイン内戦","summary":"フランコ vs 人民戦線、〜1939。","lat":40.42,"lon":-3.7,"kind":"war","url":"https://ja.wikipedia.org/wiki/スペイン内戦","level":"basic"},{"year":1937,"title":"日中戦争開始","summary":"盧溝橋事件、南京事件。","lat":39.85,"lon":116.21,"kind":"war","url":"https://ja.wikipedia.org/wiki/日中戦争","level":"basic"},{"year":1938,"title":"ミュンヘン会談","summary":"宥和政策、ズデーテン割譲。","lat":48.14,"lon":11.58,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ミュンヘン会談","level":"basic"},{"year":1939,"title":"WW2勃発 独ポーランド侵攻","summary":"独ソ不可侵、英仏対独宣戦。","lat":52.2297,"lon":21.0122,"kind":"war","url":"https://ja.wikipedia.org/wiki/第二次世界大戦","level":"basic"},{"year":1941,"title":"独ソ戦 / 真珠湾","summary":"バルバロッサ作戦、太平洋戦争開始。","lat":21.36,"lon":-157.95,"kind":"war","url":"https://ja.wikipedia.org/wiki/真珠湾攻撃","level":"basic"},{"year":1941,"title":"大西洋憲章","summary":"F・ローズベルト+チャーチル、戦後構想。","lat":47.3,"lon":-54.3,"kind":"politics","url":"https://ja.wikipedia.org/wiki/大西洋憲章","level":"basic"},{"year":1942,"title":"ミッドウェー海戦","summary":"日本海軍主力空母4隻喪失、戦局転機。","lat":28.2,"lon":-177.37,"kind":"war","url":"https://ja.wikipedia.org/wiki/ミッドウェー海戦","level":"basic"},{"year":1943,"title":"スターリングラード / カイロ宣言","summary":"独軍降伏、東部戦線転機。","lat":48.71,"lon":44.5,"kind":"war","url":"https://ja.wikipedia.org/wiki/スターリングラード攻防戦","level":"basic"},{"year":1944,"title":"ノルマンディー上陸","summary":"Dデイ、第二戦線形成。","lat":49.42,"lon":-0.45,"kind":"war","url":"https://ja.wikipedia.org/wiki/ノルマンディー上陸作戦","level":"basic"},{"year":1945,"title":"ヤルタ会談 / ポツダム会談","summary":"戦後処理・国連設立合意。","lat":44.5,"lon":34.16,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ヤルタ会談","level":"basic"},{"year":1945,"title":"国際連合成立","summary":"サンフランシスコ会議、安保理5大国常任。","lat":40.7489,"lon":-73.968,"kind":"politics","url":"https://ja.wikipedia.org/wiki/国際連合","level":"basic"},{"year":1947,"title":"トルーマン・ドクトリン / マーシャル・プラン","summary":"封じ込め政策、欧州復興援助。","lat":38.9,"lon":-77.04,"kind":"politics","url":"https://ja.wikipedia.org/wiki/トルーマン・ドクトリン","level":"basic"},{"year":1948,"title":"ベルリン封鎖","summary":"ソ連、西ベルリンへの陸路遮断。","lat":52.52,"lon":13.4,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ベルリン封鎖","level":"basic"},{"year":1949,"title":"NATO / 中華人民共和国成立","summary":"北大西洋条約、毛沢東。","lat":50.85,"lon":4.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/北大西洋条約機構","level":"basic"},{"year":1950,"title":"朝鮮戦争","summary":"北朝鮮南進、国連軍 vs 中国義勇軍、〜1953休戦。","lat":38.32,"lon":127.5,"kind":"war","url":"https://ja.wikipedia.org/wiki/朝鮮戦争","level":"basic"},{"year":1955,"title":"バンドン会議 / ワルシャワ条約","summary":"アジア・アフリカ会議、平和10原則。","lat":-6.91,"lon":107.61,"kind":"politics","url":"https://ja.wikipedia.org/wiki/バンドン会議","level":"basic"},{"year":1956,"title":"スエズ動乱 / ハンガリー動乱","summary":"ナセル運河国有化、ソ連介入。","lat":30.45,"lon":32.34,"kind":"politics","url":"https://ja.wikipedia.org/wiki/第二次中東戦争","level":"basic"},{"year":1957,"title":"EEC 結成 / スプートニク打上","summary":"欧州経済共同体、米ソ宇宙競争。","lat":50.85,"lon":4.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/欧州経済共同体","level":"basic"},{"year":1960,"title":"アフリカの年","summary":"17カ国独立。","lat":9.08,"lon":8.68,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アフリカの年","level":"basic"},{"year":1961,"title":"ベルリンの壁構築","summary":"冷戦の象徴、東独。","lat":52.5163,"lon":13.3777,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ベルリンの壁","level":"basic"},{"year":1962,"title":"キューバ危機","summary":"ケネディ vs フルシチョフ、核戦争寸前。","lat":22.96,"lon":-82.36,"kind":"politics","url":"https://ja.wikipedia.org/wiki/キューバ危機","level":"basic"},{"year":1963,"title":"部分的核実験禁止条約 / I have a dream","summary":"PTBT、キング牧師ワシントン大行進。","lat":38.89,"lon":-77.05,"kind":"politics","url":"https://ja.wikipedia.org/wiki/部分的核実験禁止条約","level":"basic"},{"year":1965,"title":"ベトナム戦争 米軍本格介入","summary":"北爆開始。","lat":21.03,"lon":105.85,"kind":"war","url":"https://ja.wikipedia.org/wiki/ベトナム戦争","level":"basic"},{"year":1966,"title":"文化大革命","summary":"毛沢東、紅衛兵、〜1976。","lat":39.9,"lon":116.4,"kind":"politics","url":"https://ja.wikipedia.org/wiki/文化大革命","level":"basic"},{"year":1967,"title":"EC 発足 / 第3次中東戦争","summary":"EEC+ECSC+EAEC統合。6日戦争。","lat":50.85,"lon":4.35,"kind":"politics","url":"https://ja.wikipedia.org/wiki/欧州諸共同体","level":"basic"},{"year":1968,"title":"プラハの春 / 5月革命","summary":"ドプチェク改革、ソ連介入。パリ五月。","lat":50.08,"lon":14.43,"kind":"politics","url":"https://ja.wikipedia.org/wiki/プラハの春","level":"basic"},{"year":1972,"title":"ニクソン訪中","summary":"米中国交正常化への扉、上海コミュニケ。","lat":39.92,"lon":116.39,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ニクソン大統領の中国訪問","level":"basic"},{"year":1973,"title":"第4次中東戦争 / 石油危機","summary":"OAPEC原油減産、世界経済転換。","lat":31.26,"lon":33.78,"kind":"economy","url":"https://ja.wikipedia.org/wiki/オイルショック","level":"basic"},{"year":1978,"title":"改革開放 鄧小平","summary":"中国、社会主義市場経済への転換。","lat":39.9,"lon":116.4,"kind":"economy","url":"https://ja.wikipedia.org/wiki/改革開放","level":"basic"},{"year":1979,"title":"イラン革命 / ソ連アフガン侵攻","summary":"ホメイニ、新冷戦の起点。","lat":35.69,"lon":51.42,"kind":"politics","url":"https://ja.wikipedia.org/wiki/イラン革命","level":"basic"},{"year":1985,"title":"ペレストロイカ","summary":"ゴルバチョフ、グラスノスチ。","lat":55.7558,"lon":37.6173,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ペレストロイカ","level":"basic"},{"year":1989,"title":"ベルリンの壁崩壊 / 天安門事件","summary":"東欧革命、冷戦終結へ。中国民主化弾圧。","lat":52.5163,"lon":13.3777,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ベルリンの壁崩壊","level":"basic"},{"year":1989,"title":"マルタ会談","summary":"ブッシュ+ゴルバチョフ、冷戦終結宣言。","lat":35.9,"lon":14.51,"kind":"politics","url":"https://ja.wikipedia.org/wiki/マルタ会談","level":"basic"},{"year":1991,"title":"湾岸戦争 / ソ連解体","summary":"クウェート侵攻のイラクを多国籍軍。USSR崩壊。","lat":29.3,"lon":47.5,"kind":"war","url":"https://ja.wikipedia.org/wiki/湾岸戦争","level":"basic"},{"year":1993,"title":"EU 発足","summary":"マーストリヒト条約、政治・通貨統合。","lat":50.85,"lon":5.69,"kind":"politics","url":"https://ja.wikipedia.org/wiki/欧州連合","level":"basic"},{"year":1994,"title":"ルワンダ虐殺 / アパルトヘイト撤廃","summary":"民族浄化、マンデラ大統領就任。","lat":-1.94,"lon":30.06,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ルワンダ虐殺","level":"basic"},{"year":1997,"title":"アジア通貨危機","summary":"タイバーツ暴落、新興国経済波及。","lat":13.75,"lon":100.5,"kind":"economy","url":"https://ja.wikipedia.org/wiki/アジア通貨危機","level":"basic"},{"year":1999,"title":"ユーロ導入","summary":"11カ国で単一通貨。","lat":50.11,"lon":8.68,"kind":"economy","url":"https://ja.wikipedia.org/wiki/ユーロ","level":"basic"},{"year":2001,"title":"9.11同時多発テロ","summary":"WTC崩壊、アフガン戦争。","lat":40.7115,"lon":-74.0134,"kind":"war","url":"https://ja.wikipedia.org/wiki/アメリカ同時多発テロ事件","level":"basic"},{"year":2003,"title":"イラク戦争","summary":"米英主導、フセイン政権崩壊。","lat":33.32,"lon":44.42,"kind":"war","url":"https://ja.wikipedia.org/wiki/イラク戦争","level":"basic"},{"year":2008,"title":"リーマン・ショック","summary":"サブプライム→世界金融危機。","lat":40.7069,"lon":-74.0113,"kind":"economy","url":"https://ja.wikipedia.org/wiki/リーマン・ショック","level":"basic"},{"year":2010,"title":"アラブの春","summary":"チュニジア発、独裁政権崩壊連鎖。","lat":36.8,"lon":10.18,"kind":"politics","url":"https://ja.wikipedia.org/wiki/アラブの春","level":"basic"},{"year":2015,"title":"パリ協定","summary":"気候変動枠組条約 COP21、1.5°C目標。","lat":48.8566,"lon":2.3522,"kind":"politics","url":"https://ja.wikipedia.org/wiki/パリ協定","level":"basic"},{"year":2020,"title":"COVID-19 パンデミック","summary":"WHO宣言、世界経済停止。","lat":46.2299,"lon":6.0567,"kind":"economy","url":"https://ja.wikipedia.org/wiki/COVID-19の世界的流行","level":"basic"},{"year":2022,"title":"ロシアのウクライナ侵攻","summary":"戦後欧州最大の地上戦。","lat":50.4501,"lon":30.5234,"kind":"war","url":"https://ja.wikipedia.org/wiki/ロシアのウクライナ侵攻","level":"basic"},{"year":2023,"title":"ChatGPT / 生成AI普及","summary":"OpenAI公開で全世界にAIブーム。","lat":37.7749,"lon":-122.4194,"kind":"science","url":"https://ja.wikipedia.org/wiki/ChatGPT","level":"basic"},{"year":2024,"title":"米大統領選 トランプ再選","summary":"11月、共和党。","lat":38.8951,"lon":-77.0364,"kind":"politics","url":"https://ja.wikipedia.org/wiki/2024年アメリカ合衆国大統領選挙","level":"basic"},{"year":-300,"title":"弥生時代開始","summary":"稲作伝来・金属器、北部九州から拡大。","lat":33.5902,"lon":130.4017,"kind":"japan","url":"https://ja.wikipedia.org/wiki/弥生時代","level":"basic"},{"year":57,"title":"漢委奴国王印","summary":"後漢光武帝、志賀島出土。","lat":33.6537,"lon":130.308,"kind":"japan","url":"https://ja.wikipedia.org/wiki/漢委奴国王印","level":"basic"},{"year":239,"title":"邪馬台国 卑弥呼遣使","summary":"魏志倭人伝、親魏倭王。","lat":33.32,"lon":130.5,"kind":"japan","url":"https://ja.wikipedia.org/wiki/邪馬台国","level":"basic"},{"year":478,"title":"倭王武 上表文","summary":"雄略天皇、宋へ朝貢。","lat":34.49,"lon":135.74,"kind":"japan","url":"https://ja.wikipedia.org/wiki/倭の五王","level":"basic"},{"year":538,"title":"仏教公伝","summary":"百済聖明王、欽明天皇へ。","lat":34.48,"lon":135.81,"kind":"religion","url":"https://ja.wikipedia.org/wiki/仏教公伝","level":"basic"},{"year":593,"title":"推古天皇即位 / 聖徳太子摂政","summary":"飛鳥時代、冠位十二階 603・憲法十七条 604。","lat":34.4796,"lon":135.7896,"kind":"japan","url":"https://ja.wikipedia.org/wiki/推古天皇","level":"basic"},{"year":607,"title":"遣隋使 小野妹子","summary":"日出処の天子、対等外交主張。","lat":34.48,"lon":135.81,"kind":"politics","url":"https://ja.wikipedia.org/wiki/遣隋使","level":"basic"},{"year":645,"title":"大化の改新","summary":"中大兄皇子+中臣鎌足、蘇我入鹿暗殺、改新の詔。","lat":34.4796,"lon":135.7896,"kind":"politics","url":"https://ja.wikipedia.org/wiki/大化の改新","level":"basic"},{"year":663,"title":"白村江の戦い","summary":"唐・新羅連合に大敗、防衛体制強化。","lat":35.93,"lon":126.69,"kind":"war","url":"https://ja.wikipedia.org/wiki/白村江の戦い","level":"basic"},{"year":672,"title":"壬申の乱","summary":"大海人皇子(天武)勝利、皇親政治。","lat":34.69,"lon":136.16,"kind":"war","url":"https://ja.wikipedia.org/wiki/壬申の乱","level":"basic"},{"year":701,"title":"大宝律令","summary":"刑部親王・藤原不比等、律令国家完成。","lat":34.49,"lon":135.74,"kind":"politics","url":"https://ja.wikipedia.org/wiki/大宝律令","level":"basic"},{"year":710,"title":"平城京遷都","summary":"元明天皇、奈良時代。","lat":34.6911,"lon":135.7958,"kind":"japan","url":"https://ja.wikipedia.org/wiki/平城京","level":"basic"},{"year":743,"title":"墾田永年私財法","summary":"聖武、初期荘園発生の起点。","lat":34.69,"lon":135.83,"kind":"economy","url":"https://ja.wikipedia.org/wiki/墾田永年私財法","level":"basic"},{"year":752,"title":"東大寺大仏開眼","summary":"聖武、鎮護国家。","lat":34.69,"lon":135.84,"kind":"religion","url":"https://ja.wikipedia.org/wiki/東大寺","level":"basic"},{"year":794,"title":"平安京遷都","summary":"桓武天皇、京都。","lat":35.0116,"lon":135.7681,"kind":"japan","url":"https://ja.wikipedia.org/wiki/平安京","level":"basic"},{"year":894,"title":"遣唐使廃止","summary":"菅原道真の建議、国風文化進展。","lat":35.01,"lon":135.77,"kind":"politics","url":"https://ja.wikipedia.org/wiki/遣唐使","level":"basic"},{"year":939,"title":"承平天慶の乱","summary":"平将門・藤原純友、武士台頭の象徴。","lat":36.05,"lon":140.19,"kind":"war","url":"https://ja.wikipedia.org/wiki/承平天慶の乱","level":"basic"},{"year":1016,"title":"藤原道長 摂政","summary":"御堂関白記、望月の歌、摂関政治の絶頂。","lat":35.01,"lon":135.77,"kind":"politics","url":"https://ja.wikipedia.org/wiki/藤原道長","level":"basic"},{"year":1086,"title":"白河院政開始","summary":"院近臣・知行国制。","lat":35.01,"lon":135.77,"kind":"politics","url":"https://ja.wikipedia.org/wiki/院政","level":"basic"},{"year":1156,"title":"保元の乱","summary":"崇徳上皇 vs 後白河、武士の中央進出。","lat":35.01,"lon":135.77,"kind":"war","url":"https://ja.wikipedia.org/wiki/保元の乱","level":"basic"},{"year":1159,"title":"平治の乱","summary":"平清盛が源義朝を破る、平氏政権へ。","lat":35.01,"lon":135.77,"kind":"war","url":"https://ja.wikipedia.org/wiki/平治の乱","level":"basic"},{"year":1167,"title":"平清盛 太政大臣","summary":"日宋貿易、福原京遷都の試み。","lat":34.68,"lon":135.2,"kind":"politics","url":"https://ja.wikipedia.org/wiki/平清盛","level":"basic"},{"year":1185,"title":"壇ノ浦の戦い / 守護地頭設置","summary":"平氏滅亡。源頼朝が朝廷から守護地頭設置許可。","lat":33.97,"lon":130.95,"kind":"war","url":"https://ja.wikipedia.org/wiki/壇ノ浦の戦い","level":"basic"},{"year":1192,"title":"源頼朝 征夷大将軍","summary":"鎌倉幕府確立、武家政権。","lat":35.3192,"lon":139.5469,"kind":"politics","url":"https://ja.wikipedia.org/wiki/鎌倉幕府","level":"basic"},{"year":1221,"title":"承久の乱","summary":"後鳥羽上皇敗北、六波羅探題設置、執権北条義時。","lat":35.01,"lon":135.77,"kind":"war","url":"https://ja.wikipedia.org/wiki/承久の乱","level":"basic"},{"year":1232,"title":"御成敗式目","summary":"北条泰時、武家最初の体系的法典。","lat":35.32,"lon":139.55,"kind":"politics","url":"https://ja.wikipedia.org/wiki/御成敗式目","level":"basic"},{"year":1274,"title":"文永の役 元寇","summary":"蒙古襲来、博多湾。","lat":33.6,"lon":130.4,"kind":"war","url":"https://ja.wikipedia.org/wiki/元寇","level":"basic"},{"year":1281,"title":"弘安の役 元寇","summary":"再侵、暴風で撤退。","lat":33.6,"lon":130.4,"kind":"war","url":"https://ja.wikipedia.org/wiki/元寇","level":"basic"},{"year":1297,"title":"永仁の徳政令","summary":"御家人窮乏救済、効果薄。","lat":35.32,"lon":139.55,"kind":"economy","url":"https://ja.wikipedia.org/wiki/永仁の徳政令","level":"basic"},{"year":1333,"title":"鎌倉幕府滅亡","summary":"後醍醐+足利高氏+新田義貞。","lat":35.32,"lon":139.55,"kind":"politics","url":"https://ja.wikipedia.org/wiki/鎌倉幕府","level":"basic"},{"year":1334,"title":"建武の新政","summary":"後醍醐天皇、公家中心、〜1336崩壊。","lat":35.01,"lon":135.77,"kind":"politics","url":"https://ja.wikipedia.org/wiki/建武の新政","level":"basic"},{"year":1336,"title":"南北朝時代開始","summary":"足利尊氏が光明天皇擁立、後醍醐は吉野。","lat":34.37,"lon":135.86,"kind":"politics","url":"https://ja.wikipedia.org/wiki/南北朝時代_(日本)","level":"basic"},{"year":1392,"title":"南北朝合一","summary":"足利義満、明徳の和約。","lat":35.03,"lon":135.73,"kind":"politics","url":"https://ja.wikipedia.org/wiki/南北朝合一","level":"basic"},{"year":1404,"title":"勘合貿易開始","summary":"義満、明と日本国王。","lat":35.03,"lon":135.73,"kind":"economy","url":"https://ja.wikipedia.org/wiki/勘合貿易","level":"basic"},{"year":1428,"title":"正長の土一揆","summary":"近江馬借の蜂起、徳政要求。","lat":35.0,"lon":135.86,"kind":"economy","url":"https://ja.wikipedia.org/wiki/正長の土一揆","level":"basic"},{"year":1467,"title":"応仁の乱","summary":"京都を主戦場に11年、戦国時代へ。","lat":35.0116,"lon":135.7681,"kind":"war","url":"https://ja.wikipedia.org/wiki/応仁の乱","level":"basic"},{"year":1543,"title":"鉄砲伝来","summary":"種子島にポルトガル人。","lat":30.5333,"lon":130.9667,"kind":"science","url":"https://ja.wikipedia.org/wiki/鉄砲伝来","level":"basic"},{"year":1549,"title":"ザビエル キリスト教伝来","summary":"鹿児島上陸、イエズス会。","lat":31.59,"lon":130.55,"kind":"religion","url":"https://ja.wikipedia.org/wiki/フランシスコ・ザビエル","level":"basic"},{"year":1560,"title":"桶狭間の戦い","summary":"信長、今川義元を破る。","lat":35.07,"lon":136.96,"kind":"war","url":"https://ja.wikipedia.org/wiki/桶狭間の戦い","level":"basic"},{"year":1573,"title":"室町幕府滅亡","summary":"信長、足利義昭を追放。","lat":35.0116,"lon":135.7681,"kind":"politics","url":"https://ja.wikipedia.org/wiki/室町幕府","level":"basic"},{"year":1582,"title":"本能寺の変 / 太閤検地開始","summary":"明智光秀、信長自害。秀吉が一地一作人原則。","lat":35.01,"lon":135.76,"kind":"politics","url":"https://ja.wikipedia.org/wiki/本能寺の変","level":"basic"},{"year":1588,"title":"刀狩令","summary":"秀吉、兵農分離。","lat":34.68,"lon":135.5,"kind":"politics","url":"https://ja.wikipedia.org/wiki/刀狩","level":"basic"},{"year":1592,"title":"文禄の役 朝鮮出兵","summary":"秀吉。1597 慶長の役。","lat":35.1,"lon":129.04,"kind":"war","url":"https://ja.wikipedia.org/wiki/文禄・慶長の役","level":"basic"},{"year":1600,"title":"関ヶ原の戦い","summary":"徳川家康、西軍石田三成を破る。","lat":35.37,"lon":136.464,"kind":"war","url":"https://ja.wikipedia.org/wiki/関ヶ原の戦い","level":"basic"},{"year":1603,"title":"江戸幕府開府","summary":"徳川家康 征夷大将軍。","lat":35.6852,"lon":139.7528,"kind":"politics","url":"https://ja.wikipedia.org/wiki/江戸幕府","level":"basic"},{"year":1615,"title":"大坂夏の陣 / 武家諸法度・禁中並公家諸法度","summary":"豊臣氏滅亡。一国一城令。","lat":34.69,"lon":135.53,"kind":"politics","url":"https://ja.wikipedia.org/wiki/大坂の役","level":"basic"},{"year":1635,"title":"参勤交代制度化","summary":"家光、武家諸法度寛永令。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/参勤交代","level":"basic"},{"year":1637,"title":"島原・天草一揆","summary":"天草四郎、キリシタン+農民。","lat":32.79,"lon":130.36,"kind":"religion","url":"https://ja.wikipedia.org/wiki/島原の乱","level":"basic"},{"year":1639,"title":"鎖国完成 ポルトガル船入港禁止","summary":"1641 平戸オランダ商館を出島へ。","lat":32.74,"lon":129.87,"kind":"politics","url":"https://ja.wikipedia.org/wiki/鎖国","level":"basic"},{"year":1669,"title":"シャクシャインの戦い","summary":"アイヌ蜂起、松前藩。","lat":42.69,"lon":142.35,"kind":"war","url":"https://ja.wikipedia.org/wiki/シャクシャインの戦い","level":"advanced"},{"year":1716,"title":"享保の改革","summary":"徳川吉宗、上米の制・公事方御定書・目安箱。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/享保の改革","level":"basic"},{"year":1772,"title":"田沼意次 老中","summary":"株仲間公認・印旛沼干拓・蝦夷地調査。","lat":35.69,"lon":139.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/田沼意次","level":"basic"},{"year":1787,"title":"寛政の改革","summary":"松平定信、囲米・棄捐令・寛政異学の禁。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/寛政の改革","level":"basic"},{"year":1825,"title":"異国船打払令","summary":"無二念打払令。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/異国船打払令","level":"basic"},{"year":1837,"title":"大塩平八郎の乱 / モリソン号事件","summary":"元与力の蜂起、蛮社の獄。","lat":34.68,"lon":135.5,"kind":"economy","url":"https://ja.wikipedia.org/wiki/大塩平八郎の乱","level":"basic"},{"year":1841,"title":"天保の改革","summary":"水野忠邦、株仲間解散・人返しの法・上知令。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/天保の改革","level":"basic"},{"year":1853,"title":"ペリー来航 黒船","summary":"浦賀沖、開国要求。","lat":35.2469,"lon":139.7176,"kind":"politics","url":"https://ja.wikipedia.org/wiki/黒船来航","level":"basic"},{"year":1858,"title":"日米修好通商条約","summary":"井伊直弼、不平等条約。","lat":35.45,"lon":139.65,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日米修好通商条約","level":"basic"},{"year":1860,"title":"桜田門外の変","summary":"井伊直弼暗殺、水戸浪士。","lat":35.6796,"lon":139.7553,"kind":"politics","url":"https://ja.wikipedia.org/wiki/桜田門外の変","level":"basic"},{"year":1866,"title":"薩長同盟","summary":"坂本龍馬・中岡慎太郎、倒幕。","lat":35.01,"lon":135.77,"kind":"politics","url":"https://ja.wikipedia.org/wiki/薩長同盟","level":"basic"},{"year":1867,"title":"大政奉還 / 王政復古の大号令","summary":"徳川慶喜、明治新政府。","lat":35.01,"lon":135.76,"kind":"politics","url":"https://ja.wikipedia.org/wiki/大政奉還","level":"basic"},{"year":1868,"title":"戊辰戦争 / 五箇条の御誓文","summary":"鳥羽伏見〜五稜郭 1869、版籍奉還 1869。","lat":35.0116,"lon":135.7681,"kind":"war","url":"https://ja.wikipedia.org/wiki/戊辰戦争","level":"basic"},{"year":1871,"title":"廃藩置県 / 岩倉使節団","summary":"中央集権、不平等条約改正交渉。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/廃藩置県","level":"basic"},{"year":1873,"title":"地租改正 / 徴兵令","summary":"地価3%現金納、近代国家の基盤。","lat":35.69,"lon":139.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/地租改正","level":"basic"},{"year":1874,"title":"民撰議院設立建白書","summary":"板垣退助、自由民権運動の起点。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/民撰議院設立建白書","level":"basic"},{"year":1877,"title":"西南戦争","summary":"西郷隆盛、士族反乱の終焉。","lat":32.79,"lon":130.74,"kind":"war","url":"https://ja.wikipedia.org/wiki/西南戦争","level":"basic"},{"year":1885,"title":"内閣制度","summary":"伊藤博文初代首相。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/内閣制度","level":"basic"},{"year":1889,"title":"大日本帝国憲法発布","summary":"アジア初の近代憲法、欽定。","lat":35.6852,"lon":139.7528,"kind":"politics","url":"https://ja.wikipedia.org/wiki/大日本帝国憲法","level":"basic"},{"year":1894,"title":"領事裁判権撤廃 / 日清戦争","summary":"陸奥宗光、日英通商航海条約。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日清戦争","level":"basic"},{"year":1904,"title":"日露戦争","summary":"ポーツマス条約 1905、日比谷焼打事件。","lat":38.93,"lon":121.63,"kind":"war","url":"https://ja.wikipedia.org/wiki/日露戦争","level":"basic"},{"year":1910,"title":"韓国併合","summary":"朝鮮総督府設置。","lat":37.57,"lon":126.98,"kind":"politics","url":"https://ja.wikipedia.org/wiki/韓国併合","level":"basic"},{"year":1911,"title":"関税自主権回復","summary":"小村寿太郎、不平等条約改正完了。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/不平等条約","level":"basic"},{"year":1915,"title":"対華21か条要求","summary":"大隈内閣、中国の反日感情。","lat":39.92,"lon":116.39,"kind":"politics","url":"https://ja.wikipedia.org/wiki/対華21カ条要求","level":"basic"},{"year":1918,"title":"米騒動 / 原敬内閣","summary":"シベリア出兵で米価暴騰、初の本格政党内閣。","lat":36.69,"lon":137.21,"kind":"economy","url":"https://ja.wikipedia.org/wiki/米騒動","level":"basic"},{"year":1923,"title":"関東大震災","summary":"M7.9、首都圏壊滅、朝鮮人虐殺。","lat":35.4,"lon":139.3,"kind":"geology","url":"https://ja.wikipedia.org/wiki/関東大震災","level":"basic"},{"year":1925,"title":"普通選挙法 / 治安維持法","summary":"加藤高明、男子普選+思想統制。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/普通選挙法","level":"basic"},{"year":1932,"title":"五・一五事件","summary":"海軍青年将校、犬養毅暗殺、政党内閣終焉。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/五・一五事件","level":"basic"},{"year":1936,"title":"二・二六事件","summary":"陸軍皇道派青年将校、高橋是清ら殺害。","lat":35.6762,"lon":139.7503,"kind":"politics","url":"https://ja.wikipedia.org/wiki/二・二六事件","level":"basic"},{"year":1938,"title":"国家総動員法","summary":"近衛内閣、戦時統制経済。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/国家総動員法","level":"basic"},{"year":1941,"title":"真珠湾攻撃 太平洋戦争開戦","summary":"12月8日、ハワイ。","lat":21.3645,"lon":-157.9498,"kind":"war","url":"https://ja.wikipedia.org/wiki/真珠湾攻撃","level":"basic"},{"year":1945,"title":"広島原爆投下","summary":"8月6日、人類初の核兵器実戦投下。","lat":34.3955,"lon":132.4536,"kind":"war","url":"https://ja.wikipedia.org/wiki/広島市への原子爆弾投下","level":"basic"},{"year":1945,"title":"長崎原爆投下","summary":"8月9日。","lat":32.7745,"lon":129.8638,"kind":"war","url":"https://ja.wikipedia.org/wiki/長崎市への原子爆弾投下","level":"basic"},{"year":1945,"title":"ポツダム宣言受諾","summary":"8月15日 玉音放送、無条件降伏。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/ポツダム宣言","level":"basic"},{"year":1946,"title":"日本国憲法公布","summary":"11月3日、施行 1947.5.3。国民主権・平和主義・基本的人権。","lat":35.6762,"lon":139.6503,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日本国憲法","level":"basic"},{"year":1946,"title":"農地改革","summary":"GHQ指令、寄生地主制解体。","lat":35.69,"lon":139.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/農地改革","level":"basic"},{"year":1949,"title":"ドッジ・ライン","summary":"超均衡予算、シャウプ勧告 1949。","lat":35.69,"lon":139.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/ドッジ・ライン","level":"basic"},{"year":1951,"title":"サンフランシスコ平和条約 / 日米安保","summary":"吉田茂、独立回復+日米安保体制。","lat":37.7749,"lon":-122.4194,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日本国との平和条約","level":"basic"},{"year":1955,"title":"55年体制成立","summary":"自民党結成、保革55年体制。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/55年体制","level":"basic"},{"year":1956,"title":"日ソ共同宣言 / 国連加盟","summary":"鳩山一郎、北方領土問題棚上げ。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日ソ共同宣言","level":"basic"},{"year":1960,"title":"日米安保改定 / 所得倍増計画","summary":"60年安保闘争、池田勇人。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日本国とアメリカ合衆国との間の相互協力及び安全保障条約","level":"basic"},{"year":1964,"title":"東京オリンピック / 東海道新幹線","summary":"アジア初夏季五輪。","lat":35.6762,"lon":139.715,"kind":"culture","url":"https://ja.wikipedia.org/wiki/1964年東京オリンピック","level":"basic"},{"year":1965,"title":"日韓基本条約","summary":"朴正煕政権と国交正常化。","lat":37.57,"lon":126.98,"kind":"politics","url":"https://ja.wikipedia.org/wiki/日韓基本条約","level":"basic"},{"year":1972,"title":"沖縄返還 / 日中共同声明","summary":"佐藤栄作・田中角栄。","lat":26.21,"lon":127.68,"kind":"politics","url":"https://ja.wikipedia.org/wiki/沖縄返還","level":"basic"},{"year":1973,"title":"第1次石油危機","summary":"高度成長終焉、狂乱物価。","lat":35.69,"lon":139.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/オイルショック","level":"basic"},{"year":1985,"title":"プラザ合意","summary":"G5、ドル高是正、円高加速→バブルへ。","lat":40.76,"lon":-73.97,"kind":"economy","url":"https://ja.wikipedia.org/wiki/プラザ合意","level":"basic"},{"year":1989,"title":"消費税導入 / 平成改元","summary":"竹下登、3%。","lat":35.69,"lon":139.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/消費税","level":"basic"},{"year":1991,"title":"バブル崩壊","summary":"失われた30年へ。","lat":35.69,"lon":139.75,"kind":"economy","url":"https://ja.wikipedia.org/wiki/バブル崩壊","level":"basic"},{"year":1993,"title":"55年体制崩壊","summary":"細川護熙非自民連立内閣。","lat":35.69,"lon":139.75,"kind":"politics","url":"https://ja.wikipedia.org/wiki/55年体制","level":"basic"},{"year":1995,"title":"阪神・淡路大震災 / 地下鉄サリン","summary":"M7.3、ボランティア元年。オウム真理教。","lat":34.69,"lon":135.2,"kind":"geology","url":"https://ja.wikipedia.org/wiki/阪神・淡路大震災","level":"basic"},{"year":2011,"title":"東日本大震災","summary":"M9.0、津波・福島原発事故。","lat":38.2682,"lon":142.8694,"kind":"geology","url":"https://ja.wikipedia.org/wiki/東日本大震災","level":"basic"},{"year":2016,"title":"熊本地震","summary":"M7.3 本震、阿蘇・益城。","lat":32.7503,"lon":130.7625,"kind":"geology","url":"https://ja.wikipedia.org/wiki/熊本地震_(2016年)","level":"basic"},{"year":2019,"title":"令和改元","summary":"5月1日、徳仁親王即位。","lat":35.6852,"lon":139.7528,"kind":"japan","url":"https://ja.wikipedia.org/wiki/令和","level":"basic"},{"year":2021,"title":"東京オリンピック 延期開催","summary":"コロナ下、無観客。","lat":35.6762,"lon":139.715,"kind":"culture","url":"https://ja.wikipedia.org/wiki/2020年東京オリンピック","level":"basic"},{"year":2022,"title":"安倍元首相銃撃事件","summary":"7月8日、奈良。","lat":34.6776,"lon":135.8051,"kind":"politics","url":"https://ja.wikipedia.org/wiki/安倍晋三銃撃事件","level":"basic"},{"year":2024,"title":"能登半島地震","summary":"1月1日、M7.6、輪島・珠洲。","lat":37.5,"lon":137.27,"kind":"geology","url":"https://ja.wikipedia.org/wiki/令和6年能登半島地震","level":"basic"},{"year":2025,"title":"大阪・関西万博","summary":"夢洲、いのち輝く未来社会。","lat":34.6499,"lon":135.3873,"kind":"culture","url":"https://ja.wikipedia.org/wiki/2025年日本国際博覧会","level":"basic"},{"year":1543,"title":"コペルニクス 地動説","summary":"天球回転論、太陽中心。フロムボルク。","lat":54.36,"lon":19.68,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/天球の回転について","level":"basic"},{"year":1609,"title":"ガリレオ 望遠鏡天体観測","summary":"木星衛星・月のクレーター・金星位相。パドヴァ。","lat":45.41,"lon":11.88,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/ガリレオ・ガリレイ","level":"basic"},{"year":1609,"title":"ケプラー 第1・第2法則","summary":"新天文学、楕円軌道・面積速度一定。","lat":49.45,"lon":11.08,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/ケプラーの法則","level":"basic"},{"year":1687,"title":"ニュートン 万有引力法則","summary":"プリンキピア。ケンブリッジ。","lat":52.2053,"lon":0.1218,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/万有引力","level":"basic"},{"year":1781,"title":"天王星発見 ハーシェル","summary":"バース。","lat":51.38,"lon":-2.36,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/天王星","level":"basic"},{"year":1846,"title":"海王星発見 (ガレ)","summary":"ル・ヴェリエの計算予測、ベルリン天文台。","lat":52.45,"lon":13.31,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/海王星","level":"basic"},{"year":1929,"title":"ハッブル 宇宙膨張発見","summary":"セファイド距離測定+赤方偏移、ウィルソン山。","lat":34.22,"lon":-118.06,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/エドウィン・ハッブル","level":"basic"},{"year":1965,"title":"宇宙背景放射発見 ペンジアス・ウィルソン","summary":"ホームデル、ビッグバンの実証。","lat":40.4,"lon":-74.18,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/宇宙マイクロ波背景放射","level":"basic"},{"year":1957,"title":"スプートニク1号","summary":"ソ連、人類初の人工衛星。バイコヌール。","lat":45.96,"lon":63.31,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/スプートニク1号","level":"basic"},{"year":1961,"title":"ガガーリン 初の有人宇宙飛行","summary":"ボストーク1号、地球は青かった。","lat":51.78,"lon":45.99,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/ユーリイ・ガガーリン","level":"basic"},{"year":1969,"title":"アポロ11号 月面着陸","summary":"ケネディ宇宙センター打上、静かの海。","lat":28.5729,"lon":-80.649,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/アポロ11号","level":"basic"},{"year":1990,"title":"ハッブル宇宙望遠鏡打上","summary":"ケネディ宇宙センター、宇宙論を一変。","lat":28.57,"lon":-80.65,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/ハッブル宇宙望遠鏡","level":"basic"},{"year":2003,"title":"はやぶさ打上","summary":"JAXA、小惑星イトカワからサンプル帰還 2010。内之浦。","lat":31.25,"lon":131.08,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/はやぶさ_(探査機)","level":"basic"},{"year":2014,"title":"はやぶさ2 打上","summary":"リュウグウ、サンプル帰還 2020。種子島。","lat":30.4,"lon":130.97,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/はやぶさ2","level":"basic"},{"year":2021,"title":"ジェイムズ・ウェッブ宇宙望遠鏡 打上","summary":"クールー宇宙基地、深宇宙赤外線観測。","lat":5.24,"lon":-52.77,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/ジェイムズ・ウェッブ宇宙望遠鏡","level":"basic"},{"year":2024,"title":"SLIM ピンポイント月着陸","summary":"JAXA、誤差100m級の精密着陸。","lat":-13.3,"lon":25.2,"kind":"astronomy","url":"https://ja.wikipedia.org/wiki/SLIM_(探査機)","level":"basic"},{"year":1755,"title":"リスボン地震","summary":"M8.5-9.0、近代地震学の起点。","lat":38.72,"lon":-9.14,"kind":"geology","url":"https://ja.wikipedia.org/wiki/リスボン地震_(1755年)","level":"basic"},{"year":1815,"title":"タンボラ山噴火","summary":"VEI7、翌年「夏のない年」気候への影響。","lat":-8.25,"lon":118.0,"kind":"geology","url":"https://ja.wikipedia.org/wiki/タンボラ山","level":"basic"},{"year":1883,"title":"クラカタウ大噴火","summary":"VEI6、津波・気候影響。","lat":-6.1,"lon":105.42,"kind":"geology","url":"https://ja.wikipedia.org/wiki/クラカタウ","level":"basic"},{"year":1906,"title":"サンフランシスコ地震","summary":"M7.9、サンアンドレアス断層、断層論の発展。","lat":37.7749,"lon":-122.4194,"kind":"geology","url":"https://ja.wikipedia.org/wiki/サンフランシスコ地震_(1906年)","level":"basic"},{"year":1912,"title":"ウェゲナー 大陸移動説","summary":"パンゲア仮説、フランクフルト学会発表。","lat":50.11,"lon":8.68,"kind":"geology","url":"https://ja.wikipedia.org/wiki/大陸移動説","level":"basic"},{"year":1960,"title":"チリ地震 史上最大M9.5","summary":"観測史上最大、太平洋津波。","lat":-38.24,"lon":-73.05,"kind":"geology","url":"https://ja.wikipedia.org/wiki/1960年チリ地震","level":"basic"},{"year":1968,"title":"プレートテクトニクス確立","summary":"海洋底拡大+古地磁気の総合理論。","lat":32.86,"lon":-117.25,"kind":"geology","url":"https://ja.wikipedia.org/wiki/プレートテクトニクス","level":"basic"},{"year":1980,"title":"セントヘレンズ山噴火","summary":"横向き爆発、火砕流研究進展。","lat":46.2,"lon":-122.18,"kind":"geology","url":"https://ja.wikipedia.org/wiki/セント・ヘレンズ山","level":"basic"},{"year":1991,"title":"ピナトゥボ山噴火","summary":"VEI6、成層圏エアロゾルで地球気温低下。","lat":15.13,"lon":120.35,"kind":"geology","url":"https://ja.wikipedia.org/wiki/ピナトゥボ山","level":"basic"},{"year":2004,"title":"スマトラ沖地震 M9.1","summary":"インド洋大津波、22万人死亡。","lat":3.3,"lon":95.78,"kind":"geology","url":"https://ja.wikipedia.org/wiki/スマトラ島沖地震_(2004年)","level":"basic"},{"year":1990,"title":"オゾンホール発見 (南極)","summary":"昭和基地観測、フロン規制 (モントリオール議定書 1987)。","lat":-69.0,"lon":39.58,"kind":"geology","url":"https://ja.wikipedia.org/wiki/オゾンホール","level":"basic"},{"year":1958,"title":"国際地球観測年 IGY","summary":"南極研究強化、南極条約 1959 へ。","lat":-90.0,"lon":0.0,"kind":"geology","url":"https://ja.wikipedia.org/wiki/国際地球観測年","level":"basic"},{"year":-3500000000,"title":"ストロマトライト 最古生物痕跡","summary":"シアノバクテリア、シャーク湾現生例。","lat":-26.3,"lon":113.83,"kind":"geology","url":"https://ja.wikipedia.org/wiki/ストロマトライト","level":"advanced"},{"year":-540000000,"title":"カンブリア爆発 バージェス頁岩","summary":"ブリティッシュコロンビア、無脊椎動物多様化。","lat":51.42,"lon":-116.47,"kind":"geology","url":"https://ja.wikipedia.org/wiki/カンブリア爆発","level":"basic"},{"year":-252000000,"title":"ペルム紀末大絶滅","summary":"海生種95%絶滅、シベリア・トラップ火山。","lat":67.0,"lon":100.0,"kind":"geology","url":"https://ja.wikipedia.org/wiki/ペルム紀末の大量絶滅","level":"basic"},{"year":-66000000,"title":"K-Pg境界 隕石衝突","summary":"チクシュルーブ、恐竜絶滅。","lat":21.4,"lon":-89.52,"kind":"geology","url":"https://ja.wikipedia.org/wiki/チクシュルーブ・クレーター","level":"basic"},{"year":-200000,"title":"現生人類 (ホモ・サピエンス)","summary":"東アフリカ起源、オモ遺跡。","lat":5.0,"lon":36.0,"kind":"geology","url":"https://ja.wikipedia.org/wiki/ホモ・サピエンス","level":"basic"},{"year":1980,"title":"深圳経済特区指定","summary":"中国の改革開放、沿海部発展モデル。","lat":22.5431,"lon":114.0579,"kind":"geography","url":"https://ja.wikipedia.org/wiki/深セン市","level":"basic"},{"year":1997,"title":"香港返還","summary":"一国二制度。","lat":22.3,"lon":114.17,"kind":"geography","url":"https://ja.wikipedia.org/wiki/香港返還","level":"basic"},{"year":2008,"title":"北京オリンピック","summary":"中国大国化の象徴。","lat":39.9042,"lon":116.4074,"kind":"geography","url":"https://ja.wikipedia.org/wiki/北京オリンピック_(2008年)","level":"basic"},{"year":1967,"title":"ASEAN 設立","summary":"バンコク宣言、5カ国出発。","lat":13.7563,"lon":100.5018,"kind":"geography","url":"https://ja.wikipedia.org/wiki/東南アジア諸国連合","level":"basic"},{"year":1975,"title":"ベトナム戦争終結 サイゴン陥落","summary":"1976 統一。","lat":10.82,"lon":106.63,"kind":"geography","url":"https://ja.wikipedia.org/wiki/サイゴン陥落","level":"basic"},{"year":1965,"title":"シンガポール独立","summary":"マレーシア連邦から分離、都市国家・金融ハブ。","lat":1.35,"lon":103.82,"kind":"geography","url":"https://ja.wikipedia.org/wiki/シンガポール","level":"basic"},{"year":1947,"title":"インド・パキスタン分離独立","summary":"ヒンドゥーとイスラームの分離、難民1400万人。","lat":28.61,"lon":77.21,"kind":"geography","url":"https://ja.wikipedia.org/wiki/インド・パキスタン分離独立","level":"basic"},{"year":1971,"title":"バングラデシュ独立","summary":"東パキスタンが分離。","lat":23.81,"lon":90.41,"kind":"geography","url":"https://ja.wikipedia.org/wiki/バングラデシュ","level":"basic"},{"year":1991,"title":"インド経済自由化","summary":"ナラシマ・ラオ、IT産業 (バンガロール) 急成長。","lat":12.97,"lon":77.59,"kind":"geography","url":"https://ja.wikipedia.org/wiki/インドの経済","level":"basic"},{"year":1948,"title":"イスラエル建国 / 第1次中東戦争","summary":"パレスチナ問題の起点。","lat":31.78,"lon":35.23,"kind":"geography","url":"https://ja.wikipedia.org/wiki/イスラエル","level":"basic"},{"year":1960,"title":"OPEC 結成","summary":"原油価格カルテル、バグダードで設立。","lat":33.32,"lon":44.42,"kind":"geography","url":"https://ja.wikipedia.org/wiki/石油輸出国機構","level":"basic"},{"year":2011,"title":"シリア内戦","summary":"アラブの春から長期化、難民危機。","lat":33.51,"lon":36.29,"kind":"geography","url":"https://ja.wikipedia.org/wiki/シリア内戦","level":"basic"},{"year":1957,"title":"ガーナ独立 (エンクルマ)","summary":"ブラックアフリカ初の独立。","lat":5.61,"lon":-0.2,"kind":"geography","url":"https://ja.wikipedia.org/wiki/ガーナ","level":"basic"},{"year":1994,"title":"アパルトヘイト撤廃 マンデラ就任","summary":"南アフリカ。","lat":-26.2,"lon":28.04,"kind":"geography","url":"https://ja.wikipedia.org/wiki/アパルトヘイト","level":"basic"},{"year":2002,"title":"アフリカ連合 AU 発足","summary":"アディスアベバ本部。","lat":9.03,"lon":38.74,"kind":"geography","url":"https://ja.wikipedia.org/wiki/アフリカ連合","level":"basic"},{"year":1951,"title":"ECSC 設立","summary":"シューマン・プラン、欧州統合の起点。","lat":49.61,"lon":6.13,"kind":"geography","url":"https://ja.wikipedia.org/wiki/欧州石炭鉄鋼共同体","level":"basic"},{"year":2004,"title":"EU 東方拡大","summary":"中東欧10カ国加盟。","lat":50.85,"lon":4.35,"kind":"geography","url":"https://ja.wikipedia.org/wiki/欧州連合","level":"basic"},{"year":2016,"title":"Brexit 国民投票","summary":"英EU離脱決定、2020 正式離脱。","lat":51.5,"lon":-0.13,"kind":"geography","url":"https://ja.wikipedia.org/wiki/Brexit","level":"basic"},{"year":1869,"title":"大陸横断鉄道完成 米国","summary":"プロモントリー、ゴールデン・スパイク。","lat":41.62,"lon":-112.55,"kind":"geography","url":"https://ja.wikipedia.org/wiki/最初の大陸横断鉄道","level":"basic"},{"year":1908,"title":"T型フォード","summary":"デトロイト、大量生産方式 (ライン生産)。","lat":42.33,"lon":-83.05,"kind":"geography","url":"https://ja.wikipedia.org/wiki/フォード・モデルT","level":"basic"},{"year":1971,"title":"シリコンバレー (Intel 4004)","summary":"サンタクララ、マイクロプロセッサ普及。","lat":37.39,"lon":-121.96,"kind":"geography","url":"https://ja.wikipedia.org/wiki/シリコンバレー","level":"basic"},{"year":2020,"title":"USMCA 発効","summary":"NAFTA改定、北米自由貿易。","lat":19.43,"lon":-99.13,"kind":"geography","url":"https://ja.wikipedia.org/wiki/アメリカ・メキシコ・カナダ協定","level":"basic"},{"year":1959,"title":"キューバ革命","summary":"カストロ・ゲバラ、社会主義政権。","lat":23.13,"lon":-82.36,"kind":"geography","url":"https://ja.wikipedia.org/wiki/キューバ革命","level":"basic"},{"year":1978,"title":"アマゾン開発加速","summary":"ブラジル、トランスアマゾニカ完工後、熱帯林破壊問題。","lat":-3.1,"lon":-60.0,"kind":"geography","url":"https://ja.wikipedia.org/wiki/アマゾン熱帯雨林","level":"basic"},{"year":1995,"title":"メルコスル 発効","summary":"南米共同市場、ブラジル+アルゼンチン中心。","lat":-34.61,"lon":-58.38,"kind":"geography","url":"https://ja.wikipedia.org/wiki/南米南部共同市場","level":"basic"},{"year":1973,"title":"白豪主義公式撤廃","summary":"オーストラリア、多文化主義へ。","lat":-33.87,"lon":151.21,"kind":"geography","url":"https://ja.wikipedia.org/wiki/白豪主義","level":"basic"},{"year":1985,"title":"サウスパシフィック非核地帯条約","summary":"ラロトンガ、太平洋島嶼。","lat":-21.21,"lon":-159.78,"kind":"geography","url":"https://ja.wikipedia.org/wiki/南太平洋非核地帯条約","level":"basic"},{"year":2000,"title":"シドニーオリンピック","summary":"アボリジニとの和解、多文化国家像。","lat":-33.84,"lon":151.06,"kind":"geography","url":"https://ja.wikipedia.org/wiki/2000年シドニーオリンピック","level":"basic"},{"year":1959,"title":"南極条約","summary":"ワシントン、領土主張凍結+科学利用。","lat":-90.0,"lon":0.0,"kind":"geography","url":"https://ja.wikipedia.org/wiki/南極条約","level":"basic"},{"year":1982,"title":"国連海洋法条約 UNCLOS","summary":"EEZ 200海里、モンテゴベイ。","lat":18.47,"lon":-77.92,"kind":"geography","url":"https://ja.wikipedia.org/wiki/海洋法に関する国際連合条約","level":"basic"},{"year":2007,"title":"北極海航路 商業化加速","summary":"温暖化で航行可能期間拡大。","lat":78.22,"lon":15.65,"kind":"geography","url":"https://ja.wikipedia.org/wiki/北極海航路","level":"basic"},{"year":1992,"title":"地球サミット リオ","summary":"アジェンダ21、気候変動枠組条約・生物多様性条約。","lat":-22.91,"lon":-43.17,"kind":"geography","url":"https://ja.wikipedia.org/wiki/地球サミット","level":"basic"},{"year":1997,"title":"京都議定書","summary":"COP3、先進国の温室効果ガス削減義務。","lat":35.0116,"lon":135.7681,"kind":"geography","url":"https://ja.wikipedia.org/wiki/京都議定書","level":"basic"},{"year":2015,"title":"SDGs 採択","summary":"国連サミット、2030年目標。","lat":40.7489,"lon":-73.968,"kind":"geography","url":"https://ja.wikipedia.org/wiki/持続可能な開発目標","level":"basic"},{"year":-450,"title":"デモクリトス 原子論","summary":"アブデラ、これ以上分割できない最小単位 atomos。","lat":40.95,"lon":24.97,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/デモクリトス","level":"basic"},{"year":800,"title":"ジャービル・イブン・ハイヤーン","summary":"アラビア錬金術、蒸留・結晶化の体系化。クーファ。","lat":32.03,"lon":44.4,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ジャービル・イブン・ハイヤーン","level":"advanced"},{"year":1661,"title":"ボイル 懐疑的化学者 / ボイルの法則","summary":"オックスフォード、PV=一定 (温度一定)、近代化学の起点。","lat":51.752,"lon":-1.2577,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ロバート・ボイル","level":"basic"},{"year":1772,"title":"ラザフォード 窒素発見","summary":"エディンバラ、燃やしても残る空気成分。","lat":55.95,"lon":-3.19,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ダニエル・ラザフォード","level":"advanced"},{"year":1774,"title":"プリーストリー 酸素発見","summary":"リーズ、酸化水銀(II)を加熱、脱フロギストン空気。","lat":53.8,"lon":-1.55,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ジョゼフ・プリーストリー","level":"basic"},{"year":1783,"title":"シャルルの法則","summary":"パリ、温度一定圧で体積はTに比例、気球研究と。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/シャルルの法則","level":"basic"},{"year":1789,"title":"ラボアジエ 質量保存則 / 化学原論","summary":"パリ、酸素命名・元素表 33種・燃焼=酸素結合。近代化学の父。","lat":48.8566,"lon":2.3522,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アントワーヌ・ラヴォアジエ","level":"basic"},{"year":1799,"title":"プルースト 定比例の法則","summary":"マドリード、化合物の組成比は一定。","lat":40.42,"lon":-3.7,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ジョゼフ・ルイ・プルースト","level":"basic"},{"year":1803,"title":"ドルトン 原子説 / 倍数比例の法則","summary":"マンチェスター、原子量表、化学量論の基礎。","lat":53.4808,"lon":-2.2426,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ジョン・ドルトン","level":"basic"},{"year":1808,"title":"ゲーリュサック 気体反応の法則","summary":"パリ、反応する気体の体積比は単純整数比。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ジョゼフ・ルイ・ゲイ＝リュサック","level":"basic"},{"year":1811,"title":"アボガドロの分子説","summary":"トリノ、同温同圧で同体積中に同数の分子、N_A=6.02×10²³。","lat":45.0703,"lon":7.6869,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アメデオ・アヴォガドロ","level":"basic"},{"year":1828,"title":"ヴェーラー 尿素合成","summary":"ベルリン、無機物から有機物初合成、生命力説否定。","lat":52.52,"lon":13.4,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/フリードリヒ・ヴェーラー","level":"basic"},{"year":1834,"title":"ファラデー 電気分解の法則","summary":"ロンドン王立研究所、F=96485 C/mol、電気量と物質量。","lat":51.5099,"lon":-0.1426,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/マイケル・ファラデー","level":"basic"},{"year":1834,"title":"クラペイロン 理想気体の状態方程式","summary":"PV=nRT、後にクラウジウスが整備。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/エミール・クラペイロン","level":"basic"},{"year":1869,"title":"メンデレーエフ 周期表","summary":"サンクトペテルブルク、未発見元素の予言 (eka-Si=Ge)。","lat":59.9343,"lon":30.3351,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ドミトリ・メンデレーエフ","level":"basic"},{"year":1897,"title":"トムソン 電子発見","summary":"ケンブリッジ・キャヴェンディッシュ研、陰極線=電子。","lat":52.2099,"lon":0.0925,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ジョゼフ・ジョン・トムソン","level":"basic"},{"year":1898,"title":"キュリー夫妻 ポロニウム・ラジウム発見","summary":"パリ、放射能の研究、1903 ノーベル物理。","lat":48.84,"lon":2.34,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/マリ・キュリー","level":"basic"},{"year":1909,"title":"ラザフォード 原子核発見","summary":"マンチェスター、αα粒子散乱、原子=核+電子雲。","lat":53.467,"lon":-2.234,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アーネスト・ラザフォード","level":"basic"},{"year":1913,"title":"ボーアの原子模型","summary":"コペンハーゲン、量子条件 nh、水素スペクトル説明。","lat":55.6761,"lon":12.5683,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ニールス・ボーア","level":"basic"},{"year":1913,"title":"モーズリー 原子番号","summary":"オックスフォード、特性X線→Z=陽子数で周期表整理。","lat":51.76,"lon":-1.26,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ヘンリー・モーズリー","level":"advanced"},{"year":1932,"title":"チャドウィック 中性子発見","summary":"ケンブリッジ、原子質量数の説明完了。","lat":52.21,"lon":0.09,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ジェームズ・チャドウィック","level":"basic"},{"year":1884,"title":"アレニウス 電離説","summary":"ストックホルム、酸=H+を出す、塩基=OH-を出す。pH概念へ。","lat":59.3293,"lon":18.0686,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/スヴァンテ・アレニウス","level":"basic"},{"year":1909,"title":"セレンセン pH スケール","summary":"コペンハーゲン・カールスバーグ研、p[H+]の指数表示。","lat":55.66,"lon":12.51,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/水素イオン指数","level":"basic"},{"year":1923,"title":"ブレンステッド・ローリー酸塩基定義","summary":"コペンハーゲン+ロンドン、酸=H+供与、塩基=H+受容、共役対。","lat":55.68,"lon":12.57,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ブレンステッド・ローリーの酸塩基理論","level":"basic"},{"year":1923,"title":"ルイス酸塩基 / 共有結合","summary":"バークレー、電子対供与/受容、オクテット則。","lat":37.87,"lon":-122.26,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ギルバート・ルイス","level":"basic"},{"year":1864,"title":"ヴァーゲ・グルベリ 質量作用の法則","summary":"クリスチャニア (オスロ)、平衡定数の概念。","lat":59.91,"lon":10.75,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/質量作用の法則","level":"basic"},{"year":1884,"title":"ル・シャトリエの原理","summary":"パリ、平衡移動の予測、温度・圧力・濃度。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ルシャトリエの原理","level":"basic"},{"year":1840,"title":"ヘスの法則","summary":"サンクトペテルブルク、反応熱の総和は経路によらない。","lat":59.93,"lon":30.34,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ヘスの法則","level":"basic"},{"year":1889,"title":"アレニウス 反応速度式","summary":"ストックホルム、k=Aexp(-Ea/RT)、活性化エネルギー。","lat":59.33,"lon":18.07,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アレニウスの式","level":"basic"},{"year":1909,"title":"ハーバー アンモニア合成","summary":"カールスルーエ、N2+3H2→2NH3、食料増産+爆薬。1918 ノーベル賞。","lat":49.01,"lon":8.4,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ハーバー・ボッシュ法","level":"basic"},{"year":1913,"title":"ボッシュ 工業化","summary":"ルートヴィヒスハーフェン BASF、高圧反応工程。","lat":49.48,"lon":8.43,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/カール・ボッシュ","level":"advanced"},{"year":1800,"title":"ボルタ電池","summary":"コモ、Zn-Cu希硫酸、世界初の化学電池。","lat":45.81,"lon":9.08,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ボルタ電池","level":"basic"},{"year":1836,"title":"ダニエル電池","summary":"ロンドン、Zn|ZnSO4||CuSO4|Cu、起電力安定化。","lat":51.51,"lon":-0.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ダニエル電池","level":"basic"},{"year":1859,"title":"鉛蓄電池 プランテ","summary":"パリ、二次電池、自動車バッテリーの原型。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/鉛蓄電池","level":"basic"},{"year":1959,"title":"燃料電池 (ベーコン)","summary":"ケンブリッジ、アポロ宇宙船で実用化。","lat":52.2,"lon":0.12,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/燃料電池","level":"basic"},{"year":1858,"title":"ケクレ ベンゼン環構造","summary":"ボン、夢で蛇が尾をくわえる像から閉環構造。","lat":50.73,"lon":7.1,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ケクレ","level":"basic"},{"year":1856,"title":"パーキン モーブ合成","summary":"ロンドン、世界初の合成染料、有機工業化学の出発点。","lat":51.47,"lon":-0.4,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ウィリアム・パーキン","level":"advanced"},{"year":1900,"title":"フィッシャー アミノ酸の研究","summary":"ベルリン、1902 ノーベル賞、ペプチド合成。","lat":52.51,"lon":13.4,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/エミール・フィッシャー","level":"basic"},{"year":1907,"title":"ベークランド ベークライト","summary":"ニューヨーク、初の完全合成樹脂、プラスチック時代。","lat":40.93,"lon":-73.85,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ベークライト","level":"basic"},{"year":1935,"title":"カロザース ナイロン合成","summary":"デュポン社、ウィルミントン、ナイロン6,6。","lat":39.74,"lon":-75.55,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ナイロン","level":"basic"},{"year":1953,"title":"DNA 二重らせん","summary":"ケンブリッジ・キャヴェンディッシュ、ワトソン・クリック。1962 ノーベル賞。","lat":52.2,"lon":0.09,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/二重らせん","level":"basic"},{"year":1965,"title":"ウッドワード 全合成の総合理論","summary":"ハーバード、ビタミンB12など、1965 ノーベル賞。","lat":42.38,"lon":-71.12,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ロバート・バーンズ・ウッドワード","level":"advanced"},{"year":1900,"title":"高峰譲吉 アドレナリン結晶化","summary":"ニューヨーク、世界初のホルモン単離。","lat":40.71,"lon":-74.01,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/高峰譲吉","level":"basic"},{"year":1981,"title":"福井謙一 ノーベル化学賞","summary":"京都大学、フロンティア軌道理論、日本人初の化学賞。","lat":35.0263,"lon":135.7806,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/福井謙一","level":"basic"},{"year":2000,"title":"白川英樹 ノーベル化学賞","summary":"筑波大学、導電性ポリアセチレン、有機エレクトロニクス。","lat":36.1083,"lon":140.1019,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/白川英樹","level":"basic"},{"year":2001,"title":"野依良治 ノーベル化学賞","summary":"名古屋大学、不斉触媒水素化反応、医薬品合成革命。","lat":35.1547,"lon":136.9665,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/野依良治","level":"basic"},{"year":2002,"title":"田中耕一 ノーベル化学賞","summary":"島津製作所 京都、ソフトレーザー脱離法 (MALDI)、生体高分子質量分析。","lat":34.9914,"lon":135.7507,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/田中耕一","level":"basic"},{"year":2008,"title":"下村脩 ノーベル化学賞","summary":"ボストン、緑色蛍光タンパク質 GFP、生命科学の標準ツール。","lat":42.36,"lon":-71.06,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/下村脩","level":"basic"},{"year":2010,"title":"鈴木章・根岸英一 ノーベル化学賞","summary":"北大・パデュー、パラジウム触媒クロスカップリング、有機合成革命。","lat":43.0732,"lon":141.3437,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/クロスカップリング","level":"basic"},{"year":2019,"title":"吉野彰 ノーベル化学賞","summary":"旭化成、リチウムイオン二次電池、モバイル革命の基盤。","lat":35.6685,"lon":139.7322,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/吉野彰","level":"basic"},{"year":1774,"title":"シェーレ 塩素発見","summary":"ウプサラ、MnO2+HCl、後にデービーが単体と確認 1810。","lat":59.86,"lon":17.64,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/カール・ヴィルヘルム・シェーレ","level":"advanced"},{"year":1811,"title":"クールトワ ヨウ素発見","summary":"パリ、海藻灰の硫酸処理から紫蒸気。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ベルナール・クールトワ","level":"advanced"},{"year":1826,"title":"バラール 臭素発見","summary":"モンペリエ、海水濃縮母液から赤褐色液体。","lat":43.61,"lon":3.88,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アントワーヌ・ジェローム・バラール","level":"advanced"},{"year":1886,"title":"モアッサン フッ素単離","summary":"パリ、低温電解で F₂ 単体取り出し。1906 ノーベル賞。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アンリ・モアッサン","level":"advanced"},{"year":1894,"title":"ラムゼー アルゴン発見","summary":"ロンドン、レイリーと共同、空気不活性気体、希ガス族開拓。","lat":51.52,"lon":-0.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ウィリアム・ラムゼー","level":"basic"},{"year":1898,"title":"ヘリウム・ネオン・クリプトン・キセノン発見","summary":"ラムゼー、空気の分留で連続発見、希ガス族確立。","lat":51.52,"lon":-0.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/希ガス","level":"advanced"},{"year":1766,"title":"キャヴェンディッシュ 水素発見","summary":"ロンドン、Zn+希酸、可燃性気体・H2O 合成。","lat":51.52,"lon":-0.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ヘンリー・キャヴェンディッシュ","level":"basic"},{"year":1746,"title":"鉛室法による硫酸工業化","summary":"バーミンガム、ロウバック、近代工業化学の起源。","lat":52.48,"lon":-1.9,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/鉛室法","level":"advanced"},{"year":1791,"title":"ルブラン法 ソーダ","summary":"ル・アーヴル近郊、NaCl→Na2CO3、ガラス・石鹸産業基盤。","lat":49.49,"lon":0.11,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ルブラン法","level":"advanced"},{"year":1861,"title":"ソルベー法 (アンモニアソーダ法)","summary":"シャルルロワ、NaCl+NH3+CO2、現代の Na2CO3 製造法。","lat":50.41,"lon":4.44,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ソルベー法","level":"basic"},{"year":1875,"title":"接触法 (硫酸製造)","summary":"ロンドン、SO2+1/2O2 →SO3、V2O5 触媒、98%H2SO4 工業化。","lat":51.51,"lon":-0.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/接触法","level":"basic"},{"year":1902,"title":"オストワルト法 (硝酸製造)","summary":"ライプツィヒ、NH3 接触酸化→HNO3、肥料・火薬産業。1909 ノーベル賞。","lat":51.34,"lon":12.37,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/オストワルト法","level":"basic"},{"year":1886,"title":"ホール・エルー法 (アルミニウム電解)","summary":"オハイオ+パリ同年独立発明、Al2O3 を氷晶石融解塩電解。","lat":41.1,"lon":-81.52,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ホール・エルー法","level":"basic"},{"year":1888,"title":"バイヤー法 (ボーキサイト→アルミナ)","summary":"サンクトペテルブルク、NaOH 抽出で純 Al2O3。","lat":59.93,"lon":30.34,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/バイヤー法","level":"advanced"},{"year":1856,"title":"ベッセマー製鋼法","summary":"シェフィールド、転炉、銑鉄→鋼の大量生産。","lat":53.38,"lon":-1.47,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ベッセマー法","level":"advanced"},{"year":1848,"title":"パスツール 光学異性体","summary":"パリ、酒石酸塩結晶の対掌性発見、立体化学の源。","lat":48.85,"lon":2.35,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/光学異性体","level":"basic"},{"year":1874,"title":"ファント・ホッフ・ル・ベル 炭素四面体説","summary":"ユトレヒト+パリ、C の sp3 立体配置、不斉炭素。","lat":52.09,"lon":5.11,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ファントホッフ","level":"basic"},{"year":1901,"title":"ファント・ホッフ 第1回ノーベル化学賞","summary":"アムステルダム、浸透圧と化学平衡、π=cRT。","lat":52.37,"lon":4.9,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ヤコブス・ヘンリクス・ファント・ホッフ","level":"basic"},{"year":1865,"title":"クルッカス 陰極線管","summary":"ロンドン、後の電子発見の道具を提供。","lat":51.51,"lon":-0.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/クルックス管","level":"advanced"},{"year":1872,"title":"ベイヤー 歪み説","summary":"ミュンヘン、シクロアルカン環ひずみ、後の立体配座論へ。1905 ノーベル賞。","lat":48.14,"lon":11.58,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アドルフ・フォン・バイヤー","level":"advanced"},{"year":1900,"title":"グリニャール試薬","summary":"リヨン、RMgX、有機合成革命。1912 ノーベル賞。","lat":45.76,"lon":4.84,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/グリニャール試薬","level":"basic"},{"year":1928,"title":"ディールス・アルダー反応","summary":"キール、ジエン+ジエノフィル→6員環、合成最重要反応。1950 ノーベル賞。","lat":54.32,"lon":10.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ディールス・アルダー反応","level":"basic"},{"year":1893,"title":"ヴェルナー 配位説","summary":"チューリヒ、配位数・幾何異性、現代錯体化学の基礎。1913 ノーベル賞。","lat":47.38,"lon":8.55,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/アルフレート・ヴェルナー","level":"basic"},{"year":1912,"title":"ラウエ X線回折","summary":"ミュンヘン、結晶=回折格子、結晶学の幕開け。1914 ノーベル賞。","lat":48.15,"lon":11.58,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/マックス・フォン・ラウエ","level":"advanced"},{"year":1913,"title":"ブラッグ父子 結晶構造解析","summary":"リーズ、nλ=2dsinθ、NaCl 構造決定。1915 ノーベル賞。","lat":53.81,"lon":-1.55,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ブラッグの法則","level":"basic"},{"year":1916,"title":"ルイス構造式・共有結合","summary":"バークレー、点電子式、共有結合電子対のモデル。","lat":37.87,"lon":-122.26,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ルイス構造","level":"basic"},{"year":1939,"title":"ポーリング 化学結合論","summary":"パサデナ、電気陰性度・混成軌道・共鳴、1954 ノーベル賞。","lat":34.14,"lon":-118.13,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ライナス・ポーリング","level":"basic"},{"year":1839,"title":"グッドイヤー 加硫ゴム","summary":"コネチカット、天然ゴム+硫黄、ゴム工業の起源。","lat":41.32,"lon":-72.93,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/加硫","level":"basic"},{"year":1920,"title":"シュタウディンガー 高分子説","summary":"フライブルク、共有結合の長鎖、ポリマー概念確立。1953 ノーベル賞。","lat":47.99,"lon":7.85,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ヘルマン・シュタウディンガー","level":"basic"},{"year":1953,"title":"チーグラー・ナッタ触媒","summary":"ミュールハイム+ミラノ、低圧で立体規則性ポリエチレン・ポリプロピレン。1963 ノーベル賞。","lat":51.43,"lon":6.88,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/チーグラー・ナッタ触媒","level":"basic"},{"year":1938,"title":"テフロン (PTFE) 発見","summary":"デュポン社 ニュージャージー、プランケット偶然発見。","lat":39.65,"lon":-75.74,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ポリテトラフルオロエチレン","level":"basic"},{"year":1937,"title":"ポリエステル PET","summary":"マンチェスター、ICI、テリレン繊維・ペットボトル原料。","lat":53.48,"lon":-2.24,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ポリエチレンテレフタラート","level":"basic"},{"year":1897,"title":"ブフナー 無細胞発酵","summary":"テュービンゲン、酵母なしでもアルコール発酵、酵素の概念。1907 ノーベル賞。","lat":48.52,"lon":9.06,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/エドゥアルト・ブフナー","level":"advanced"},{"year":1913,"title":"ミカエリス・メンテン式","summary":"ベルリン、酵素反応速度論、v=Vmax[S]/(Km+[S])。","lat":52.52,"lon":13.4,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ミカエリス・メンテン式","level":"advanced"},{"year":1908,"title":"ヘンダーソン緩衝式","summary":"ハーバード、pH=pKa+log([A-]/[HA])、生体・分析化学。","lat":42.38,"lon":-71.12,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ヘンダーソン・ハッセルバルヒの式","level":"advanced"},{"year":1923,"title":"デバイ・ヒュッケル理論","summary":"チューリヒ、強電解質の活量係数、イオン雰囲気。","lat":47.38,"lon":8.55,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/デバイ・ヒュッケルの理論","level":"advanced"},{"year":1953,"title":"サンガー インスリン一次構造","summary":"ケンブリッジ、タンパク質配列決定、1958 ノーベル賞。","lat":52.2,"lon":0.12,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/フレデリック・サンガー","level":"advanced"},{"year":1985,"title":"フラーレン C60 発見","summary":"ライス大学 ヒューストン、サッカーボール状炭素分子。1996 ノーベル賞。","lat":29.72,"lon":-95.4,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/フラーレン","level":"basic"},{"year":1991,"title":"カーボンナノチューブ 飯島澄男","summary":"NEC 筑波、CNT 発見、ナノテクノロジー基盤。","lat":36.0834,"lon":140.0764,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/カーボンナノチューブ","level":"basic"},{"year":2004,"title":"グラフェン 単離","summary":"マンチェスター、ガイム・ノボセロフ、セロハンテープ法。2010 ノーベル物理。","lat":53.47,"lon":-2.23,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/グラフェン","level":"advanced"},{"year":1907,"title":"池田菊苗 グルタミン酸 (うま味)","summary":"東京帝大、第5の味覚 umami、味の素の起源。","lat":35.7136,"lon":139.7619,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/池田菊苗","level":"basic"},{"year":1910,"title":"鈴木梅太郎 オリザニン (ビタミンB1)","summary":"東京帝大、米ぬかから脚気予防成分、ビタミン概念の先駆。","lat":35.7136,"lon":139.7619,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/鈴木梅太郎","level":"basic"},{"year":1936,"title":"古在由秀・桜田一郎 ビニロン","summary":"京都帝大、世界初の日本独自の合成繊維 PVA 系。","lat":35.0263,"lon":135.7806,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/ビニロン","level":"advanced"},{"year":2014,"title":"中村修二 青色 LED ノーベル物理","summary":"日亜化学 徳島、GaN 系青色 LED、白色照明革命。","lat":33.93,"lon":134.55,"kind":"chemistry","url":"https://ja.wikipedia.org/wiki/青色発光ダイオード","level":"basic"}]</script>
+<script type="application/json" id="ICONS_DATA">{"us":"data:image/png;base64,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","afr":"data:image/png;base64,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","asia":"data:image/png;base64,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","aust":"data:image/png;base64,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"}</script>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
+
+/* =====================================================
+   定数 / データ
+===================================================== */
+
+const EVENTS = JSON.parse(document.getElementById('EVENTS_DATA').textContent);
+const REGION_ICONS = JSON.parse(document.getElementById('ICONS_DATA').textContent);
+
+// 起動時に 4 枚の src を流し込む
+(function loadRegionIcons(){
+  for (const img of document.querySelectorAll('#regionIcon img')){
+    const k = img.dataset.key;
+    if (REGION_ICONS[k]) img.src = REGION_ICONS[k];
+  }
+})();
+
+const ERAS = [
+  { ja:"旧石器", ro:"Paleolithic", s:-40000, e:-14000 },
+  { ja:"縄文",   ro:"Jōmon",       s:-14000, e:-300 },
+  { ja:"弥生",   ro:"Yayoi",       s:-300,   e:250 },
+  { ja:"古墳",   ro:"Kofun",       s:250,    e:538 },
+  { ja:"飛鳥",   ro:"Asuka",       s:538,    e:710 },
+  { ja:"奈良",   ro:"Nara",        s:710,    e:794 },
+  { ja:"平安",   ro:"Heian",       s:794,    e:1185 },
+  { ja:"鎌倉",   ro:"Kamakura",    s:1185,   e:1333 },
+  { ja:"室町",   ro:"Muromachi",   s:1336,   e:1573 },
+  { ja:"安土桃山",ro:"Azuchi-Momoyama", s:1573, e:1603 },
+  { ja:"江戸",   ro:"Edo",         s:1603,   e:1868 },
+  { ja:"明治",   ro:"Meiji",       s:1868,   e:1912 },
+  { ja:"大正",   ro:"Taishō",      s:1912,   e:1926 },
+  { ja:"昭和",   ro:"Shōwa",       s:1926,   e:1989 },
+  { ja:"平成",   ro:"Heisei",      s:1989,   e:2019 },
+  { ja:"令和",   ro:"Reiwa",       s:2019,   e:2030 },
+];
+const MIN_YEAR = -40000, MAX_YEAR = 2030;
+
+const KIND_META = {
+  japan:    { color: 0xff5d6c, label:"日本",   css:"#ff5d6c" },
+  world:    { color: 0xfff48b, label:"世界",   css:"#fff48b" },
+  war:      { color: 0xff8a4c, label:"戦争",   css:"#ff8a4c" },
+  culture:  { color: 0xa0e1ff, label:"文化",   css:"#a0e1ff" },
+  science:  { color: 0x7cffbf, label:"科学",   css:"#7cffbf" },
+  religion: { color: 0xffb3ff, label:"宗教",   css:"#ffb3ff" },
+  discovery:{ color: 0xb6ff5c, label:"探検",   css:"#b6ff5c" },
+  politics: { color: 0xff8de5, label:"政治",   css:"#ff8de5" },
+  economy:  { color: 0xffd97a, label:"経済",   css:"#ffd97a" },
+  geology:  { color: 0xc89b7e, label:"地学",   css:"#c89b7e" },
+  astronomy:{ color: 0x9bb3ff, label:"天文",   css:"#9bb3ff" },
+  geography:{ color: 0x7ee1c4, label:"地理",   css:"#7ee1c4" },
+  chemistry:{ color: 0xf28adb, label:"化学",   css:"#f28adb" },
+};
+
+function eraForYear(y){
+  for (const e of ERAS) if (y >= e.s && y < e.e) return e;
+  return null;
+}
+function formatYear(y){
+  return y < 0 ? `B.C. ${-y}` : `A.D. ${y}`;
+}
+
+/* =====================================================
+   Three.js シーン
+===================================================== */
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 4000);
+camera.position.set(0, 0, 7);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+// 明るくクッキリ. tonemap は弱め (Linear) で暗くならないように.
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.LinearToneMapping;
+renderer.toneMappingExposure = 1.45;
+document.body.appendChild(renderer.domElement);
+
+// ── 星空 (xxx.html ベース): cube 分布 8000 個 + ソフトグローでうるさくない
+function makeStarSprite(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(16,16,0, 16,16,16);
+  g.addColorStop(0.00, 'rgba(255,255,255,1.00)');
+  g.addColorStop(0.30, 'rgba(255,255,255,0.55)');
+  g.addColorStop(0.70, 'rgba(255,255,255,0.10)');
+  g.addColorStop(1.00, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,32,32);
+  const t = new THREE.CanvasTexture(c);
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  return t;
+}
+const STAR_TEX = makeStarSprite();
+
+// 主層: ふんわり光る星 (sprite glow). cube 分布.
+const starsGeo = new THREE.BufferGeometry();
+const STARS_N = 4500;
+const _starsPos = new Float32Array(STARS_N*3);
+for (let i=0; i<STARS_N; i++){
+  _starsPos[i*3]   = (Math.random()-0.5) * 2000;
+  _starsPos[i*3+1] = (Math.random()-0.5) * 2000;
+  _starsPos[i*3+2] = (Math.random()-0.5) * 2000;
+}
+starsGeo.setAttribute('position', new THREE.BufferAttribute(_starsPos, 3));
+const starsMat = new THREE.PointsMaterial({
+  map: STAR_TEX,
+  color: 0xffffff,
+  size: 2.4,
+  sizeAttenuation: true,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  alphaTest: 0.002,
+  opacity: 0.85,
+});
+const stars = new THREE.Points(starsGeo, starsMat);
+scene.add(stars);
+
+// 微細層: ピンプリック星 (sprite 無し, 純点) で背景に細かい粒. 大量.
+const tinyGeo = new THREE.BufferGeometry();
+const TINY_N = 10000;
+const _tinyPos = new Float32Array(TINY_N*3);
+for (let i=0; i<TINY_N; i++){
+  _tinyPos[i*3]   = (Math.random()-0.5) * 2400;
+  _tinyPos[i*3+1] = (Math.random()-0.5) * 2400;
+  _tinyPos[i*3+2] = (Math.random()-0.5) * 2400;
+}
+tinyGeo.setAttribute('position', new THREE.BufferAttribute(_tinyPos, 3));
+const tinyMat = new THREE.PointsMaterial({
+  color: 0xeef2ff,
+  size: 0.7,            // xxx.html と同じ細粒
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 0.85,
+  depthWrite: false,
+});
+const tinyStars = new THREE.Points(tinyGeo, tinyMat);
+scene.add(tinyStars);
+
+// 地球
+const earthGeometry = new THREE.SphereGeometry(2, 96, 96);
+const loader = new THREE.TextureLoader();
+const earthTex = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', t => {
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 16;
+});
+const bumpTex  = loader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg');
+const specTex  = loader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg');
+// xxx.html ベース: MeshStandard で素直に明るく. emissive を高くして夜面も発色させる.
+const earthMaterial = new THREE.MeshStandardMaterial({
+  map: earthTex,
+  normalMap: bumpTex,
+  roughness: 0.85,
+  metalness: 0.0,
+  emissive: new THREE.Color(0xffffff),
+  emissiveMap: earthTex,
+  emissiveIntensity: 0.55,   // 夜側でも色が見える基礎発光
+});
+const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+scene.add(earth);
+
+// 雲 — 3D 系 (多層 + Phong で太陽光の陰影 + バンプで puff の立体感)
+const cloudTex = loader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png');
+
+// 下層 (厚雲) — Lambert ベースで白く明るく
+const cloudsLow = new THREE.Mesh(
+  new THREE.SphereGeometry(2.026, 128, 128),
+  new THREE.MeshLambertMaterial({
+    map: cloudTex,
+    alphaMap: cloudTex,
+    transparent: true,
+    opacity: 0.62,
+    depthWrite: false,
+    emissive: new THREE.Color(0x202428),
+    emissiveIntensity: 0.5,
+  })
+);
+scene.add(cloudsLow);
+
+// 中層 — 少し膨らんだ位置でゆっくり別方向に流す
+const cloudsMid = new THREE.Mesh(
+  new THREE.SphereGeometry(2.044, 96, 96),
+  new THREE.MeshLambertMaterial({
+    map: cloudTex,
+    alphaMap: cloudTex,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+  })
+);
+scene.add(cloudsMid);
+
+// 高層 (うっすら) — 加算で発光感. 反対方向に速め.
+const cloudsHi = new THREE.Mesh(
+  new THREE.SphereGeometry(2.072, 64, 64),
+  new THREE.MeshLambertMaterial({
+    map: cloudTex,
+    alphaMap: cloudTex,
+    transparent: true,
+    opacity: 0.16,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+);
+scene.add(cloudsHi);
+
+// 後方互換: 旧 `clouds` 参照を残す
+const clouds = cloudsLow;
+
+// (大気のハロ・暗ヴィネット撤去 — 地球をしっかり明るく見せる)
+
+// ライト (起動時は 0 から 1s で立ち上げる)
+const sun = new THREE.DirectionalLight(0xffffff, 0);
+sun.position.set(8, 5, 8);
+scene.add(sun);
+const amb = new THREE.AmbientLight(0xffffff, 0);   // 白色アンビでフラットに明るく
+scene.add(amb);
+// 目標値 — 暗くないように強め. emissive 0.55 と合わせて全周明るい.
+const LIGHT_TARGET = { sun: 2.0, amb: 1.6 };
+
+function rampLighting(dur){
+  const t0 = performance.now();
+  function step(){
+    const t = Math.min(1, (performance.now()-t0)/dur);
+    const k = 1 - Math.pow(1-t, 3);
+    sun.intensity = LIGHT_TARGET.sun * k;
+    amb.intensity = LIGHT_TARGET.amb * k;
+    earthMaterial.emissive = new THREE.Color(0x0); // 念のため
+    if (t < 1) requestAnimationFrame(step);
+  }
+  step();
+}
+
+/* =====================================================
+   緯度経度 → 3D 座標
+===================================================== */
+function latLonToVec3(lat, lon, radius){
+  const phi = (90 - lat) * Math.PI/180;
+  const theta = (lon + 180) * Math.PI/180;
+  return new THREE.Vector3(
+    -(radius * Math.sin(phi) * Math.cos(theta)),
+     (radius * Math.cos(phi)),
+     (radius * Math.sin(phi) * Math.sin(theta))
+  );
+}
+function vec3ToLatLon(v){
+  const r = v.length();
+  const lat = 90 - Math.acos(v.y / r) * 180/Math.PI;
+  // x = -r*sin(phi)*cos(theta), z = r*sin(phi)*sin(theta)
+  const lon = Math.atan2(v.z, -v.x) * 180/Math.PI - 180;
+  let l = lon;
+  while (l < -180) l += 360;
+  while (l > 180) l -= 360;
+  return { lat, lon: l };
+}
+
+/* =====================================================
+   史実ピン
+===================================================== */
+const pinsGroup = new THREE.Group();
+earth.add(pinsGroup);
+
+const PIN_RADIUS = 2.02;
+const pinObjects = []; // {mesh, ev}
+
+const pinGeo = new THREE.SphereGeometry(0.018, 10, 10);
+for (const ev of EVENTS){
+  const meta = KIND_META[ev.kind] || { color: 0xffffff };
+  const mat = new THREE.MeshBasicMaterial({ color: meta.color });
+  const m = new THREE.Mesh(pinGeo, mat);
+  m.position.copy(latLonToVec3(ev.lat, ev.lon, PIN_RADIUS));
+  m.userData.ev = ev;
+  pinsGroup.add(m);
+  pinObjects.push({ mesh:m, ev, mat });
+}
+pinsGroup.visible = false;   // プロットはリセット (史実ピンを全部消す)
+
+/* =====================================================
+   ScrubController (年の中央 state)
+===================================================== */
+const state = {
+  year: 2026,
+  rotating: true,
+  is3D: true,
+  scrubbing: false,
+  categoryFilter: null,   // null = all
+  lastEra: "",
+};
+
+function setYear(y, {silent=false, animated=true} = {}){
+  const clamped = Math.max(MIN_YEAR, Math.min(MAX_YEAR, Math.round(y)));
+  if (clamped === state.year) return;
+  state.year = clamped;
+  refreshUIYear();
+  if (!silent){
+    bumpNotch();
+    haptic('tap');
+  }
+  applyEventVisibility();
+}
+
+function nudgeYear(d){ setYear(state.year + d); }
+
+/* =====================================================
+   Notch HUD
+===================================================== */
+const notchEl = document.getElementById('notch');
+const notchYearEl = document.getElementById('notchYear');
+const notchEraEl  = document.getElementById('notchEra');
+
+let _bumpT = null;
+function bumpNotch(){
+  notchEl.classList.add('bump');
+  clearTimeout(_bumpT);
+  _bumpT = setTimeout(()=> notchEl.classList.remove('bump'), 180);
+}
+
+function refreshUIYear(){
+  notchYearEl.textContent = formatYear(state.year);
+  const era = eraForYear(state.year);
+  if (era){
+    notchEraEl.innerHTML = `${era.ja} <span class="romaji">${era.ro}</span>`;
+  } else {
+    notchEraEl.innerHTML = `先史 <span class="romaji">Prehistoric</span>`;
+  }
+  refreshEraRail();
+  refreshWheelReadout();
+}
+
+notchEl.addEventListener('click', e => {
+  if (e.target.closest('.expanded-pane')) return;  // 中の操作は無視
+  toggleNotchExpand(true);
+});
+document.getElementById('notchClose').addEventListener('click', e => {
+  e.stopPropagation(); toggleNotchExpand(false);
+});
+
+/* =====================================================
+   EraTimeline (右レール) — iOS 風 ティック + 元号
+   img2 の TerraKoku 風: 新しい時代 → 古い時代 (上から下)
+===================================================== */
+const eraRailScroll = document.getElementById('eraRailScroll');
+const eraChips = [];
+{
+  // img2 の TerraKoku は 上=新しい 下=古い の順
+  const reversed = [...ERAS].slice().reverse();
+  for (const era of reversed){
+    const row = document.createElement('div');
+    row.className = 'eraRow';
+    row.innerHTML = `<span class="tick"></span><span class="ja">${era.ja}</span>`;
+    row.addEventListener('click', ()=>{
+      const mid = Math.round((era.s + era.e)/2);
+      setYear(mid);
+      haptic('confirm');
+    });
+    eraRailScroll.appendChild(row);
+    eraChips.push({ era, el: row });
+  }
+}
+function refreshEraRail(){
+  const cur = eraForYear(state.year);
+  for (const c of eraChips){
+    c.el.classList.toggle('active', cur && cur.ja === c.era.ja);
+  }
+}
+
+/* =====================================================
+   CategoryRail (右下)
+===================================================== */
+const catRailEl = document.getElementById('catRail');
+const catChips = [];
+// 化学 を強調 (TerraKoku では化学が rail のメインだった)
+const CAT_ORDER = ['chemistry','japan','world','war','culture','science','religion','discovery','politics','economy','geology','astronomy','geography'];
+for (const kind of CAT_ORDER){
+  const meta = KIND_META[kind];
+  if (!meta) continue;
+  const chip = document.createElement('div');
+  chip.className = 'catChip';
+  chip.innerHTML = `<span class="dot" style="background:${meta.css}"></span>${meta.label}`;
+  chip.addEventListener('click', ()=>{
+    state.categoryFilter = (state.categoryFilter === kind) ? null : kind;
+    for (const c of catChips) c.el.classList.toggle('on', c.kind === state.categoryFilter);
+    applyEventVisibility();
+    haptic('confirm');
+  });
+  catRailEl.appendChild(chip);
+  catChips.push({ kind, el: chip });
+}
+
+/* =====================================================
+   イベント可視性 — カテゴリチップ非表示なので全プロット常時表示.
+   年に近いものは少し大きく / 遠いものは小さく, ただし常に visible.
+===================================================== */
+function applyEventVisibility(){
+  for (const p of pinObjects){
+    const dy = Math.abs(p.ev.year - state.year);
+    // 近いほど 1.4 倍, 遠くても 0.7 倍以上は確保
+    let s;
+    if (dy <= 30) s = 1.4;
+    else if (dy <= 200) s = 1.4 - (dy-30)/170 * 0.55;
+    else s = 0.7;
+    p.mesh.visible = true;
+    p.mat.opacity = 1.0;
+    p.mat.transparent = false;
+    p.mesh.scale.setScalar(s);
+  }
+}
+
+/* =====================================================
+   Dynamic Island Expand: 年スライダ
+===================================================== */
+const yearSlider = document.getElementById('yearSlider');
+const ysFill = document.getElementById('ysFill');
+const ysTicks = document.getElementById('ysTicks');
+const expYearEl = document.getElementById('expYear');
+const expEraEl  = document.getElementById('expEra');
+const NOTCH_MIN_YEAR = -10000;
+const NOTCH_MAX_YEAR = 2030;
+
+// 時代ティックを 1 度だけ描く
+(function buildTicks(){
+  // 主要時代の開始年だけマーク
+  const marks = ERAS.filter(e => e.s >= NOTCH_MIN_YEAR && e.s <= NOTCH_MAX_YEAR);
+  const span = NOTCH_MAX_YEAR - NOTCH_MIN_YEAR;
+  ysTicks.innerHTML = '';
+  for (const m of marks){
+    const x = ((m.s - NOTCH_MIN_YEAR) / span) * 100;
+    const tk = document.createElement('div'); tk.className='tk'; tk.style.left = x+'%';
+    ysTicks.appendChild(tk);
+  }
+  // BC ラベル / 0 / 1000 / 2026
+  [[-10000,'-10k'],[-5000,'-5k'],[0,'0'],[1000,'1000'],[2026,'2026']].forEach(([y,lab])=>{
+    const x = ((y - NOTCH_MIN_YEAR) / span) * 100;
+    const lb = document.createElement('div'); lb.className='lb'; lb.style.left = x+'%'; lb.textContent = lab;
+    ysTicks.appendChild(lb);
+  });
+})();
+
+function syncSliderToYear(){
+  const y = Math.max(NOTCH_MIN_YEAR, Math.min(NOTCH_MAX_YEAR, state.year));
+  yearSlider.value = y;
+  const pct = ((y - NOTCH_MIN_YEAR) / (NOTCH_MAX_YEAR - NOTCH_MIN_YEAR)) * 100;
+  ysFill.style.width = pct + '%';
+  expYearEl.textContent = formatYear(state.year);
+  const era = eraForYear(state.year);
+  expEraEl.innerHTML = era
+    ? `${era.ja} <span class="romaji">${era.ro}</span>`
+    : `先史 <span class="romaji">Prehistoric</span>`;
+}
+
+yearSlider.addEventListener('input', () => {
+  const y = parseInt(yearSlider.value, 10);
+  setYear(y, { silent: true });
+  bumpNotch();
+});
+yearSlider.addEventListener('change', () => haptic('confirm'));
+
+// ── 上下スワイプでもスライダを動かす. 0.3s 滑らかに到達.
+(function attachVerticalSwipe(){
+  const wrap = document.querySelector('.yearSliderWrap');
+  let active = false, startY = 0, startX = 0, startYear = 0, mode = null;
+  let pid = null;
+  let easeTarget = null, easeFrom = null, easeT0 = 0, easeRaf = null;
+
+  function startEase(toYear){
+    cancelAnimationFrame(easeRaf);
+    easeFrom = state.year;
+    easeTarget = toYear;
+    easeT0 = performance.now();
+    const dur = 300;
+    function step(){
+      const t = Math.min(1, (performance.now()-easeT0)/dur);
+      const k = 1 - Math.pow(1-t, 3);
+      const y = Math.round(easeFrom + (easeTarget - easeFrom)*k);
+      setYear(y, { silent:true });
+      if (t < 1) easeRaf = requestAnimationFrame(step);
+    }
+    easeRaf = requestAnimationFrame(step);
+  }
+
+  wrap.addEventListener('pointerdown', e => {
+    if (!notchEl.classList.contains('expanded')) return;
+    active = true; pid = e.pointerId;
+    startY = e.clientY; startX = e.clientX; startYear = state.year;
+    mode = null;
+    wrap.setPointerCapture(pid);
+  });
+  wrap.addEventListener('pointermove', e => {
+    if (!active) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!mode){
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5){
+        mode = (Math.abs(dy) > Math.abs(dx)) ? 'v' : 'h';
+      }
+    }
+    if (mode === 'v'){
+      e.preventDefault();
+      // 上スワイプ = 未来へ. 1px = 12 年.
+      const delta = -dy * 12;
+      const target = Math.max(NOTCH_MIN_YEAR, Math.min(NOTCH_MAX_YEAR, startYear + Math.round(delta)));
+      setYear(target, { silent: true });
+    }
+  });
+  function endSwipe(){
+    if (!active) return;
+    if (pid != null) try { wrap.releasePointerCapture(pid); } catch(_){}
+    active = false; pid = null;
+    if (mode === 'v') haptic('confirm');
+    mode = null;
+  }
+  wrap.addEventListener('pointerup', endSwipe);
+  wrap.addEventListener('pointercancel', endSwipe);
+
+  // ホイール (trackpad 2 本指縦) でも 0.3s 滑らかに
+  wrap.addEventListener('wheel', e => {
+    if (!notchEl.classList.contains('expanded')) return;
+    e.preventDefault();
+    const delta = -e.deltaY * 6;
+    const target = Math.max(NOTCH_MIN_YEAR, Math.min(NOTCH_MAX_YEAR, state.year + Math.round(delta)));
+    startEase(target);
+  }, { passive:false });
+})();
+
+function toggleNotchExpand(force){
+  const want = force === undefined ? !notchEl.classList.contains('expanded') : force;
+  notchEl.classList.toggle('expanded', want);
+  if (want){
+    syncSliderToYear();
+    haptic('confirm');
+  }
+}
+
+// 旧: wheel overlay 系は廃止. 既存の wheelOverlay 要素も hide.
+{
+  const w = document.getElementById('wheelOverlay');
+  if (w) w.remove();
+}
+// 旧 wheel ベース identifiers は no-op 化
+function toggleWheel(force){ toggleNotchExpand(force); }
+function refreshWheelReadout(){ syncSliderToYear(); }
+function syncWheelToYear(){ syncSliderToYear(); }
+
+// (旧 YearWheel column UI は撤去 — Dynamic Island expand スライダで代替)
+
+/* =====================================================
+   TimeMachine Stack
+===================================================== */
+const stackOverlay = document.getElementById('stackOverlay');
+const stackInner = document.getElementById('stackInner');
+const stackUp = document.getElementById('stackUp');
+const stackDown = document.getElementById('stackDown');
+const stackCounter = document.getElementById('stackCounter');
+const stackClose = document.getElementById('stackClose');
+
+let stackCards = [];
+let stackFocus = 0;
+
+function openTimeMachine(events){
+  if (!events.length){
+    // 周辺イベントを採用
+    events = nearestEvents(state.year, 7);
+  }
+  stackCards = events;
+  stackFocus = 0;
+  renderStack();
+  stackOverlay.classList.add('show');
+  haptic('confirm');
+}
+function closeTimeMachine(){
+  stackOverlay.classList.remove('show');
+}
+
+function renderStack(){
+  stackInner.innerHTML = '';
+  stackCards.forEach((ev, idx) => {
+    const dz = idx - stackFocus;
+    const isFocus = idx === stackFocus;
+    const yOff = dz * 48;
+    const sc = isFocus ? 1.0 : (1 - Math.abs(dz)*0.06);
+    const op = isFocus ? 1 : Math.max(0.18, 1 - Math.abs(dz)*0.22);
+    const rot = isFocus ? 0 : dz * -3.4;
+    const card = document.createElement('div');
+    card.className = 'tmCard' + (isFocus ? ' focus':'');
+    card.style.transform = `translate(-50%, calc(-50% + ${yOff}px)) scale(${sc}) rotateX(${rot}deg)`;
+    card.style.top = '50%';
+    card.style.opacity = op;
+    card.style.zIndex = 100 - Math.abs(dz);
+    const meta = KIND_META[ev.kind] || {label:'', css:'#fff'};
+    card.innerHTML = `
+      <div class="year">${formatYear(ev.year)}　<span class="dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${meta.css};margin:0 4px 0 4px;"></span>${meta.label}<span class="focusChip">FOCUS</span></div>
+      <div class="title">${escapeHtml(ev.title)}</div>
+      <div class="summary">${escapeHtml(ev.summary)}</div>
+      <div class="link">🔗<a href="${ev.url}" target="_blank" rel="noopener">${ev.url}</a></div>
+    `;
+    card.addEventListener('click', ()=>{
+      stackFocus = idx;
+      renderStack();
+      haptic('snap');
+      // 該当年へジャンプ
+      setYear(ev.year);
+      // ピンへフォーカス
+      flyTo(ev.lat, ev.lon);
+    });
+    stackInner.appendChild(card);
+  });
+  stackCounter.textContent = `${stackFocus+1} / ${stackCards.length}`;
+  stackUp.disabled = stackFocus <= 0;
+  stackDown.disabled = stackFocus >= stackCards.length-1;
+}
+function stepStack(d){
+  const n = Math.max(0, Math.min(stackCards.length-1, stackFocus+d));
+  if (n !== stackFocus){
+    stackFocus = n;
+    renderStack();
+    haptic('snap');
+  }
+}
+stackUp.addEventListener('click', ()=> stepStack(-1));
+stackDown.addEventListener('click', ()=> stepStack(1));
+stackClose.addEventListener('click', closeTimeMachine);
+stackOverlay.addEventListener('click', e => { if (e.target === stackOverlay) closeTimeMachine(); });
+
+// 上下スワイプ / トラックパッド縦スクロール で stepStack. 連続発火は 500ms スロットル.
+(function attachStackSwipe(){
+  let lastStep = 0;
+  function trySwitch(dir){
+    const now = performance.now();
+    if (now - lastStep < 500) return;
+    lastStep = now;
+    stepStack(dir);
+  }
+  // wheel (PC スクロール / trackpad)
+  stackInner.addEventListener('wheel', e => {
+    if (!stackOverlay.classList.contains('show')) return;
+    e.preventDefault();
+    if (Math.abs(e.deltaY) < 8) return;
+    trySwitch(e.deltaY > 0 ? 1 : -1);
+  }, { passive:false });
+  // pointer swipe
+  let pid = null, startY = 0, accY = 0, active = false;
+  stackInner.addEventListener('pointerdown', e => {
+    if (!stackOverlay.classList.contains('show')) return;
+    active = true; pid = e.pointerId; startY = e.clientY; accY = 0;
+    try { stackInner.setPointerCapture(pid); } catch(_){}
+  });
+  stackInner.addEventListener('pointermove', e => {
+    if (!active) return;
+    accY = e.clientY - startY;
+    if (Math.abs(accY) > 56){
+      trySwitch(accY < 0 ? 1 : -1);
+      startY = e.clientY;  // 続けて swipe で連続切替
+      accY = 0;
+    }
+  });
+  function endSwipe(){
+    if (!active) return;
+    try { stackInner.releasePointerCapture(pid); } catch(_){}
+    active = false; pid = null; accY = 0;
+  }
+  stackInner.addEventListener('pointerup', endSwipe);
+  stackInner.addEventListener('pointercancel', endSwipe);
+  // キーボード
+  document.addEventListener('keydown', e => {
+    if (!stackOverlay.classList.contains('show')) return;
+    if (e.key === 'ArrowDown'){ e.preventDefault(); trySwitch(1); }
+    if (e.key === 'ArrowUp'){ e.preventDefault(); trySwitch(-1); }
+  });
+})();
+// 縦スワイプを邪魔しないために stackInner の touch-action を CSS で固定
+stackInner.style.touchAction = 'none';
+
+function nearestEvents(year, n){
+  const sorted = EVENTS
+    .filter(ev => !state.categoryFilter || ev.kind === state.categoryFilter)
+    .map(ev => ({ev, d: Math.abs(ev.year - year)}))
+    .sort((a,b)=>a.d-b.d)
+    .slice(0, n)
+    .map(x=> x.ev);
+  return sorted;
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+}
+
+/* =====================================================
+   Saved Regions (localStorage)
+===================================================== */
+const SAVED_KEY = 'TerraKokuWeb.SavedSpots.v1';
+const savedOverlay = document.getElementById('savedOverlay');
+const savedList = document.getElementById('savedList');
+const savedBadge = document.getElementById('savedBadge');
+const savedClose = document.getElementById('savedClose');
+
+function loadSaved(){
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch(e){ return []; }
+}
+function writeSaved(arr){
+  localStorage.setItem(SAVED_KEY, JSON.stringify(arr));
+  refreshSavedBadge();
+}
+function refreshSavedBadge(){
+  const arr = loadSaved();
+  if (arr.length){
+    savedBadge.style.display = 'block';
+    savedBadge.textContent = arr.length;
+  } else {
+    savedBadge.style.display = 'none';
+  }
+}
+function saveCurrent(){
+  const center = currentCenterLatLon();
+  const name = prompt(`現在地を保存。場所名: (例: アレクサンドリア)`);
+  if (!name) return;
+  const arr = loadSaved();
+  arr.unshift({
+    id: 'sp-'+Date.now(),
+    name, lat: center.lat, lon: center.lon, year: state.year,
+    summary: `${name} ${formatYear(state.year)}`,
+    savedAt: Date.now(),
+  });
+  writeSaved(arr);
+  haptic('confirm');
+}
+function renderSavedList(){
+  const arr = loadSaved();
+  savedList.innerHTML = '';
+  if (!arr.length){
+    savedList.innerHTML = '<div class="savedEmpty">保存済みなし<br><small>左下の📌で現在地を保存</small></div>';
+    return;
+  }
+  for (const sp of arr){
+    const row = document.createElement('div');
+    row.className = 'savedItem';
+    row.innerHTML = `<div class="info"><div class="name">${escapeHtml(sp.name)}</div><div class="meta">${formatYear(sp.year)} ・ ${sp.lat.toFixed(1)}, ${sp.lon.toFixed(1)}</div></div><div class="del" data-id="${sp.id}">🗑</div>`;
+    row.querySelector('.info').addEventListener('click', ()=>{
+      flyTo(sp.lat, sp.lon, 1.6);
+      setYear(sp.year);
+      toggleSaved(false);
+    });
+    row.querySelector('.del').addEventListener('click', e => {
+      e.stopPropagation();
+      writeSaved(loadSaved().filter(x => x.id !== sp.id));
+      renderSavedList();
+    });
+    savedList.appendChild(row);
+  }
+}
+function toggleSaved(force){
+  const open = force===undefined ? !savedOverlay.classList.contains('show') : force;
+  if (open){
+    renderSavedList();
+    savedOverlay.classList.add('show');
+    haptic('snap');
+  } else {
+    savedOverlay.classList.remove('show');
+  }
+}
+savedClose.addEventListener('click', ()=> toggleSaved(false));
+savedOverlay.addEventListener('click', e => { if (e.target === savedOverlay) toggleSaved(false); });
+
+/* =====================================================
+   Camera / 視点
+===================================================== */
+// 拡大しすぎ防止: 3D は globe が画面上半分くらいに収まる距離.
+// 2D は全球が見渡せる引き.
+const MIN_ZOOM_DIST     = 6.5;   // これより近づけない (拡大しすぎ防止)
+const MAX_ZOOM_DIST     = 28;
+const DEFAULT_ZOOM_DIST = 9.0;   // 3D 規定 — globe が画面上半分に収まる
+const INTRO_ZOOM_DIST   = 14.0;  // 起動時は引きから始めて 3D に寄る
+const DEFAULT_TILT      = 0.35;  // 約 20° の控えめ tilt
+
+const TWO_D_DIST = 14.0;
+const TWO_D_FOV  = 25;
+
+const camCtl = {
+  rot: { x: 0, y: 0 },
+  dist: INTRO_ZOOM_DIST,
+  targetDist: INTRO_ZOOM_DIST,
+  targetRot: { x: 0, y: 0 },
+  fov: TWO_D_FOV,
+  targetFov: TWO_D_FOV,
+};
+camera.position.set(0, 0, camCtl.dist);
+camera.fov = camCtl.fov;
+camera.updateProjectionMatrix();
+
+function currentCenterLatLon(){
+  // 視点正面方向の単位ベクトル (world)
+  const cam = camera.position.clone().normalize();
+  // earth は回転している. earth ローカルで cam の前方を求める.
+  const inv = new THREE.Matrix4().copy(earth.matrixWorld).invert();
+  const local = cam.clone().applyMatrix4(inv).normalize();
+  return vec3ToLatLon(local);
+}
+
+function flyTo(lat, lon, dist){
+  // tick() の Euler 設定順 (XYZ) と整合: latLonToVec3 を逆解析した結果
+  //   ry = atan2(sin(phi)*cos(theta), sin(phi)*sin(theta))
+  //   rx = lat (rad)
+  // で点 (lat,lon) が camera 方向 (0,0,1) に来る.
+  const phi   = (90 - lat) * Math.PI/180;
+  const theta = (lon + 180) * Math.PI/180;
+  const px = -(Math.sin(phi) * Math.cos(theta));
+  const py =  (Math.cos(phi));
+  const pz =  (Math.sin(phi) * Math.sin(theta));
+  const ry = Math.atan2(-px, pz);
+  const horiz = Math.sqrt(px*px + pz*pz);
+  const rx = Math.atan2(py, horiz);
+  // shortest path で targetRot.y を合わせる
+  let cy = camCtl.targetRot.y;
+  let dy = (ry - cy) % (Math.PI*2);
+  if (dy >  Math.PI) dy -= Math.PI*2;
+  if (dy < -Math.PI) dy += Math.PI*2;
+  camCtl.targetRot.y = cy + dy;
+  camCtl.targetRot.x = rx;
+  camCtl.targetDist  = Math.max(MIN_ZOOM_DIST, dist || 8.0);
+}
+
+/* =====================================================
+   入力: ドラッグ回転 / ホイールズーム
+===================================================== */
+let mouseDown = false;
+let lastX = 0, lastY = 0;
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.target !== renderer.domElement) return;
+  mouseDown = true; lastX = e.clientX; lastY = e.clientY;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener('pointerup', e => {
+  mouseDown = false;
+  try { renderer.domElement.releasePointerCapture(e.pointerId); } catch(_) {}
+  endForceTouch();
+});
+renderer.domElement.addEventListener('pointercancel', () => { mouseDown = false; endForceTouch(); });
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!mouseDown) return;
+  if (window.__flagFocused) return;   // 国旗拡大中は地球を回さない
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  camCtl.targetRot.y += dx * 0.005;
+  camCtl.targetRot.x += dy * 0.005;
+  camCtl.targetRot.x = Math.max(-1.3, Math.min(1.3, camCtl.targetRot.x));
+});
+renderer.domElement.addEventListener('wheel', e => {
+  e.preventDefault();
+  camCtl.targetDist = Math.max(MIN_ZOOM_DIST, Math.min(MAX_ZOOM_DIST, camCtl.targetDist + e.deltaY * 0.008));
+}, { passive: false });
+
+/* =====================================================
+   ForceTouch (Mac) ≥ 1.8 → scrub
+===================================================== */
+const ftRing = document.getElementById('ftRing');
+let ftActive = false;
+let ftScrubLoopId = null;
+let ftMouseX = window.innerWidth/2;
+let ftPressure = 0;
+
+document.addEventListener('webkitmouseforcechanged', e => {
+  ftPressure = e.webkitForce || 0;
+  ftMouseX = e.clientX;
+  ftRing.style.left = e.clientX + 'px';
+  ftRing.style.top = e.clientY + 'px';
+  if (ftPressure >= 1.0){
+    ftRing.classList.add('show');
+    ftRing.classList.toggle('arming', ftPressure < 1.8);
+  } else {
+    ftRing.classList.remove('show');
+  }
+  // 1.8 で始動 (Force Click 強度)
+  if (ftPressure >= 1.8 && !ftActive){
+    ftActive = true;
+    state.scrubbing = true;
+    notchEl.classList.add('scrubbing');
+    haptic('deepPress');
+    startScrubLoop();
+  } else if (ftPressure < 1.2 && ftActive){
+    endForceTouch();
+  }
+}, { passive:true });
+
+function endForceTouch(){
+  if (!ftActive) return;
+  ftActive = false;
+  state.scrubbing = false;
+  notchEl.classList.remove('scrubbing');
+  ftRing.classList.remove('show');
+  if (ftScrubLoopId){ cancelAnimationFrame(ftScrubLoopId); ftScrubLoopId = null; }
+  haptic('confirm');
+}
+
+function startScrubLoop(){
+  let last = performance.now();
+  function tick(){
+    if (!ftActive){ ftScrubLoopId = null; return; }
+    const now = performance.now();
+    const dt = (now - last)/1000;
+    last = now;
+    // pressure 1.8〜3 → 0〜1 に正規化
+    const norm = Math.min(1, Math.max(0, (ftPressure - 1.8) / 1.2));
+    const speed = Math.pow(norm, 1.6) * 200;
+    const dir = ftMouseX >= window.innerWidth/2 ? 1 : -1;
+    setYear(state.year + Math.round(speed * dt * dir), {silent:true});
+    bumpNotch();
+    ftScrubLoopId = requestAnimationFrame(tick);
+  }
+  ftScrubLoopId = requestAnimationFrame(tick);
+}
+
+/* =====================================================
+   Hover / Click on pins (raycast)
+===================================================== */
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points = { threshold: 0.04 };
+const mouseV = new THREE.Vector2();
+let hoverPin = null;
+const pinHoverHUD = document.getElementById('pinHoverHUD');
+const pinHoverText = document.getElementById('pinHoverText');
+const pinHoverIcon = document.getElementById('pinHoverIcon');
+
+renderer.domElement.addEventListener('pointermove', e => {
+  mouseV.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseV.y = -(e.clientY / window.innerHeight) * 2 + 1;
+});
+function pickPin(){
+  raycaster.setFromCamera(mouseV, camera);
+  const hits = raycaster.intersectObjects(pinsGroup.children, false);
+  // 表示中だけ
+  for (const h of hits){
+    if (h.object.visible) return h.object;
+  }
+  return null;
+}
+function updateHover(){
+  if (mouseDown || ftActive) { setHoverPin(null); return; }
+  const p = pickPin();
+  setHoverPin(p);
+}
+function setHoverPin(p){
+  if (p === hoverPin) return;
+  if (hoverPin) hoverPin.scale.setScalar(0.6 + (hoverPin.material.opacity||1)*0.9);
+  hoverPin = p;
+  if (p){
+    p.scale.setScalar(1.6);
+    const ev = p.userData.ev;
+    const meta = KIND_META[ev.kind] || {css:'#fff'};
+    pinHoverHUD.classList.add('show');
+    pinHoverIcon.style.color = meta.css;
+    pinHoverText.textContent = `${formatYear(ev.year)} · ${ev.title}`;
+    haptic('hover');
+  } else {
+    pinHoverHUD.classList.remove('show');
+  }
+}
+renderer.domElement.addEventListener('click', e => {
+  const p = pickPin();
+  if (!p) return;
+  // 周辺イベントで TimeMachine
+  const around = EVENTS
+    .filter(ev => !state.categoryFilter || ev.kind === state.categoryFilter)
+    .filter(ev => Math.abs(ev.year - p.userData.ev.year) <= 200 || ev === p.userData.ev)
+    .sort((a,b)=> Math.abs(a.year - p.userData.ev.year) - Math.abs(b.year - p.userData.ev.year))
+    .slice(0, 7);
+  // フォーカス先頭は picked
+  const reordered = [p.userData.ev, ...around.filter(e => e !== p.userData.ev)].slice(0,7);
+  openTimeMachine(reordered);
+});
+
+/* =====================================================
+   Dock 操作
+===================================================== */
+document.getElementById('btnClock').addEventListener('click', ()=> toggleNotchExpand());
+document.getElementById('btnMode').addEventListener('click', e => {
+  state.is3D = !state.is3D;
+  e.target.textContent = state.is3D ? '3D' : '2D';
+  // 2D: 大きく寄って fov を狭め平らに見せる. 3D: 距離 7 + 緯度 +0.15rad で globe.
+  if (state.is3D){
+    // 3D: 控えめ tilt, globe が上半分くらいに収まる距離
+    camCtl.targetRot.x = DEFAULT_TILT;
+    camCtl.targetDist = DEFAULT_ZOOM_DIST;
+    camCtl.targetFov  = 36;
+  } else {
+    // 2D: 全球が見渡せる引き
+    camCtl.targetRot.x = 0;
+    camCtl.targetDist = TWO_D_DIST;
+    camCtl.targetFov  = TWO_D_FOV;
+  }
+  haptic('confirm');
+});
+document.getElementById('btnStack').addEventListener('click', ()=> openTimeMachine(nearestEvents(state.year, 7)));
+document.getElementById('btnSaveCurrent').addEventListener('click', saveCurrent);
+document.getElementById('btnSaved').addEventListener('click', ()=> toggleSaved());
+
+/* =====================================================
+   Search Pill (場所/年/事件)
+===================================================== */
+const searchInput = document.getElementById('searchInput');
+searchInput.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const q = searchInput.value.trim();
+  if (!q) return;
+  // 1) 年指定 (数字 / B.C. / A.D. / 紀元前)
+  const ymatch = q.match(/^(B\.?C\.?|A\.?D\.?|紀元前)?\s*(\d{1,5})/i);
+  if (ymatch){
+    let y = parseInt(ymatch[2], 10);
+    if (/B\.?C\.?|紀元前/i.test(ymatch[1] || '')) y = -y;
+    setYear(y);
+    haptic('confirm');
+    return;
+  }
+  // 2) 時代名 (旧石器/縄文/...)
+  const era = ERAS.find(e => e.ja === q || e.ro.toLowerCase() === q.toLowerCase());
+  if (era){
+    setYear(Math.round((era.s + era.e)/2));
+    haptic('confirm');
+    return;
+  }
+  // 3) イベント検索 (title/summary 部分一致)
+  const found = EVENTS.find(ev => ev.title.includes(q) || ev.summary.includes(q));
+  if (found){
+    setYear(found.year);
+    flyTo(found.lat, found.lon, 4.5);
+    haptic('confirm');
+    setTimeout(()=> openTimeMachine([found, ...nearestEvents(found.year, 6).filter(e=>e!==found)].slice(0,7)), 950);
+    return;
+  }
+  haptic('tap');
+});
+
+/* =====================================================
+   Weather HUD (右レール内) + region globe icon
+===================================================== */
+const weatherEl = document.getElementById('railWeather');
+const weatherTemp = weatherEl.querySelector('.temp');
+const regionIconEl = document.getElementById('regionIcon');
+const regionImgs = {
+  us:   regionIconEl.querySelector('img[data-key="us"]'),
+  afr:  regionIconEl.querySelector('img[data-key="afr"]'),
+  asia: regionIconEl.querySelector('img[data-key="asia"]'),
+  aust: regionIconEl.querySelector('img[data-key="aust"]'),
+};
+let currentRegionKey = null;
+
+function regionKeyFor(lat, lon){
+  // Americas: lon < -30
+  if (lon < -30) return 'us';
+  // Europe + Western Africa: -30 <= lon < 25
+  if (lon < 25) return 'afr';
+  // 北部 (Ukraine→東アジア): lat >= 30
+  if (lat >= 30) return 'asia';
+  // 残り (中東/インド/SE アジア/オーストラリア): 中東&aust
+  return 'aust';
+}
+
+function setRegionIcon(key, {boot=false} = {}){
+  if (key === currentRegionKey) return;
+  currentRegionKey = key;
+  for (const k in regionImgs){
+    regionImgs[k].classList.toggle('show', k === key);
+  }
+  if (boot){
+    regionIconEl.classList.add('bootIn');
+    setTimeout(()=> regionIconEl.classList.remove('bootIn'), 1000);
+  }
+}
+
+const weatherCache = new Map();
+async function fetchWeather(lat, lon){
+  const key = `${Math.round(lat)},${Math.round(lon)}`;
+  const cached = weatherCache.get(key);
+  if (cached && (Date.now() - cached.t < 30*60*1000)) return cached.v;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const c = j.current;
+    const v = { temp: Math.round(c.temperature_2m), emoji: wmoEmoji(c.weather_code) };
+    weatherCache.set(key, { v, t: Date.now() });
+    return v;
+  } catch(e){ return null; }
+}
+function wmoEmoji(code){
+  if (code === 0) return '☀️';
+  if (code === 1) return '🌤';
+  if (code === 2) return '⛅️';
+  if (code === 3) return '☁️';
+  if ([45,48].includes(code)) return '🌫';
+  if ([51,53,55,80,81,82].includes(code)) return '🌦';
+  if ([56,57,61,63,65,66,67].includes(code)) return '🌧';
+  if ([71,73,75,77,85,86].includes(code)) return '🌨';
+  if ([95,96,99].includes(code)) return '⛈';
+  return '🌍';
+}
+
+let lastWeatherFetch = 0;
+let lastWeatherKey = '';
+async function refreshWeather(force=false){
+  const center = currentCenterLatLon();
+  // 中心地が変わるたびに地域地球儀を 0.5s 切替
+  setRegionIcon(regionKeyFor(center.lat, center.lon));
+  const key = `${Math.round(center.lat)},${Math.round(center.lon)}`;
+  const now = Date.now();
+  if (!force && key === lastWeatherKey && now - lastWeatherFetch < 7000) return;
+  lastWeatherKey = key;
+  lastWeatherFetch = now;
+  weatherEl.classList.add('loading');
+  const v = await fetchWeather(center.lat, center.lon);
+  if (!v){ weatherEl.classList.remove('loading'); return; }
+  weatherTemp.textContent = `${v.temp}°C`;
+  weatherEl.classList.remove('loading');
+}
+
+// camera が動いたら 200ms ごとに region icon を再評価 (天気 fetch とは独立)
+setInterval(()=>{
+  const c = currentCenterLatLon();
+  setRegionIcon(regionKeyFor(c.lat, c.lon));
+}, 200);
+setInterval(()=> refreshWeather(), 7000);
+setTimeout(()=> refreshWeather(true), 800);
+weatherEl.addEventListener('click', ()=> refreshWeather(true));
+
+/* =====================================================
+   SmartHaptic 代替 (Vibration API + 視覚)
+===================================================== */
+function haptic(kind){
+  const map = { tap:8, snap:14, confirm:22, hover:4, deepPress:40 };
+  const d = map[kind] || 8;
+  if (navigator.vibrate) try { navigator.vibrate(d); } catch(_) {}
+  // 視覚的: bumpNotch 軽く
+  if (kind === 'snap' || kind === 'confirm' || kind === 'deepPress') bumpNotch();
+}
+
+/* =====================================================
+   Keyboard
+===================================================== */
+window.addEventListener('keydown', e => {
+  if (document.activeElement === searchInput) return;
+  switch(e.key){
+    case 'ArrowLeft':  nudgeYear(e.shiftKey ? -50 : -1); break;
+    case 'ArrowRight': nudgeYear(e.shiftKey ?  50 :  1); break;
+    case 'ArrowUp':    nudgeYear(e.shiftKey ? 500 : 10); break;
+    case 'ArrowDown':  nudgeYear(e.shiftKey ?-500 :-10); break;
+    case 'c': case 'C': openTimeMachine(nearestEvents(state.year, 7)); break;
+    case 'y': case 'Y': toggleWheel(); break;
+    case 'b': case 'B': toggleSaved(); break;
+    case 's': case 'S': saveCurrent(); break;
+    case 'Escape':
+      if (wheelOverlay.classList.contains('show')) toggleWheel(false);
+      else if (stackOverlay.classList.contains('show')) closeTimeMachine();
+      else if (savedOverlay.classList.contains('show')) toggleSaved(false);
+      break;
+  }
+});
+
+/* =====================================================
+   Resize
+===================================================== */
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* =====================================================
+   Render loop
+===================================================== */
+let cloudLowDrift = 0, cloudMidDrift = 0, cloudHiDrift = 0;
+function tick(){
+  requestAnimationFrame(tick);
+  // 慣性
+  camCtl.rot.x += (camCtl.targetRot.x - camCtl.rot.x) * 0.12;
+  camCtl.rot.y += (camCtl.targetRot.y - camCtl.rot.y) * 0.12;
+  camCtl.dist  += (camCtl.targetDist  - camCtl.dist)  * 0.10;
+  const newFov = camCtl.fov + (camCtl.targetFov - camCtl.fov) * 0.10;
+  if (Math.abs(newFov - camCtl.fov) > 0.02){
+    camCtl.fov = newFov;
+    camera.fov = camCtl.fov;
+    camera.updateProjectionMatrix();
+  }
+  camera.position.z = camCtl.dist;
+  // xxx.html 準拠の自動回転 (0.0015 rad/frame)
+  if (state.rotating && !mouseDown && !ftActive){
+    camCtl.targetRot.y += 0.0015;
+  }
+  earth.rotation.x = camCtl.rot.x;
+  earth.rotation.y = camCtl.rot.y;
+  // 雲は 3 層を別速度で流す (パララックス感)
+  cloudLowDrift += 0.00060;
+  cloudMidDrift += 0.00040;
+  cloudHiDrift  += 0.00130;
+  cloudsLow.rotation.x = camCtl.rot.x;
+  cloudsLow.rotation.y = camCtl.rot.y + cloudLowDrift;
+  cloudsMid.rotation.x = camCtl.rot.x;
+  cloudsMid.rotation.y = camCtl.rot.y - cloudMidDrift * 0.7;
+  cloudsHi.rotation.x  = camCtl.rot.x;
+  cloudsHi.rotation.y  = camCtl.rot.y - cloudHiDrift;
+  // 星: 微速回転で空の流れ. 微細層は別速度でパララックス.
+  stars.rotation.y     += 0.00006;
+  tinyStars.rotation.y += 0.00010;
+  updateHover();
+  renderer.render(scene, camera);
+}
+tick();
+
+/* =====================================================
+   起動初期化
+===================================================== */
+refreshUIYear();
+refreshEraRail();
+applyEventVisibility();
+refreshSavedBadge();
+
+// 起動シーケンス: 1) 暗 (light=0, dist 近く, fov 狭い "2D 風")
+//                2) 1.0s かけて light ramp + bootMask フェード
+//                3) 0.4s 後 → 0.9s で 2D→3D へ寄って globe へ. (dist 3 → 7, fov 22 → 40)
+//                4) UI レイヤフェードイン
+(function bootSequence(){
+  const bootMask = document.getElementById('bootMask');
+  const uiLayer  = document.getElementById('uiLayer');
+  // 起動暗
+  rampLighting(1000);
+  setTimeout(()=> bootMask.classList.add('lit'), 50);
+  setTimeout(()=> uiLayer.classList.add('lit'), 350);
+  // 起動: 2D 引きビュー → 0.6s 後に 3D へ寄せる (拡大しすぎず globe を上半分に)
+  setTimeout(()=>{
+    camCtl.targetDist  = DEFAULT_ZOOM_DIST;
+    camCtl.targetRot.x = DEFAULT_TILT;
+    camCtl.targetFov   = 36;
+    state.is3D = true;
+    document.getElementById('btnMode').textContent = '3D';
+    haptic('confirm');
+  }, 600);
+  // 年スクラブ intro (古→現)
+  setTimeout(()=>{
+    const start = performance.now();
+    const dur = 1400;
+    setYear(-3000, {silent:true, animated:false});
+    function step(){
+      const t = Math.min(1, (performance.now()-start)/dur);
+      const k = 1 - Math.pow(1-t, 3);
+      const y = Math.round(-3000 + (2026 - (-3000))*k);
+      setYear(y, {silent:true, animated:false});
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }, 900);
+})();
+
+/* =====================================================
+   ★ 言語/国旗マッピング (追加機能)
+   既存エンジン (earth / camera / camCtl / latLonToVec3 / flyTo /
+   state / 各種定数) をそのまま流用。国旗を国の上に乗せ、
+   タップでモーショングラフィクス的に拡大する。
+===================================================== */
+(function flagLayer(){
+  const FLAG_R    = 2.05;   // 地表のちょい上
+  const BASE_W    = 0.22;   // 平常時の一辺 (world, 1:1)
+  const HOVER_K   = 0.45;   // PC hover でのポップ量
+  const BURST_MAX = 9;      // タップ時の最大拡大倍率
+  const BURST_DUR = 0.6;    // タップ拡大フェードアウト秒
+  const TILE      = 128;    // 旗テクスチャ解像度 (px)
+  const RADIUS    = 16;     // 角丸 (≒10px 相当)
+
+  // [ISO3166-1 alpha2(小文字), lat, lon]
+  const COUNTRIES = [
+    ['jp',36.2,138.25],['kr',36.5,127.8],['cn',35.8,104.2],['mn',46.8,103.8],
+    ['in',22.0,79.0],['id',-2.5,118.0],['th',15.0,101.0],['vn',16.0,107.8],
+    ['ph',12.8,121.8],['sa',24.0,45.0],['ir',32.0,53.0],['tr',39.0,35.0],
+    ['kz',48.0,67.0],['ru',61.5,90.0],['eg',26.8,30.0],['za',-29.0,24.0],
+    ['ng',9.5,8.0],['ke',0.5,37.9],['et',9.1,40.5],['ma',31.8,-7.0],
+    ['dz',28.0,2.6],['cd',-2.5,23.6],['it',42.8,12.8],['fr',46.6,2.4],
+    ['es',40.0,-3.7],['pt',39.5,-8.0],['gb',54.0,-2.5],['ie',53.2,-8.0],
+    ['de',51.2,10.4],['pl',52.0,19.5],['se',62.0,15.0],['no',62.0,9.0],
+    ['fi',64.0,26.0],['gr',39.0,22.0],['ua',49.0,32.0],['nl',52.2,5.5],
+    ['ch',46.8,8.2],['is',64.9,-19.0],['us',39.5,-98.0],['ca',56.0,-106.0],
+    ['mx',23.6,-102.5],['cu',21.5,-79.5],['br',-10.0,-52.0],['ar',-35.0,-64.0],
+    ['cl',-35.0,-71.0],['pe',-10.0,-76.0],['co',4.0,-73.0],['ve',7.0,-66.0],
+    ['au',-25.0,134.0],['nz',-42.0,173.0],
+  ];
+
+  const flagsGroup = new THREE.Group();
+  earth.add(flagsGroup);
+
+  const texLoader = new THREE.TextureLoader();
+  texLoader.setCrossOrigin('anonymous');
+
+  // 角丸の正方形にセンタークロップ (cover) して焼き込む — 旗自体の比率は崩さない
+  function roundRectPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+    ctx.closePath();
+  }
+  function makeFlagTexture(img){
+    const c = document.createElement('canvas'); c.width = c.height = TILE;
+    const ctx = c.getContext('2d');
+    roundRectPath(ctx, 0, 0, TILE, TILE, RADIUS); ctx.clip();
+    const s = Math.max(TILE/img.width, TILE/img.height);   // cover
+    const dw = img.width*s, dh = img.height*s;
+    ctx.drawImage(img, (TILE-dw)/2, (TILE-dh)/2, dw, dh);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+    return t;
+  }
+
+  const flags = [];
+  COUNTRIES.forEach(([code, lat, lon]) => {
+    const dir = latLonToVec3(lat, lon, 1).normalize();
+    const mat = new THREE.SpriteMaterial({ transparent:true, opacity:0, depthTest:false, depthWrite:false });
+    const spr = new THREE.Sprite(mat);
+    spr.scale.set(BASE_W, BASE_W, 1);   // 1:1
+    spr.renderOrder = 10;
+    flagsGroup.add(spr);
+    const f = { code, lat, lon, dir, sprite:spr, mat, active:false, appear:0, hover:0, burstT0:null, front:false };
+    spr.userData.flag = f;
+    flags.push(f);
+    texLoader.load(`https://flagcdn.com/w160/${code}.png`, tex => {
+      mat.map = makeFlagTexture(tex.image);
+      mat.needsUpdate = true;
+      tex.dispose();
+    });
+  });
+
+  // 旗の出現 (boot 後にスタッガーで pop-in)
+  let revealAt = null;
+  setTimeout(()=>{ revealAt = performance.now(); }, 1100);
+
+  /* ピック (raycast) */
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let hovered = null;
+  let downX=0, downY=0, downT=0, moved=0;
+
+  function pickFlag(cx, cy){
+    ndc.x = (cx / window.innerWidth) * 2 - 1;
+    ndc.y = -(cy / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    const pickable = flags.filter(f => f.front && f.appear > 0.5 && f.burstT0 == null).map(f => f.sprite);
+    const hits = raycaster.intersectObjects(pickable, false);
+    return hits.length ? hits[0].object.userData.flag : null;
+  }
+
+  renderer.domElement.addEventListener('pointerdown', e => {
+    downX = e.clientX; downY = e.clientY; downT = performance.now(); moved = 0;
+  });
+  // ドラッグ移動量の計測 + PC hover
+  renderer.domElement.addEventListener('pointermove', e => {
+    moved += Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY);
+    downX = e.clientX; downY = e.clientY;
+    if (mouseDown){ hovered = null; renderer.domElement.style.cursor = ''; return; }
+    hovered = pickFlag(e.clientX, e.clientY);   // hover で国旗がポップ (PC)
+    renderer.domElement.style.cursor = hovered ? 'pointer' : '';
+  });
+  // タップ → スケールアップ & フェードアウト
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (moved >= 9 || performance.now() - downT >= 500) return;  // ドラッグはタップ扱いしない
+    const hit = pickFlag(e.clientX, e.clientY);
+    if (hit && hit.burstT0 == null){
+      hit.burstT0 = performance.now();
+      hit.sprite.renderOrder = 50;
+      setTimeout(()=>{ hit.sprite.renderOrder = 10; }, BURST_DUR*1000 + 60);
+      state.rotating = false;
+      flyTo(hit.lat, hit.lon, 7.2);
+      setTimeout(()=>{ state.rotating = true; }, 1400);
+      if (typeof haptic === 'function') haptic('confirm');
+      // When embedded in the app's language launchpad, report the picked
+      // country → language so the parent can add it and auto-translate.
+      try {
+        if (window.parent && window.parent !== window) {
+          const C2L = { jp:'ja', kr:'ko', cn:'zh', mn:'ru', in:'hi', id:'id', th:'th', vn:'vi',
+            ph:'en', sa:'ar', ir:'fa', tr:'tr', kz:'ru', ru:'ru', eg:'ar', za:'en', ng:'en',
+            ke:'en', et:'en', ma:'ar', dz:'ar', cd:'fr', it:'it', fr:'fr', es:'es', pt:'pt',
+            gb:'en', ie:'en', de:'de', pl:'pl', se:'sv', no:'no', fi:'fi', gr:'el', ua:'uk',
+            nl:'nl', ch:'de', is:'is', us:'en', ca:'en', mx:'es', cu:'es', br:'pt', ar:'es',
+            cl:'es', pe:'es', co:'es', ve:'es', au:'en', nz:'en' };
+          window.parent.postMessage({ type:'terrakoku-lang', lang: (C2L[hit.code] || 'en'), country: hit.code }, '*');
+        }
+      } catch(_){}
+    }
+  });
+
+  /* イージング */
+  const easeOutBack  = x => { x = Math.max(0,Math.min(1,x)); const c1=1.70158, c3=c1+1; return 1 + c3*Math.pow(x-1,3) + c1*Math.pow(x-1,2); };
+  const easeOutCubic = x => 1 - Math.pow(1-x, 3);
+  const smoothstep   = (a,b,x) => { const t = Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); };
+
+  /* 毎フレーム更新 (出現 / hover / burst / 裏面カリング) */
+  const camLocal = new THREE.Vector3(), inv = new THREE.Matrix4(), pos = new THREE.Vector3();
+  let lastT = performance.now();
+  function flagTick(){
+    requestAnimationFrame(flagTick);
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - lastT)/1000); lastT = now;
+
+    if (revealAt != null){
+      for (let i=0; i<flags.length; i++){
+        const f = flags[i];
+        if (!f.active && now >= revealAt + i*32) f.active = true;
+      }
+    }
+    earth.updateMatrixWorld();
+    inv.copy(earth.matrixWorld).invert();
+    camLocal.copy(camera.position).applyMatrix4(inv).normalize();
+
+    for (const f of flags){
+      if (f.active && f.appear < 1) f.appear = Math.min(1, f.appear + dt/0.55);
+
+      const dot = f.dir.dot(camLocal);
+      f.front = dot > 0.08;
+
+      const hTarget = (f === hovered && f.front && f.burstT0 == null) ? 1 : 0;
+      f.hover += (hTarget - f.hover) * 0.2;
+
+      let scaleMul, op, lift;
+      if (f.burstT0 != null){
+        const p = Math.min(1, (now - f.burstT0)/(BURST_DUR*1000));
+        const e = easeOutCubic(p);
+        scaleMul = 1 + BURST_MAX * e;   // スケールアップ
+        op       = 1 - p;               // フェードアウト
+        lift     = 0.6 * e;             // カメラ側へせり出す
+        if (p >= 1){ f.burstT0 = null; f.appear = 0; }   // 消えたら再 pop-in
+      } else {
+        scaleMul = 1 + HOVER_K * f.hover;
+        op       = f.appear * smoothstep(0.04, 0.30, dot);
+        lift     = 0.06 * f.hover;
+      }
+
+      const w = BASE_W * easeOutBack(f.appear) * scaleMul;
+      f.sprite.scale.set(w, w, 1);
+      pos.copy(f.dir).multiplyScalar(FLAG_R + lift);
+      f.sprite.position.copy(pos);
+      f.mat.opacity = op;
+      f.sprite.visible = op > 0.01;
+    }
+  }
+  flagTick();
+})();
+</script>
+
+</body>
+</html>

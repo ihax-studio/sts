@@ -1,0 +1,44 @@
+# Cloudflare Pages 安定版ミラー（https://shake-to-shake.pages.dev）へ全サイトをデプロイ。
+# ・Netlifyと同じ内容の「もう一つの本番」＝Netlifyの無料枠リクエストを一切消費しない安定版
+# ・トークンは Actions secret「CLOUDFLARE_API_TOKEN」（deploy-worker.yml と共用）。
+#   トークンに必要な権限: Account Settings:Read + Cloudflare Pages:Edit（Worker用の Workers Scripts:Edit と同じトークンに足せる）
+# ・main への push で自動デプロイ。手動実行(workflow_dispatch)も可
+# ・_headers は .cf-pages/_headers をルートへコピーして適用（netlify.toml のCSP/キャッシュと同内容）
+name: Deploy Cloudflare Pages
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy site to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "::error::Actions secret CLOUDFLARE_API_TOKEN が未設定です (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+          export CLOUDFLARE_ACCOUNT_ID=$(curl -sf -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" https://api.cloudflare.com/client/v4/accounts \
+            | python3 -c "import sys,json;print(json.load(sys.stdin)['result'][0]['id'])")
+          echo "account: ${CLOUDFLARE_ACCOUNT_ID:0:6}…(masked)"
+          # Pages用ヘッダを配置し、サイトに不要なものは除いてからアップロード
+          cp .cf-pages/_headers _headers
+          rm -rf .git .github worker .cf-pages
+          # プロジェクトが無ければ作成（既存ならエラーを無視）
+          npx --yes wrangler@4 pages project create shake-to-shake --production-branch=main 2>/dev/null || true
+          npx --yes wrangler@4 pages deploy . --project-name=shake-to-shake --branch=main --commit-dirty=true
+      - name: Verify deployment
+        run: |
+          sleep 8
+          echo "— https://shake-to-shake.pages.dev —"
+          curl -sfI "https://shake-to-shake.pages.dev" | head -5 || echo "(まだ伝播中の可能性。数分後にアクセスして確認)"
