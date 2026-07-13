@@ -28,7 +28,7 @@
     // 検索バー
     var bar=el('div','sd-bar'); els.bar=bar;
     var mag=document.createElement('img'); mag.className='sd-mag'; mag.src='high-search-white.png'; mag.alt='';
-    var input=document.createElement('input'); input.type='search'; input.placeholder='検索 / Search';
+    var input=document.createElement('input'); input.type='search'; input.placeholder='友達追加 · 音楽 · 翻訳 · 計算';   /* ★何ができるかを薄いプレースホルダーで示す */
     input.setAttribute('autocomplete','off'); input.setAttribute('spellcheck','false'); input.enterKeyHint='search';
     input.setAttribute('autocapitalize','none'); input.setAttribute('autocorrect','off');   // ★iPhone対策: 先頭大文字化/自動修正/末尾スペースで曲が出ない問題=PCと同じ素の入力にする
     els.input=input;
@@ -163,7 +163,9 @@
     if(fn){ renderGraph(q, fn); }
     else if(formulaIntent && els.res.querySelector('[data-sec="gr"]')){ /* ★式の続きを打って一瞬不完全になっても直前の有効なグラフを消さない(「y=の後に文字を打つと消える」の根治) */ }
     else { renderGraph(q, null); }
-    var g=!!(fn||formulaIntent);   // ★式を書いている間は他の検索(友達/音楽/翻訳/英単語)を抑制
+    var calc=(!fn&&!formulaIntent)?calcEval(q):null;   // ★数字の足し算等=計算結果を出す(1+2/12*4 など)
+    renderCalc(q, calc);
+    var g=!!(fn||formulaIntent||calc!=null);   // ★式/計算中は他の検索(友達/音楽/翻訳/英単語)を抑制
     renderFriends(g?'':q);
     scheduleMusic(g?'':q);
     scheduleTranslate(g?'':q);
@@ -226,6 +228,28 @@
             .replace(/\bpi\b/g,'Math.PI').replace(/\be\b/g,'Math.E');
     try{ var f=new Function('x','"use strict";return ('+js+');'); var t0=f(1); if(typeof t0!=='number') return null;
       f.__axis=axis; f.__const=isConst; return f; }catch(err){ return null; }
+  }
+  /* ── 計算機: 数字と演算子だけの式(1+2, 12*4, (3+4)/2 など)を安全に評価して結果を出す ── */
+  function calcEval(src){ var s=String(src||'').trim(); if(s.length<2||s.length>60) return null;
+    s=s.replace(/×/g,'*').replace(/÷/g,'/').replace(/－/g,'-').replace(/＋/g,'+').replace(/[０-９]/g,function(d){ return String('０１２３４５６７８９'.indexOf(d)); }).replace(/，|,/g,'');
+    if(!/[+\-*/]/.test(s)) return null;                 // 演算子が無ければ計算ではない
+    if(!/^[0-9+\-*/.()%\s]+$/.test(s)) return null;     // 数字と演算子・括弧のみ許可(letters不可)
+    if(/[+\-*/.]{3,}/.test(s)) return null;             // 記号連発は無効
+    try{ var r=Function('"use strict";return ('+s.replace(/%/g,'/100')+');')();
+      if(typeof r!=='number'||!isFinite(r)) return null;
+      var out=Math.round(r*1e10)/1e10; return { expr:s, val:out }; }catch(e){ return null; }
+  }
+  function renderCalc(q, calc){
+    var old=els.res.querySelector('[data-sec="ca"]'); if(old) old.remove();
+    if(!calc) return;
+    var s=section('計算'); s.c.setAttribute('data-sec','ca');
+    var row=el('button','sd-tr'); row.type='button';
+    row.appendChild(el('div','trt', String(calc.val)));
+    row.appendChild(el('div','trs', calc.expr.replace(/\*/g,'×').replace(/\//g,'÷')+' ='));
+    row.addEventListener('click', function(ev){ ev.stopPropagation(); try{ navigator.clipboard.writeText(String(calc.val)); }catch(_){} try{ cb.haptic&&cb.haptic(); }catch(_){} });
+    s.rows.appendChild(row);
+    els.res.insertBefore(s.c, els.res.firstChild);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ row.classList.add('in'); }); });
   }
   function renderGraph(q, fn){
     var old=els.res.querySelector('[data-sec="gr"]'); if(old) old.remove();
@@ -418,12 +442,13 @@
         ghost.style.filter=_over?'drop-shadow(0 0 0 3px var(--gc-user,#62d8ff))':'none';
         if(_over){ if(!_dk.classList.contains('show')) _dk.classList.add('show'); _dk.classList.add('open'); _dk.classList.add('gcdk-drop'); } else { _dk.classList.remove('gcdk-drop'); } } }catch(_){}
       /* ★下の友達レールにかざしたら: レールの枠リングが0.3sで出る(離れると0.3sで消える) */
-      try{ if(railEl){ railEl.classList.toggle('sd-rd-over', !_over && railOver(lastX,lastY)); } }catch(_){}
-      var now=Date.now(); if(now-lastSwap<90) return;
+      var _overRail=false; try{ if(railEl){ _overRail=(!_over && railOver(lastX,lastY)); railEl.classList.toggle('sd-rd-over', _overRail); } }catch(_){}
+      if(_over || _overRail) return;   /* ★dock/レールにかざしている間は並べ替えを発火しない(ブレ/誤入替の根治) */
+      var now=Date.now(); if(now-lastSwap<130) return;   /* ★発火間隔を広げてブレ低減 */
       var kids=Array.prototype.slice.call(grid.children);
       for(var i=0;i<kids.length;i++){ var c=kids[i]; if(c===ph||c.classList.contains('hide')) continue;
         var kr=c.getBoundingClientRect();
-        if(e.clientX>=kr.left&&e.clientX<=kr.right&&e.clientY>=kr.top&&e.clientY<=kr.bottom){
+        if(e.clientX>=kr.left+10&&e.clientX<=kr.right-10&&e.clientY>=kr.top&&e.clientY<=kr.bottom){   /* ★端のかすりで入替えない=中央寄りだけ(ブレ低減) */
           lastSwap=now;
           var pIdx=kids.indexOf(ph), tIdx=i;
           flip(function(){ if(pIdx<tIdx){ grid.insertBefore(ph, c.nextSibling); } else { grid.insertBefore(ph, c); } });
@@ -572,7 +597,7 @@
       /* ★入力が空なのにapps1行のまま残る不具合の修正: 開くたびに検索状態(sd-searching)を確実に解除しグリッドへ戻す */
       try{ var _ov=document.getElementById('searchOv'); if(_ov) _ov.classList.remove('sd-searching'); }catch(_){}
       _wasSearching=false; try{ clearRowSlide(); }catch(_){}
-      filterApps(''); renderFriends(''); renderMusic([]); renderGraph('',null);
+      filterApps(''); renderFriends(''); renderMusic([]); renderGraph('',null); renderCalc('',null);
       trSeq++; vocSeq++; var oldTr=els.res&&els.res.querySelector('[data-sec="tr"]'); if(oldTr) oldTr.remove();
       var oldVx=els.res&&els.res.querySelector('[data-sec="vx"]'); if(oldVx) oldVx.remove();
       var oldSp=els.res&&els.res.querySelector('[data-sec="mu-spin"]'); if(oldSp) oldSp.remove();
