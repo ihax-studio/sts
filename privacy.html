@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>プライバシーポリシー — Shake to Shake (StS)</title>
+<style>
+  :root{ color-scheme: dark; }
+  *{ box-sizing:border-box; }
+
+  body{ font:100 17px/1.75 -apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; padding:calc(env(safe-area-inset-top,0px) + 40px) 20px calc(env(safe-area-inset-bottom,0px) + 64px); }
+  .wrap{ max-width:720px; margin:0 auto; }
+  .badge{ display:inline-block; font:100 13px/1 -apple-system,sans-serif; letter-spacing:.5px;
+    background:linear-gradient(135deg,#0a84ff,#bf5af2,#ff375f,#ff9f0a); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:10px; }
+  h1{ font:100 25px/1.25 -apple-system,"Hiragino Sans",sans-serif; margin:0 0 6px; }
+  .upd{ color:black; font-size:13.5px; margin-bottom:34px; }
+  h2{ font:700 19px/1.4 -apple-system,"Hiragino Sans",sans-serif; margin:34px 0 10px; }
+  p,li{ color:black; }
+  ul{ padding-left:1.25em; }
+  li{ margin:6px 0; }
+  a{ color:black; }
+  .card{ background:rgba(255,255,255,.99); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px; margin:14px 0;  -webkit-backdrop-filter: blur(8px) saturate(1.5);
+  backdrop-filter: blur(8px) saturate(1.7); }
+  code{ background:rgba(255,255,255,.09); border-radius:6px; padding:1px 6px; font-size:14px; }
+  footer{ margin-top:48px; color:rgba(255,255,255,.4); font-size:13px; text-align:center; }
+  html, body {
+  /* 左右スワイプでの「戻る/進む」ナビゲーションを無効化 */
+  overscroll-behavior-x: none;
+  
+  /* バウンススクロール（引っ張る動き）全体を無効化したい場合は以下 */
+  overscroll-behavior-y: none; 
+
+  /* 縦スクロールのみを許可し、ピンチズームなどをブラウザレベルで無効化 */
+  touch-action: pan-y; 
+  /* ※もし縦スクロールも不要で、完全に画面を固定したい場合は touch-action: none; にします */
+}
+
+    /* 変更点：html, bodyに背景色・ぼかし・彩度アップを統合 */
+  html,body{ 
+    margin:0; 
+    background: rgba(255, 255, 255, .08); /* カードと同じ半透明の背景 */
+    -webkit-backdrop-filter: blur(8px) saturate(1.2); /* Safari/iOS用 */
+    backdrop-filter: blur(8px) saturate(1.2);         /* 標準 */
+    color:black; 
+  }
+</style>
+</head><body>
+<div class="wrap">
+  <div class="badge">Shake to Shake</div>
+  <h1>プライバシーポリシー</h1>
+  <div class="upd">最終更新日: 2026年7月11日</div>
+
+  <p>Shake to Shake（以下「StS」）は、友達とチャット・写真・音楽・ステータスを共有できるAppです。本ポリシーは、StSが取り扱う情報とその扱い方を説明します。StSは<strong>広告を配信せず、プライバシーは保護のためログインはパスキー、LINE、またはGitHubのみが使用されます。これらのログイン方法は暗号化され、最高レベルのセキュリティ保護がされています。アカウントや文字データはGoogleの安全なサーバを使用して送信されるため、標準で強力に暗号化され、こちちらでは取得できないようになっております。また、ベータ版などにより一部コンテンツが変更されている場合があります</strong>。</p>
+
+  <h2>1. 収集する情報</h2>
+  <ul>
+    <li><strong>プロフィール</strong>: あなたが設定した表示名・アイコン（絵文字または画像）・テーマ色・記念日&MBTI。</li>
+    <li><strong>チャット / ステータス投稿</strong>: あなたが送信したメッセージ、共有した写真・動画・楽曲、ステータス投稿。メッセージ本文は端末側で暗号化された上で保存されます。</li>
+    <li><strong>連絡先（友達）</strong>: あなたが招待リンクやQRで追加した相手の識別子。電話番号やアドレス帳の読み取りは行いません。匿名機能を使用しているため電話番号の契約といった作業が不要です</li>
+    <li><strong>端末で完結する情報</strong>: 言語設定、お気に入りの曲、Todo、アプリの並び順などは主にあなたの端末（localStorage）に保存されます。</li>
+    <li><strong>位置情報</strong>: ステータス投稿に地名を添える場合のみ、あなたの操作に応じて概算の地域（区市名）を取得します。常時追跡、自動追跡や通信量を大幅に削減するために設計されているためできません。</li>
+  </ul>
+
+  <h2>2. 認証とログイン</h2>
+  <div class="card">
+    <p>StSは端末のパスキー（生体認証）を主なログイン手段として使います。任意で、<strong>GitHub</strong>または<strong>LINE</strong>アカウントでのログイン連携を選べます。</p>
+    <ul>
+      <li>連携時に受け取るのは、そのサービスが発行する<strong>あなたを識別するID（および表示名）だけ</strong>です。パスワード・友だちリスト・投稿などには一切アクセスされません</li>
+      <li>LINE、またはGithubとパスキーを使用した2段階認証機能が提供される/利用可能な場合があります</li>
+    </ul>
+  </div>
+
+  <h2>3. 情報の保存先</h2>
+  <ul>
+    <li><strong>Google Firebase (Realtime Database)</strong>: プロフィール、メッセージ、友達関係、通知購読の保存。</li>
+    <li><strong>Cloudflare Workers / ストレージ</strong>: 画像・動画の実体配信、翻訳・楽曲検索の中継、Web Push通知、LINEログインのコード交換。</li>
+    <li>ステータス投稿は原則として<strong>20時間で自動的に削除</strong>されます。「思い出」に残した投稿は保存され、お気に入り以外は約15か月で自動削除されます。</li>
+  </ul>
+
+  <h2>4. オンデバイスAI「iHax」</h2>
+  <p>対応端末では、AIモデルをあなたの端末内（ブラウザ）にダウンロードして動かします。要約・返信提案・翻訳校正などの<strong>AI処理は端末内で完結</strong>し、その内容が当方サーバーへ送信されることはありません。AIのネット検索機能を使った場合のみ、検索語がGoogleなどの検索エンジンへ送信されます。</p>
+
+  <h2>5. 外部サービス</h2>
+  <p>StSは機能提供のため次の外部サービスと通信することがあります: Google 、Cloudflare、Apple iTunes Search（楽曲検索）、GooGle翻訳、Hugging Face（iHaxのAIベースシステムをインストール）、GitHub / LINE（ログイン方法として使う場合）。各サービスの取り扱いは各社のプライバシーポリシーに従います。</p>
+
+  <h2>6. 通知</h2>
+  <p>あなたが許可した場合のみ、OS標準のプッシュ通知（新着メッセージ、シェイク共有など）を送信します。通知は設定または端末側でいつでも無効化できます。</p>
+
+  <h2>7. データの削除</h2>
+  <p>アプリ内の設定からアカウントを削除できます。削除するとプロフィール、パスキー連携情報、ギャラリー等が消去されます。相手側に既に届いたメッセージなど、技術的に取り消せないものが残る場合があります。</p>
+
+  <h2>8. 子どものプライバシー</h2>
+  <p>StSは13歳未満（またはお住まいの地域で定める年齢未満）の子どもを対象としていません。</p>
+
+  <h2>9. 本ポリシーの変更</h2>
+  <p>本ポリシーは必要に応じて更新されることがあります。重要な変更がある場合はアプリ内でお知らせします。</p>
+
+  <h2>10. お問い合わせ</h2>
+  <p>本ポリシーやあなたのデータに関するお問い合わせは、アプリ内のサポート窓口、または開発者（ihax-studio）まで。</p>
+
+  <footer>© 2026 Shake to Shake 🫨</footer>
+</div>
+  <script>
+  // 1. 右クリックメニューを禁止 (画像の保存やソースの表示を簡易ブロック)
+  document.addEventListener('contextmenu', function(event) {
+    event.preventDefault();
+  });
+
+  // 2. 特定のキーボードショートカットをブロック
+  document.addEventListener('keydown', function(event) {
+    // F12キー (Windows等の開発者ツール) をブロック
+    if (event.key === 'F12' || event.keyCode === 123) {
+      event.preventDefault();
+      return false;
+    }
+
+    // MacのCommandキー(metaKey) または WindowsのCtrlキー(ctrlKey) が押されているか判定
+    const isCmdOrCtrl = event.metaKey || event.ctrlKey;
+
+    if (isCmdOrCtrl) {
+      // 押されたキーを小文字に変換して判定 (Caps Lock対策)
+      const key = event.key.toLowerCase();
+
+      // Cmd+S / Ctrl+S (保存)
+      // Cmd+Shift+S / Ctrl+Shift+S (名前を付けて保存)
+      if (key === 's') {
+        event.preventDefault();
+        return false;
+      }
+
+      // Cmd+Option+U / Ctrl+U (ページのソースを表示)
+      if (key === 'u') {
+        event.preventDefault();
+        return false;
+      }
+
+      // Cmd+Option+I / Ctrl+Shift+I (開発者ツール)
+      // Cmd+Option+J / Ctrl+Shift+J (コンソール)
+      if (key === 'i' || key === 'j') {
+        event.preventDefault();
+        return false;
+      }
+      
+    
+      if (key === 'p') {
+        event.preventDefault();
+        return false;
+      }
+    }
+  });
+</script>
+</body></html>

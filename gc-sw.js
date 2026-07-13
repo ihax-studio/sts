@@ -12,7 +12,7 @@ var GLOBE_RE = /(cdn\.jsdelivr\.net\/npm\/three@|threejs\.org\/examples\/texture
 //   HTML/JS/CSS は一切キャッシュせずネット直行のまま＝コードは常に最新（更新が止まらない）。
 var MEDIA_CACHE = 'gc-media-v1';
 var MEDIA_RE = /\.(png|jpe?g|gif|webp|svg|mov|mp4|m4a|wav|caf|m4r|woff2?|ttf|otf)(\?|$)/i;
-var SW_VER = '2026-07-10-lean-192';   // ★軽量化デプロイ2: 取り消し楽観反映/検索JSONP直(Netlify消費ゼロ)/差分窓=直近30通
+var SW_VER = '2026-07-13-dockpx-218';   // ★dock=left/top(px)完全transform化廃止(位置ズレ/2段階戻り根治・右左切替もpx)・選択中は中身blur・ドロップ枠(白リング)廃止=友達は下にscaleup枠(#sdRailDrop scaleup/scaledown)・「既にドックに」UI廃止・カメラアイコン枠(影)廃止・投稿UIのAa/カメラ切替/撮影ボタンを下+余白・hello長押しで別言語0.3s ease・sts/shaketoshakeへ最新配布(チャット/画像動画修復)   // ★色背景起動高速化(非globeはhello省略)・自分アイコンtransform廃止(位置ズレ根治)・カメラアイコン塗り除外・dockドロップ白リング・友達追加しやすく+×/−バッジ0.5s scale・app並べ替え0.3s ease・連絡先送り横スワイプ・チャット中dock長押し無効・地球儀(下三角→↓白w1/宇宙黒/アイコン拡大/キーボードで比率ズレ根治/翻訳スワイプ回転)・BEAST CODE非表示・ppp16:9,4:3のみ+透明blur・設定タブ枠・普通camera長押し動画3:4   // ★ホームの思い出バー/記念日を撤去→思い出appの右端タイムラインへ移設(今日/昨日ラベル+記念日emoji行・15px左右中央)・dockリフト/レールslideup廃止=フェードのみ(干渉ゼロ)・友達×=白丸borderなし黒文字でさらに上   // ★思い出: ×=weight1拡大/♥毎回0.7→1/画像縮小/dockの反対側にdayタイムライン(0.5s・記念日emoji)+0.5s scaleupビューア・MBTI(設定/slider/X=😵)・曲ジャケの白リング→白80%ナチュラルシャドウ・カメラ: 撮影後effect+🫨/＋=位置シェア/emoji円形リング焼き込み/保存=右下↓/←=retake反時計回転   // ★安定版: env UIのtransition重複根絶(gc-appzoom廃止/visibilityフェード)・dock再設計(deckMove=inline !important単一遷移・ドラッグ中スワイプ/編集中タップのガード・上限7個/6-7個は縮小・ドロップリング両方向フェード)・apps長押し=編集モード(全体ジグル+友達×→振って削除UI・他タイル非表示バグ根治)・ドラッグ中は下に友達レール(ドロップ先)がslideup・iHax=枠なし透明blur 0.5s・mov黒背景透過(screen)・投稿UI=最細フォントdefault/パレット中央下/＋weight1枠なし・楽曲検索input33px・+Todo枠透明
 
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) {
@@ -23,7 +23,7 @@ self.addEventListener('activate', function (e) {
       .then(function (keys) { return Promise.all(keys.map(function (k) { return (k === GLOBE_CACHE || k === MEDIA_CACHE || k === 'gc-badge') ? null : caches.delete(k); })); })
       // ★PWA大幅更新: MEDIA_CACHE のアイコン類だけ消して新アイコン(StS)を確実に反映。重い地球儀テクスチャ(GLOBE_CACHE/その他メディア)は温存。
       // ★新SW有効化(=新デプロイ)のたび、SWRでキャッシュした「コードを含む動的JS(spotlight-tpl/vocabx)」とアイコン類を破棄＝古いPWAでも次回取得で確実に最新化。重い地球儀テクスチャ(GLOBE_CACHE)だけ温存。
-      .then(function () { return caches.open(MEDIA_CACHE).then(function (c) { return c.keys().then(function (rs) { return Promise.all(rs.filter(function (r) { return /(icon-|founder|apple-touch|spotlight-tpl|vocabx-data|mac-dock|index-mac)/i.test(r.url); }).map(function (r) { return c.delete(r); })); }); }).catch(function () {}); })
+      .then(function () { return caches.open(MEDIA_CACHE).then(function (c) { return c.keys().then(function (rs) { return Promise.all(rs.filter(function (r) { return /(icon-|founder|apple-touch|spotlight-tpl|vocabx-data|mac-dock|index-mac|lookDown|iHax-AI|iHax-Apps|apps\.png|burble\.png|camera\.png|photos\.png|ppm-x\.png|sumi-beast-seed\.png|storymagic)/i.test(r.url); }).map(function (r) { return c.delete(r); })); }); }).catch(function () {}); })   // ★更新した画像類はcache-first残留を破棄して新版を取り直す
       .then(function () { return self.clients.claim(); })
       .then(function () { return self.clients.matchAll({ type: 'window', includeUncontrolled: true }); })
       .then(function (cl) { for (var i = 0; i < cl.length; i++) { try { if (!(cl[i].focused || cl[i].visibilityState === 'visible')) cl[i].navigate(cl[i].url); } catch (_) {} } })   // ★使用中(前面)のウィンドウは強制リロードしない=チャット/アカウント登録が更新で中断されない。裏のタブだけ最新化(前面は次回ナビ/再起動で最新。HTML/JSはネット直行なので即最新)

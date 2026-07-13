@@ -56,6 +56,54 @@ export default {
       } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
     }
 
+    // ---- LINEログイン(完全無料・GCIP不要): PWAから認可コードを受け取り、チャネルシークレット(Workerのsecret)で
+    //      LINEのトークンエンドポイントと交換→id_tokenのsub(ユーザーID)だけ返す。
+    //      セットアップ: npx wrangler secret put LINE_ID / npx wrangler secret put LINE_SECRET
+    //      (id_tokenはLINEからTLS直受け=署名検証不要。クライアントには sub と表示名だけ渡す) ----
+    if (req.method === 'POST' && url.pathname === '/line') {
+      try {
+        if (!env.LINE_ID || !env.LINE_SECRET) return json({ ok: false, err: 'not-configured' }, 503, cors);
+        const b = await req.json();
+        const code = String(b.code || ''), redirect_uri = String(b.redirect_uri || '');
+        if (!code || !/^https:\/\/(shake-to-shake\.netlify\.app|shake-to-shake\.pages\.dev|shaketoshake\.pages\.dev)\/line-cb\.html$/.test(redirect_uri))
+          return json({ ok: false, err: 'bad-request' }, 400, cors);
+        const body = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri, client_id: env.LINE_ID, client_secret: env.LINE_SECRET });
+        const r = await fetch('https://api.line.me/oauth2/v2.1/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
+        const j = await r.json();
+        if (!j || !j.id_token) return json({ ok: false, err: 'exchange-failed' }, 401, cors);
+        const p = JSON.parse(atob(j.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (!p || !p.sub) return json({ ok: false, err: 'no-sub' }, 401, cors);
+        return json({ ok: true, sub: String(p.sub), name: String(p.name || '') }, 200, cors);
+      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
+    }
+
+    // ---- GitHubログイン(Device Flow・シークレット不要): OAuth Appで「Device Flow」を有効にするだけで全環境で動く。
+    //      github.comはCORSを返さないのでWorkerで中継。/ghd/start=コード発行 / /ghd/poll=トークン→ユーザーID(sub)返却 ----
+    if (req.method === 'POST' && url.pathname === '/ghd/start') {
+      try {
+        const b = await req.json(); const cid = String(b.client_id || '');
+        if (!/^[A-Za-z0-9._-]{8,80}$/.test(cid)) return json({ ok: false, err: 'bad-client' }, 400, cors);
+        const r = await fetch('https://github.com/login/device/code', { method: 'POST', headers: { 'accept': 'application/json', 'content-type': 'application/json' }, body: JSON.stringify({ client_id: cid, scope: 'read:user' }) });
+        const j = await r.json();
+        if (!j || !j.device_code) return json({ ok: false, err: (j && (j.error || j.error_description)) || 'start-failed' }, 400, cors);
+        return json({ ok: true, device_code: j.device_code, user_code: j.user_code, verification_uri: j.verification_uri, interval: j.interval || 5, expires_in: j.expires_in || 900 }, 200, cors);
+      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
+    }
+    if (req.method === 'POST' && url.pathname === '/ghd/poll') {
+      try {
+        const b = await req.json(); const cid = String(b.client_id || ''), dc = String(b.device_code || '');
+        if (!cid || !dc) return json({ ok: false, err: 'bad-request' }, 400, cors);
+        const r = await fetch('https://github.com/login/oauth/access_token', { method: 'POST', headers: { 'accept': 'application/json', 'content-type': 'application/json' }, body: JSON.stringify({ client_id: cid, device_code: dc, grant_type: 'urn:ietf:params:oauth:grant-type:device_code' }) });
+        const j = await r.json();
+        if (j && j.error) return json({ ok: false, err: j.error }, 200, cors);   // authorization_pending / slow_down / expired_token / access_denied
+        if (!j || !j.access_token) return json({ ok: false, err: 'no-token' }, 200, cors);
+        const u = await fetch('https://api.github.com/user', { headers: { 'authorization': 'Bearer ' + j.access_token, 'accept': 'application/vnd.github+json', 'user-agent': 'sts-login' } });
+        const uj = await u.json();
+        if (!uj || !uj.id) return json({ ok: false, err: 'no-user' }, 200, cors);
+        return json({ ok: true, sub: String(uj.id), name: String(uj.login || '') }, 200, cors);
+      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
+    }
+
     // ---- iTunes検索プロキシ（Netlifyの /itunes-api リダイレクトをCloudflareへ移設=Netlifyリクエスト削減。エッジ10分キャッシュ=同じ検索語は上流にも行かない）----
     if (req.method === 'GET' && url.pathname === '/itunes') {
       try {

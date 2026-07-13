@@ -118,9 +118,10 @@
         <div class="cs-seg-bar" id="csRatioBar">
           <div class="cs-seg-slider" id="csRatioSlider"></div>
           <div class="cs-seg-item active" data-ratio="16:9" data-class="cs-ratio-16-9"  onclick="csSetRatio(this)">16:9</div>
-          <div class="cs-seg-item"        data-ratio="18:9" data-class="cs-ratio-18-9"  onclick="csSetRatio(this)">18:9</div>
           <div class="cs-seg-item"        data-ratio="4:3"  data-class="cs-ratio-4-3"   onclick="csSetRatio(this)">4:3</div>
-          <div class="cs-seg-item"        data-ratio="9:16" data-class="cs-ratio-tiktok" onclick="csSetRatio(this)">TikTok (9:16)</div>
+          <!-- ★16:9か4:3のみ(1:1/TikTok 9:16/18:9は選べない・ユーザ指示) -->
+          <div class="cs-seg-item" data-ratio="18:9" data-class="cs-ratio-18-9" style="display:none" onclick="csSetRatio(this)">18:9</div>
+          <div class="cs-seg-item" data-ratio="9:16" data-class="cs-ratio-tiktok" style="display:none" onclick="csSetRatio(this)">TikTok (9:16)</div>
           <div class="cs-seg-item" id="csRatio1x1" style="display:none" data-ratio="1:1"  data-class="cs-ratio-1-1"   onclick="csSetRatio(this)">1:1</div>
         </div>
         <!-- クリップボード: コピー済みの画像があるときだけ表示。その画像の比率で開始し最初のクリップとして読み込む。 -->
@@ -213,8 +214,8 @@
       <span class="pi-aspect" id="piAspect" role="tablist" aria-label="アスペクト比">
         <span class="pi-aspect-slider" id="piAspectSlider"></span>
         <span class="pi-aspect-seg active" data-ratio="16:9" onclick="editor.setAspectRatioLive('16:9')">16:9</span>
-        <span class="pi-aspect-seg"        data-ratio="18:9" onclick="editor.setAspectRatioLive('18:9')">18:9</span>
         <span class="pi-aspect-seg"        data-ratio="4:3"  onclick="editor.setAspectRatioLive('4:3')">4:3</span>
+        <span class="pi-aspect-seg"        data-ratio="18:9" style="display:none" onclick="editor.setAspectRatioLive('18:9')">18:9</span>
       </span>
       <span class="pfloat-time" id="pfloatTime" onclick="editor.showAspectPicker()" title="タップでアスペクト比を切替"><span id="pfloatCurrentTime">00:00</span> / <span id="pfloatTotalTime">00:00</span></span>
       <span class="pi-opt-label" id="piOptLabel">最適化中<span class="pi-opt-dots">…</span></span>

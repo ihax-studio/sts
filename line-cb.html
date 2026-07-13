@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- line-cb.html — LINEログインのコールバック(完全無料版・Firebase/GCIP不要)。
+     認可コードをWorker(/line)でsubに交換し、localStorageに置いて本体(/)へ戻る。
+     本体は boot 時に gc_sso_pending + gc_line_result を見て 連携 or ログイン を再開する。 -->
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LINEでログイン中…</title>
+<style>html,body{height:100%;margin:0;background:#0a0a11;color:#fff;font:600 16px/1.6 -apple-system,'Hiragino Sans',sans-serif;display:flex;align-items:center;justify-content:center;text-align:center}</style>
+</head><body>
+<div id="m">LINEでログイン中…</div>
+<script>
+(function(){
+  var m=document.getElementById("m");
+  function fail(t){ m.textContent=t||"LINEログインに失敗しました"; setTimeout(function(){ location.replace("/"); },1600); }
+  try{
+    var q=new URLSearchParams(location.search);
+    var code=q.get("code"), state=q.get("state"), err=q.get("error");
+    if(err){ fail(err==="access_denied"?"キャンセルしました":"LINEログインに失敗しました"); return; }
+    var want=localStorage.getItem("gc_line_state")||"";
+    if(!code || !state || state!==want){ fail("状態が一致しませんでした(もう一度どうぞ)"); return; }
+    var WORKER=localStorage.getItem("gc_line_worker")||"https://shake-toshake.s-users15.workers.dev";
+    fetch(WORKER+"/line",{ method:"POST", headers:{ "content-type":"application/json" },
+      body:JSON.stringify({ code:code, redirect_uri:location.origin+"/line-cb.html" }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d && d.ok && d.sub){ localStorage.setItem("gc_line_result", JSON.stringify({ sub:d.sub, name:d.name||"", ts:Date.now() })); location.replace("/"); }
+        else if(d && d.err==="not-configured"){ fail("LINE連携は準備中です(チャネル設定待ち)"); }
+        else { fail(); }
+      }).catch(function(){ fail("通信に失敗しました"); });
+  }catch(_){ fail(); }
+})();
+</script>
+</body></html>

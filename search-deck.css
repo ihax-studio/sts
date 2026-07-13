@@ -91,20 +91,56 @@
   background:rgba(255,255,255,.1);
   box-shadow: 0 8px 22px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.18);
 }
+.sd-app img.ic[src*="camera"]{ box-shadow:none; background:none; }   /* ★カメラアイコンの枠(inset border/影)は廃止(ユーザ指示) */
 .sd-app .nm{
   font: 500 11px/1.25 -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
   color:#fff; text-shadow:0 1px 6px rgba(0,0,0,.6); text-align:center;
   max-width:76px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
 }
 .sd-app:active .ic{ transform:scale(.9); transition:transform .12s; }
+/* ★2本指ピンチ: 広げる=拡大モード(名前がフェードで消えアイコン大きめ・4/行のまま) / つまむ=元に戻る */
+.sd-app{ transition:width .35s var(--gc-ease), max-width .35s var(--gc-ease); }
+.sd-app .ic{ transition:width .35s var(--gc-ease), height .35s var(--gc-ease); }
+.sd-app .nm{ transition:opacity .3s var(--gc-ease); }
+.search-ov.sd-zoom:not(.sd-searching) .sd-app{ width:calc(25% - 9px); max-width:100px; }
+.search-ov.sd-zoom:not(.sd-searching) .sd-app .ic{ width:74px; height:74px; }
+.search-ov.sd-zoom:not(.sd-searching) .sd-app .nm{ opacity:0; height:0; margin:0; overflow:hidden; }
 .sd-app.hide{ display:none; }
 .sd-app.sd-gone{ display:none !important; }   /* gone()=完全非表示(ミュージック/翻訳の条件落ち) */
 .sd-app{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-/* 並び替え(長押しドラッグ)中: iOSホーム風ジグル・掴んだ元タイルは薄く */
+/* 編集モード(長押し)中: iOSホーム風ジグル・掴んだ元タイルは薄く */
+/* ★編集中は全タイルを強制表示=出現アニメ(sdAppIn forwards)がジグルに置き換わってopacity:0へ戻る不具合の根治 */
+.sd-apps.sd-editing .sd-app{ opacity:1; transform:none; }
 .sd-apps.sd-editing .sd-app:not(.sd-ph){ animation: sdJiggle .3s ease-in-out infinite alternate; }
 @keyframes sdJiggle{ from{ transform:rotate(-1.4deg); } to{ transform:rotate(1.4deg); } }
-.sd-app.sd-ph{ opacity:0; animation:none !important; transition:opacity .5s var(--gc-ease); }   /* ★並び替えで掴んだタイルが消えるのは0.5s */
+.sd-app.sd-ph, .sd-apps.sd-editing .sd-app.sd-ph{ opacity:0; animation:none !important; transition:opacity .5s var(--gc-ease); }   /* ★並び替えで掴んだタイルが消えるのは0.5s(編集中も) */
 .sd-ghost .nm{ text-shadow:0 2px 10px rgba(0,0,0,.7); }
+/* ★×バッジ(友達タイルの中央下・前面): 編集モードで0.3sで出る。押すと「振って削除」UIへ */
+.sd-app{ position:relative; }
+.sd-min{ position:absolute; left:50%; bottom:-7px; z-index:6; width:26px; height:26px; border-radius:50%; border:none; padding:0;
+  background:#fff; color:#111; font:300 17px/1 -apple-system,'SF Pro Display',sans-serif;
+  display:flex; align-items:center; justify-content:center; box-shadow:none;
+  cursor:pointer; -webkit-tap-highlight-color:transparent; pointer-events:auto;
+  opacity:0; transform:translateX(-50%) scale(.8); transition:opacity .5s ease, transform .5s ease; }   /* ★白丸(borderなし)+黒文字の×・出る=scale0.8→1/消える=1→0.8(0.5s ease) */
+.sd-apps.sd-editing .sd-min{ opacity:1; transform:translateX(-50%) scale(1); }
+.sd-min.sd-min-out{ opacity:0; transform:translateX(-50%) scale(.8); }
+/* ★ドラッグ中の第2ドロップ先: 画面下の友達レール(＋/カメラ除く)。
+   slideup/リフトは廃止=フェードのみ(トランジション重複と他要素との干渉を防ぐ・ユーザ指示)。かざすとユーザー色リングが0.3sで出る/離れると消える */
+/* ★友達をドックに置くとき=下に「枠なり」で出る。出る=scaleup(0.3s)/消える=scaledown ease。dockより下・中央 */
+#sdRailDrop{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 6px); z-index:9857; display:flex; gap:12px; align-items:center;
+  max-width:94vw; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  padding:10px 16px;
+  border-radius:22px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter:blur(26px) saturate(150%); backdrop-filter:blur(26px) saturate(150%);
+  transform:translate(-50%,0) scale(.82); transform-origin:center bottom; opacity:0; pointer-events:none;
+  transition:opacity .3s var(--gc-ease), transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s var(--gc-ease); }
+#sdRailDrop.show{ opacity:1; transform:translate(-50%,0) scale(1); }   /* ★scaleupで出る */
+#sdRailDrop.sd-rd-over{ box-shadow:0 0 0 3px var(--gc-user,#62d8ff), 0 0 22px var(--gc-user,#62d8ff); }
+#sdRailDrop::-webkit-scrollbar{ display:none; }
+.sd-rd-it{ flex:0 0 auto; display:flex; flex-direction:column; align-items:center; }
+.sd-rd-av{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:20px; color:#fff; overflow:hidden; background-size:cover; background-position:center;
+  box-shadow:0 0 0 2px rgba(255,255,255,.5); }
 
 /* ── 結果リスト(友達/音楽): 枠なし・slideupで出る ── */
 .sd-cat{

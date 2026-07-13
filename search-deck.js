@@ -73,6 +73,19 @@
       function end(){ on=false; }
       apps.addEventListener('touchend', end, {passive:true}); apps.addEventListener('touchcancel', end, {passive:true});
     })();
+    /* ★2本指ピンチ: 広げる=アプリ一覧が拡大(名前フェード非表示・アイコン大きめ) / つまむ=元に戻す。状態は記憶 */
+    (function(){ var d0=0, act=false;
+      function dist(e){ var a=e.touches[0], b=e.touches[1]; return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
+      scroll.addEventListener('touchstart', function(e){ if(e.touches&&e.touches.length===2){ d0=dist(e); act=true; } }, {passive:true});
+      scroll.addEventListener('touchmove', function(e){ if(!act||!e.touches||e.touches.length!==2) return;
+        var ov2=document.getElementById('searchOv'); if(!ov2) return; var r=dist(e)/(d0||1);
+        if(r>1.22 && !ov2.classList.contains('sd-zoom')){ ov2.classList.add('sd-zoom'); try{ localStorage.setItem('sd_zoom','1'); }catch(_){} d0=dist(e); try{ cb.haptic&&cb.haptic(); }catch(_){} }
+        else if(r<0.82 && ov2.classList.contains('sd-zoom')){ ov2.classList.remove('sd-zoom'); try{ localStorage.removeItem('sd_zoom'); }catch(_){} d0=dist(e); try{ cb.haptic&&cb.haptic(); }catch(_){} }
+        if(e.cancelable) e.preventDefault(); }, {passive:false});
+      function end2(){ act=false; }
+      scroll.addEventListener('touchend', end2, {passive:true}); scroll.addEventListener('touchcancel', end2, {passive:true});
+      try{ if(localStorage.getItem('sd_zoom')==='1'){ var ov3=document.getElementById('searchOv'); if(ov3) ov3.classList.add('sd-zoom'); } }catch(_){}
+    })();
     /* ★検索中: 結果はinputの上にスライドアップ / input+appsは0.5sで下へ(文字を消すと0.5sで上に戻る) */
     col.appendChild(res); col.appendChild(bar); col.appendChild(scroll);
     wrap.appendChild(col); host.appendChild(wrap);
@@ -82,8 +95,9 @@
     input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); var first=res.querySelector('.sd-row'); if(first) first.click(); } });
     xb.addEventListener('click', function(ev){ ev.stopPropagation(); input.value=''; onInput(); input.focus(); });
 
-    // 何も無い所タップ=閉じる(バー/行/タイル以外)
+    // 何も無い所タップ=閉じる(バー/行/タイル以外)。★編集モード(ジグル)中/直後は閉じずに編集終了だけ
     wrap.addEventListener('click', function(e){
+      if(reorder.sup()){ try{ reorder.exitEdit(); }catch(_){} return; }
       if(e.target.closest && e.target.closest('.sd-bar, .sd-row, .sd-app, .sd-cat')) return;
       try{ cb.onRequestClose&&cb.onRequestClose(); }catch(_){}
     });
@@ -119,21 +133,41 @@
     });
   }
 
+  /* ★検索⇄通常の切替はCSSのorder入れ替え=レイアウトの瞬間テレポートでアイコンがカクつく
+     → FLIP: 切替前後の位置差分をtransformで持ち、0.3s cubicで滑らかに流す(上下移動のカクカク根絶) */
+  function flipPush(mut){
+    var ts=[els.bar,els.scroll,els.res].filter(Boolean);
+    var before=ts.map(function(t){ return t.getBoundingClientRect().top; });
+    try{ mut(); }catch(_){}
+    ts.forEach(function(t,i){ var d=before[i]-t.getBoundingClientRect().top; if(!d) return;
+      t.style.transition='none'; t.style.transform='translateY('+d+'px)';
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){
+        t.style.transition='transform .3s cubic-bezier(.22,1,.36,1)'; t.style.transform='';
+        setTimeout(function(){ t.style.transition=''; },330); }); }); });
+  }
+
   function onInput(){
     setBarHas();
     var q=(els.input&&els.input.value||'').trim();
-    try{ var ov=document.getElementById('searchOv'); if(ov) ov.classList.toggle('sd-searching', !!q); }catch(_){}   // ★文字があれば input+apps を下げ、結果を上に出す(0.5s)
+    try{ var ov=document.getElementById('searchOv'); if(ov){
+      var is=!!q, was=ov.classList.contains('sd-searching');
+      if(is!==was){ flipPush(function(){ ov.classList.toggle('sd-searching', is); }); }   // ★切替の瞬間だけFLIPで0.3s補間=カクカクしない
+    } }catch(_){}   // ★文字があれば input+apps を下げ、結果を上に出す
     filterApps(q);
     /* ★1行に畳まれる瞬間だけ「右から1個ずつ0.3sスライドイン」を再生。文字を消して4列に戻る時はグリッド用アニメへ戻す */
     if(q){ if(!_wasSearching) playRowSlide(); }
     else if(_wasSearching) clearRowSlide();
     _wasSearching=!!q;
     var fn=buildFn(q);          // 数式(y=…/x=…)ならグラフ表示(1s描画)・他の検索は抑制
-    renderGraph(q, fn);
-    renderFriends(fn?'':q);
-    scheduleMusic(fn?'':q);
-    scheduleTranslate(fn?'':q);
-    scheduleVocab(fn?'':q);
+    var formulaIntent=/^[xy]\s*=/i.test(q);   // ★「y=」「x=」で始まる=式を書いている最中
+    if(fn){ renderGraph(q, fn); }
+    else if(formulaIntent && els.res.querySelector('[data-sec="gr"]')){ /* ★式の続きを打って一瞬不完全になっても直前の有効なグラフを消さない(「y=の後に文字を打つと消える」の根治) */ }
+    else { renderGraph(q, null); }
+    var g=!!(fn||formulaIntent);   // ★式を書いている間は他の検索(友達/音楽/翻訳/英単語)を抑制
+    renderFriends(g?'':q);
+    scheduleMusic(g?'':q);
+    scheduleTranslate(g?'':q);
+    scheduleVocab(g?'':q);
   }
 
   /* ── vocabx英単語: 英語を検索したら意味が出る。データ(667KB)は初回の英語検索時にだけ遅延ロード ── */
@@ -290,13 +324,14 @@
       if(b.classList.contains('hide') || b.classList.contains('sd-gone')) return;
       b.style.animation='none'; void b.offsetWidth;
       b.style.animation='sdAppSlideX .3s cubic-bezier(.16,1,.3,1) both';
-      b.style.animationDelay=(vis*55)+'ms'; vis++; }); }catch(_){} }
+      b.style.animationDelay=(Math.min(vis,12)*55)+'ms'; vis++; }); }catch(_){} }
   /* ★4列グリッドへ戻る時: inlineアニメを外してCSSの出現アニメへ戻す */
   function clearRowSlide(){ try{ Array.prototype.forEach.call(els.apps.children, function(b){ b.style.animation=''; b.style.animationDelay=''; }); }catch(_){} }
 
-  /* ═══ 長押し→ドラッグでアプリ並び替え(iOS風): ゴーストが指に追従・他タイルはFLIPで滑らかに詰める・ジグル・順序を保存 ═══ */
+  /* ═══ 長押し=編集モード(iOSホーム風): 全タイルがジグル+友達タイルに×(中央下)。
+     編集中に指を動かすとドラッグ(並び替え/ドック/下の友達レールへドロップ)。×=「振って削除」UIへ ═══ */
   var reorder=(function(){
-    var grid=null, dragging=false, supUntil=0;
+    var grid=null, dragging=false, supUntil=0, editing=false;
     var ghost=null, ph=null, sx=0, sy=0, lastSwap=0, lastX=0, lastY=0;
     function blockScroll(e){ if(dragging){ try{ if(e.cancelable) e.preventDefault(); }catch(_){} } }
     function flip(mut){
@@ -305,26 +340,85 @@
       kids.forEach(function(p){ var c=p[0], b=p[1], a=c.getBoundingClientRect();
         var dx=b.left-a.left, dy=b.top-a.top; if(!dx&&!dy) return;
         c.style.transition='none'; c.style.transform='translate('+dx+'px,'+dy+'px)';
-        requestAnimationFrame(function(){ c.style.transition='transform .3s cubic-bezier(.22,1,.36,1)'; c.style.transform='';
+        requestAnimationFrame(function(){ c.style.transition='transform .3s ease'; c.style.transform='';
           setTimeout(function(){ c.style.transition=''; },330); }); });
     }
+    /* ── ×バッジ(友達タイルの中央下)=押すと「振って削除」UIがトランジションで出る ── */
+    function addMinBadges(){
+      Array.prototype.forEach.call(grid.children, function(b){
+        if(!b.classList || !b.classList.contains('sd-app')) return;
+        if(b.querySelector('.sd-min')) return;
+        var fr=b.getAttribute('data-fr'); if(!fr) return;   /* ×=友達タイルのみ(appは並べ替え/ドックドロップ) */
+        var m=document.createElement('button'); m.type='button'; m.className='sd-min'; m.textContent='×'; m.setAttribute('aria-label','友達を削除');
+        m.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); try{ cb.haptic&&cb.haptic(); }catch(_){}
+          try{ window.__openUnfriend && window.__openUnfriend({ peer:fr, name:b.getAttribute('data-nm-raw')||'友達', ava:b.getAttribute('data-av')||'🙂', color:b.getAttribute('data-c')||'#62d8ff' }); }catch(_){} });
+        ['pointerdown','touchstart'].forEach(function(ev2){ m.addEventListener(ev2, function(e3){ e3.stopPropagation(); }, {passive:true}); });
+        b.appendChild(m); });
+    }
+    function outsideEdit(e){ try{ if(dragging) return;
+      if(!e.target.closest || !e.target.closest('.sd-app,#gcDock,#gcRailTrack,.sd-min,.gcdk-min,.gc-rail-min')) exitEdit(); }catch(_){ exitEdit(); } }
+    function enterEdit(){ if(editing||!grid) return; editing=true; try{ cb.haptic&&cb.haptic(); }catch(_){}
+      grid.classList.add('sd-editing');
+      addMinBadges();
+      try{ var dk=document.getElementById('gcDock'); if(dk&&dk.__enterEdit&&dk.classList.contains('show')) dk.__enterEdit(); }catch(_){}   /* ★Dock(+レール)のアイコンも一緒に震える */
+      setTimeout(function(){ document.addEventListener('pointerdown', outsideEdit, true); },60);
+    }
+    function exitEdit(){ if(!editing||!grid) return; editing=false; supUntil=Date.now()+400;
+      grid.classList.remove('sd-editing');
+      Array.prototype.forEach.call(grid.querySelectorAll('.sd-min'), function(m){ try{ m.classList.add('sd-min-out'); var _m=m; setTimeout(function(){ try{ _m.remove(); }catch(_){} },500); }catch(_){ try{ m.remove(); }catch(__){} } });   // ★消える=1→0.8(0.5s ease)
+      document.removeEventListener('pointerdown', outsideEdit, true);
+      try{ var dk=document.getElementById('gcDock'); if(dk&&dk.__exitEdit) dk.__exitEdit(); }catch(_){}
+    }
+    try{ window.__sdEditOff=function(){ try{ exitEdit(); }catch(_){} }; }catch(_){}
+    /* ── ドラッグ中の第2ドロップ先: 画面下に「最初の画面の友達一覧」(＋/カメラ除く)がslideupで出る ── */
+    var railEl=null;
+    function railShow(){
+      try{
+        if(railEl){ try{ railEl.remove(); }catch(_){} railEl=null; }
+        var frs=[]; try{ frs=(cb.friends&&cb.friends())||[]; }catch(_){}
+        if(!frs.length) return;
+        railEl=document.createElement('div'); railEl.id='sdRailDrop';
+        frs.forEach(function(f){ var it=el('div','sd-rd-it');
+          var av; if(String(f.ava||'').indexOf('img:')===0){ av=el('div','sd-rd-av'); av.style.backgroundImage='url("'+String(f.ava).slice(4).replace(/"/g,'%22')+'")'; }
+          else { av=el('div','sd-rd-av', f.ava||'🙂'); av.style.background=f.color||'#62d8ff'; }
+          it.appendChild(av);   /* ★名前なし=コンパクト(dockの下に収まる=干渉しない) */
+          railEl.appendChild(it); });
+        document.body.appendChild(railEl);
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){ if(railEl) railEl.classList.add('show'); }); });
+        /* ★dockのリフト/slideupは廃止=フェードのみ(重複トランジション/他要素との干渉を防ぐ・ユーザ指示) */
+      }catch(_){}
+    }
+    function railHide(){
+      if(!railEl) return; var r=railEl; railEl=null;
+      r.classList.remove('show'); r.classList.remove('sd-rd-over');
+      setTimeout(function(){ try{ r.remove(); }catch(_){} },400);
+    }
+    function railOver(x,y){ if(!railEl) return false; var rr=railEl.getBoundingClientRect();
+      return y>=rr.top-64; }   /* ★友達追加しやすく=レール上端-64pxより下ならどこでもドロップ可(左右問わず) */
+    function dockOver(x,y){ try{ var dk=document.getElementById('gcDock'); if(!dk) return false; var dr=dk.getBoundingClientRect();
+      return x>=dr.left-34 && x<=dr.right+34 && y>=dr.top-34 && y<=dr.bottom+34; }catch(_){ return false; } }
     function start(t, e){
       dragging=true; try{ cb.haptic&&cb.haptic(); }catch(_){}
       grid.classList.add('sd-editing');
       if(els.scroll) els.scroll.style.overflowY='hidden';
-      var r=t.getBoundingClientRect(); sx=e.clientX; sy=e.clientY;
+      var r=t.getBoundingClientRect(); sx=e.clientX; sy=e.clientY; lastX=e.clientX; lastY=e.clientY;
       ghost=t.cloneNode(true); ghost.className='sd-app sd-ghost';
-      ghost.style.cssText='position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;margin:0;z-index:99999;pointer-events:none;opacity:1;transform:scale(1.14);transition:transform .18s cubic-bezier(.22,1,.36,1);filter:drop-shadow(0 14px 28px rgba(0,0,0,.45))';
+      var gm=ghost.querySelector('.sd-min'); if(gm){ try{ gm.remove(); }catch(_){} }
+      ghost.style.cssText='position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;margin:0;z-index:99999;pointer-events:none;opacity:.96;transform:scale(1.14);transition:transform .18s cubic-bezier(.22,1,.36,1)';   /* ★黒shadow廃止 */
       document.body.appendChild(ghost);
       ph=t; ph.classList.add('sd-ph');
+      if(t.getAttribute('data-fr')) railShow();   /* ★友達タイルのドラッグ中だけ下の友達レール(ドロップ先)がslideup */
     }
     function move(e){ if(!dragging||!ghost) return;
       lastX=e.clientX; lastY=e.clientY;
       ghost.style.transform='translate('+(e.clientX-sx)+'px,'+(e.clientY-sy)+'px) scale(1.14)';
-      /* ★左端(ドック)にかざしたら: ドックを開いて(既存アイコンが消えない)ドロップ先リングをぽって出す＋ゴーストも光る */
-      try{ var _dk=document.getElementById('gcDock'); if(_dk){ var _dr=_dk.getBoundingClientRect(); var _over=(lastX < Math.max(_dr.right+34,96));
-        ghost.style.filter=_over?'drop-shadow(0 0 0 3px rgba(124,192,255,.9)) drop-shadow(0 14px 28px rgba(0,0,0,.45))':'drop-shadow(0 14px 28px rgba(0,0,0,.45))';
+      /* ★左端/中央下(ドック)にかざしたら: ドロップ先リングをぽって出す＋ゴーストも光る */
+      var _over=dockOver(lastX,lastY);
+      try{ var _dk=document.getElementById('gcDock'); if(_dk){
+        ghost.style.filter=_over?'drop-shadow(0 0 0 3px var(--gc-user,#62d8ff))':'none';
         if(_over){ if(!_dk.classList.contains('show')) _dk.classList.add('show'); _dk.classList.add('open'); _dk.classList.add('gcdk-drop'); } else { _dk.classList.remove('gcdk-drop'); } } }catch(_){}
+      /* ★下の友達レールにかざしたら: レールの枠リングが0.3sで出る(離れると0.3sで消える) */
+      try{ if(railEl){ railEl.classList.toggle('sd-rd-over', !_over && railOver(lastX,lastY)); } }catch(_){}
       var now=Date.now(); if(now-lastSwap<90) return;
       var kids=Array.prototype.slice.call(grid.children);
       for(var i=0;i<kids.length;i++){ var c=kids[i]; if(c===ph||c.classList.contains('hide')) continue;
@@ -337,15 +431,21 @@
           break; } }
     }
     function end(){ if(!dragging) return; dragging=false; supUntil=Date.now()+350;
-      /* ★左端(ドック)にドロップ=そのアプリをドックに追加(iOS風・元タイルはグリッドに残す) */
+      var _onDock=dockOver(lastX,lastY), didDrop=false;
+      /* ★ドック(中央下/左端)へドロップ=追加 */
       try{ var _dk=document.getElementById('gcDock');
-        if(_dk && ph && window.__gcAddDockApp){ var _dr=_dk.getBoundingClientRect();
-          if(lastX < Math.max(_dr.right+34,96)){
-            var _fr=ph.getAttribute('data-fr');
-            if(_fr){ window.__gcAddDockApp({ f:_fr, n:ph.getAttribute('data-nm-raw')||'友達', av:ph.getAttribute('data-av')||'🙂', c:ph.getAttribute('data-c')||'#62d8ff' }); }   // ★友達タイル→ドック
-            else { var _nm=ph.getAttribute('data-nm-raw')||''; var _ie=ph.querySelector('img.ic'); var _is=_ie?(_ie.getAttribute('src')||''):'';
-              if(_nm){ window.__gcAddDockApp({n:_nm, i:_is}); } } } _dk.classList.remove('gcdk-drop'); } }catch(_){}
-      grid.classList.remove('sd-editing');
+        if(_dk && ph && window.__gcAddDockApp && _onDock){
+          var _fr=ph.getAttribute('data-fr');
+          if(_fr){ window.__gcAddDockApp({ f:_fr, n:ph.getAttribute('data-nm-raw')||'友達', av:ph.getAttribute('data-av')||'🙂', c:ph.getAttribute('data-c')||'#62d8ff' }); }
+          else { var _nm=ph.getAttribute('data-nm-raw')||''; var _ie=ph.querySelector('img.ic'); var _is=_ie?(_ie.getAttribute('src')||''):'';
+            if(_nm){ window.__gcAddDockApp({n:_nm, i:_is}); } }
+          didDrop=true; }
+        if(_dk) _dk.classList.remove('gcdk-drop'); }catch(_){}
+      /* ★下の友達レールへドロップ=ピン留め(友達のみ) */
+      try{ if(!didDrop && ph && railEl && railOver(lastX,lastY)){ var _fr2=ph.getAttribute('data-fr');
+        if(_fr2 && window.__gcAddDockApp){ window.__gcAddDockApp({ f:_fr2, n:ph.getAttribute('data-nm-raw')||'友達', av:ph.getAttribute('data-av')||'🙂', c:ph.getAttribute('data-c')||'#62d8ff' }); } } }catch(_){}
+      railHide();
+      if(!editing) grid.classList.remove('sd-editing');   /* ★編集モード継続中はジグルを維持(iOS風) */
       if(els.scroll) els.scroll.style.overflowY='';
       if(ghost&&ph){ var pr=ph.getBoundingClientRect(), gr=ghost.getBoundingClientRect();
         ghost.style.transition='transform .28s cubic-bezier(.22,1,.36,1), opacity .28s';
@@ -360,16 +460,22 @@
     function attach(g){ if(grid) return; grid=g;
       document.addEventListener('touchmove', blockScroll, {passive:false});
       var lpT=null, px0=0, py0=0, cand=null;
-      grid.addEventListener('pointerdown', function(e){ var t=e.target.closest&&e.target.closest('.sd-app'); if(!t) return;
+      grid.addEventListener('pointerdown', function(e){
+        if(e.target.closest && e.target.closest('.sd-min')) return;   /* ×は削除専用(編集開始/ドラッグにしない) */
+        var t=e.target.closest&&e.target.closest('.sd-app'); if(!t){ cand=null; return; }
         cand=t; px0=e.clientX; py0=e.clientY;
-        clearTimeout(lpT); lpT=setTimeout(function(){ if(cand){ start(cand, {clientX:px0, clientY:py0}); } }, 430); });
+        clearTimeout(lpT); lpT=setTimeout(function(){ if(cand){ enterEdit(); } }, 430); });   /* ★長押し=編集モード(震え+×)。すぐ指を動かせばそのままドラッグ */
       grid.addEventListener('pointermove', function(e){
-        if(!dragging){ if(cand && (Math.abs(e.clientX-px0)>9||Math.abs(e.clientY-py0)>9)){ clearTimeout(lpT); cand=null; } return; }
-        move(e); });
+        if(dragging){ move(e); return; }
+        if(!cand) return;
+        var dx=Math.abs(e.clientX-px0), dy=Math.abs(e.clientY-py0);
+        if(editing){ if(dx>8||dy>8){ clearTimeout(lpT); start(cand, {clientX:e.clientX, clientY:e.clientY}); } return; }
+        if(dx>9||dy>9){ clearTimeout(lpT); cand=null; } });
       window.addEventListener('pointerup', function(){ clearTimeout(lpT); cand=null; end(); });
-      window.addEventListener('pointercancel', function(){ clearTimeout(lpT); cand=null; end(); });
+      window.addEventListener('pointercancel', function(){ clearTimeout(lpT); cand=null; end(); railHide(); });
     }
-    return { attach:attach, sup:function(){ return dragging || Date.now()<supUntil; } };
+    return { attach:attach, sup:function(){ return dragging || editing || Date.now()<supUntil; },
+      editing:function(){ return editing; }, exitEdit:function(){ exitEdit(); }, rebadge:function(){ if(editing) addMinBadges(); } };
   })();
 
   function section(title){ var c=el('div'); c.appendChild(el('div','sd-cat',title)); var rows=el('div','sd-rows'); c.appendChild(rows); return {c:c, rows:rows}; }
@@ -393,7 +499,7 @@
   }
   /* ★結果行は枠なし+slideupで順に出る */
   function slideRows(rows){ try{ Array.prototype.forEach.call(rows.querySelectorAll('.sd-row'), function(r,i){
-    r.style.transitionDelay=(i*36)+'ms';
+    r.style.transitionDelay=(Math.min(i,14)*36)+'ms';   /* ★staggerは先頭15行だけ=数百件出しても待たせない */
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ r.classList.add('in'); }); }); }); }catch(_){} }
   /* ★翻訳/英単語のタップ=TTS(サマンサが英文1.1x→0.1秒後にKyokoが日本語1.2x) */
   function speakPair(en, ja){ try{ var ss=window.speechSynthesis; if(!ss) return; ss.cancel();
@@ -426,7 +532,7 @@
     var old=els.res.querySelector('[data-sec="mu"]'); if(old) old.remove();
     if(!list.length) return;
     var s=section('ミュージック'); s.c.setAttribute('data-sec','mu');
-    list.slice(0,30).forEach(function(t){
+    list.forEach(function(t){   /* ★制限なし=手当たり次第全部出す(host側もlimit=200×JP/USマージ) */
       var row=el('button','sd-row'); row.type='button';
       /* ★hostのmusicSearchは{id,title,artist,art,preview}へ変換済み。iTunes生形(trackName等)も両対応=曲名が確実に出る */
       var ttl=t.title||t.trackName||'', art0=t.art||t.artworkUrl100||'', artist=t.artist||t.artistName||'';
@@ -457,6 +563,7 @@
     init: function(opts){ cb=opts||{}; },
     open: function(o){
       build();
+      try{ reorder.exitEdit(); }catch(_){}   // ★開き直し=編集モード(ジグル+×)を必ず解除
       try{ syncFriendTiles(); }catch(_){}   // ★友達タイルを最新化(追加/削除/名前変更に追従)
       /* ★開くたびに gone() を評価(classic切替/再生状態/environment変更に追従) */
       try{ Array.prototype.forEach.call(els.apps.children, function(b){ b.classList.toggle('sd-gone', !!(b.__gone && b.__gone())); }); }catch(_){}
@@ -472,6 +579,8 @@
       try{ Array.prototype.forEach.call(els.apps.children, function(b,i){ b.style.animation='none'; void b.offsetWidth; b.style.animation=''; b.style.animationDelay=(i*35)+'ms'; }); }catch(_){}
       if(o&&o.focus){ setTimeout(function(){ try{ els.input.focus(); }catch(_){} }, 280); }
     },
-    close: function(){ try{ if(els.input) els.input.blur(); }catch(_){} }
+    close: function(){ try{ reorder.exitEdit(); }catch(_){} try{ if(els.input) els.input.blur(); }catch(_){} },
+    /* ★友達解除(振って削除)の直後にタイルを即時更新(編集モード中なら×も貼り直す) */
+    syncFriends: function(){ try{ syncFriendTiles(); }catch(_){} try{ reorder.rebadge(); }catch(_){} }
   };
 })();

@@ -6,6 +6,14 @@
 # ・frame-ancestors 'self'：同一オリジンの埋め込み(iframe)は許可・外部からの埋め込み(クリックジャッキング)は禁止。
 # ・App Check(reCAPTCHA)用に connect-src へ www.google.com / www.gstatic.com を許可。
 # ・Monaco(VS Mode) を jsdelivr から読むため script/worker/font/connect を最小限だけ開放。
+# ★WebAuthn Related Origin Requests: Netlifyで作ったパスキーを pages.dev からも使えるようにする
+#   (rpId=shake-to-shake.netlify.app のまま、このファイルが許可オリジンを列挙。iOS18+/Chrome128+)
+[[headers]]
+  for = "/.well-known/webauthn"
+  [headers.values]
+    Content-Type = "application/json"
+    Cache-Control = "max-age=300"
+
 # ★StS CLI一式のzip: どこから開いても「表示」ではなく必ずダウンロードになる(PWA/Safari/Mac共通)
 [[headers]]
   for = "/apps/stscli.zip"
@@ -19,7 +27,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
     Permissions-Policy = "camera=(self), microphone=(self), geolocation=(self), interest-cohort=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://itunes.apple.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; media-src 'self' blob: https://audio-ssl.itunes.apple.com https://video-ssl.itunes.apple.com https://*.mzstatic.com; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://itunes.apple.com https://rss.applemarketingtools.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.workers.dev https://content-firebaseappcheck.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://api.mymemory.translated.net https://api.open-meteo.com https://ja.wikipedia.org https://threejs.org https://flagcdn.com https://api.song.link https://corsproxy.io https://api.allorigins.win https://esm.sh https://*.skyway.ntt.com wss://*.skyway.ntt.com; frame-src 'self' https://www.google.com https://open.spotify.com https://w.soundcloud.com https://embed.music.apple.com https://www.youtube.com https://music.youtube.com https://*.trycloudflare.com; worker-src 'self' blob: data:; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://shake-to-shake.netlify.app https://www.google.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://itunes.apple.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; media-src 'self' blob: https://audio-ssl.itunes.apple.com https://video-ssl.itunes.apple.com https://*.mzstatic.com; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://itunes.apple.com https://rss.applemarketingtools.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.workers.dev https://content-firebaseappcheck.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://api.mymemory.translated.net https://api.open-meteo.com https://ja.wikipedia.org https://threejs.org https://flagcdn.com https://api.song.link https://corsproxy.io https://api.allorigins.win https://esm.sh https://*.skyway.ntt.com wss://*.skyway.ntt.com https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com https://*.r2.dev; frame-src 'self' https://www.google.com https://open.spotify.com https://w.soundcloud.com https://embed.music.apple.com https://www.youtube.com https://music.youtube.com https://*.trycloudflare.com; worker-src 'self' blob: data:; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'"
 
 # spotlight 検索（spotlight ultra.html）は外部CDN(three.js/mathjs/翻訳mymemory/flagcdn/open-meteo/wikipedia)を使う自己完結ページ。
 # このサブツリーだけ緩めのCSPにし、同一オリジン(本体チャット)からの埋め込み(frame-ancestors 'self')を許可。/* の後に置いて上書き。
