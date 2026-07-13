@@ -12011,10 +12011,11 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     var deck=!!dk.__deck;
     var r=dk.getBoundingClientRect(); var w=r.width||46, h=r.height||46;
     var L, T;
-    if(deck && shown){ L=(window.innerWidth-w)/2;   // ★apps中はsearchバーとapps一覧の「間」(=検索中は[apps一覧][検索バー]の順なのでバーの真上)に置く(ユーザ指示)
+    if(deck && shown){ L=(window.innerWidth-w)/2;   // ★検索中はdockを「検索バーの下」に上下余白をあけて置く(ユーザ指示)。並び順は[apps/results][検索バー]なのでバーの直下=画面下方
       var _bar=null; try{ _bar=document.querySelector("#searchHost .sd-bar"); }catch(_){}
-      if(_bar){ var _br=_bar.getBoundingClientRect(); T=Math.max(_sInset("--sat")+8, _br.top-h-8); }   // 検索バーの真上(=apps一覧とバーの間)
-      else { T=Math.max(12,_sInset("--sat"))+64; } }
+      if(_bar){ var _br=_bar.getBoundingClientRect(); var _pad=16;   // 上下余白16px
+        T=Math.min(_br.bottom+_pad, window.innerHeight-h-_sInset("--sab")-_pad); }   // 検索バーの下(下端はセーフエリア手前でクランプ)
+      else { T=window.innerHeight-h-_sInset("--sab")-16; } }
     else { T=(window.innerHeight-h)/2;                                            // 縦中央
       if(shown){ L=right?(window.innerWidth-w-12-_sInset("--sar")):(12+_sInset("--sal")); }
       else { L=right?(window.innerWidth+40):(-w-40); } }                          // 非表示=画面外
