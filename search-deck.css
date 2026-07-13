@@ -187,7 +187,8 @@
   transition:max-height .5s var(--gc-ease), opacity .4s var(--gc-ease), margin-bottom .5s var(--gc-ease); }
 /* ★検索中: app一覧(1行のドック)は検索結果より前(上)に出す(ユーザ指示)。順序=apps → バー → 結果 */
 .search-ov.sd-searching .sd-scroll{ order:-2; flex:0 0 auto; }
-.search-ov.sd-searching .sd-bar{ order:-1; }
+/* ★検索バーの下にdock(≈46px)が入る余白を確保=検索バー(上)とも結果(下)とも干渉しない(ユーザ指示)。gap上16+dock46+gap下16≒78px */
+.search-ov.sd-searching .sd-bar{ order:-1; margin-bottom:78px; }
 /* ★友達タイル(emojiアバター)の丸: アプリアイコンと同じ枠 */
 .sd-app div.ic{ width:62px; height:62px; border-radius:55px; box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.18); }
 .sd-res::-webkit-scrollbar{ display:none; }
