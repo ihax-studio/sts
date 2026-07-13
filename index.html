@@ -9436,7 +9436,14 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         if(plain.indexOf("cximg:")===0 && window.Store){ if(tx&&tx.parentNode)tx.parentNode.removeChild(tx); d.classList.add("img");
           var _imgId=plain.slice(6); if(m.f===uid){ try{ recordSentImage(_imgId, m.ts); }catch(_){} }   // ★自分が送った画像はMoment(gallery)へ蓄積＝会話を見るだけで過去分も揃う
           var im=document.createElement("img"); im.className="gc-msg-img"; im.loading="lazy";
-          im.onload=function(){ var nb=(box.scrollHeight-box.scrollTop-box.clientHeight)<240; if(nb) box.scrollTop=box.scrollHeight; };
+          im.onload=function(){ im.__ok=1; var nb=(box.scrollHeight-box.scrollTop-box.clientHeight)<240; if(nb) box.scrollTop=box.scrollHeight; };
+          im.onerror=function(){ if(im.__ok)return; im.__try=(im.__try||0)+1;   // ★/dlが一時的に失敗(worker/回線)しても黒くしない=数回リトライ→ダメなら再読込プレースホルダ(ブラックアウト根絶)
+            if(im.__try<=4){ setTimeout(function(){ im.src=Store.fileUrl(_imgId)+"&r="+im.__try; }, 1200*im.__try); return; }
+            var ph=document.createElement("button"); ph.type="button"; ph.className="gc-msg-img";
+            ph.style.cssText="display:flex;align-items:center;justify-content:center;width:200px;height:150px;border:none;border-radius:14px;background:rgba(255,255,255,.10);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fff;font:500 13px/1.4 -apple-system,'Hiragino Sans',sans-serif;cursor:pointer";
+            ph.textContent="📷 タップで再読込";
+            ph.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} im.__try=0; im.__ok=0; im.src=Store.fileUrl(_imgId)+"&r=0"; try{ ph.replaceWith(im); }catch(_){ if(ph.parentNode) ph.parentNode.replaceChild(im, ph); } };
+            try{ im.replaceWith(ph); }catch(_){ if(im.parentNode) im.parentNode.replaceChild(ph, im); } };
           im.src=Store.fileUrl(_imgId); d.appendChild(im); try{ gcAttachImgShare(d, im.src); }catch(_){} box.scrollTop=box.scrollHeight; return; }
         if(plain.indexOf("cdot:")===0){ if(tx&&tx.parentNode)tx.parentNode.removeChild(tx); d.classList.add("img");   // ★CLIの超軽量カラードット画像→canvasでドットマトリクス描画
           try{ renderCdot(d, plain); }catch(_){ var _cph=document.createElement("span"); _cph.textContent="📷 画像"; d.appendChild(_cph); } if(box) box.scrollTop=box.scrollHeight; return; }
