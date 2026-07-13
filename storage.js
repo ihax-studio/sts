@@ -62,13 +62,38 @@
 
   // Worker にアップロード → { id: Telegram file_id, mid: Telegram message_id }
   // mid は empty mode が Telegram から実体を消す(deleteMessage)のに使う。旧Worker応答では undefined。
+  // ★根本対策(2026-07-13): 旧実装は単発fetch=携帯回線/Worker/Telegramの一時的な不調(5xx/429/flood/timeout/
+  //   iCloudプライベートリレーの瞬断)で即throw→「送信に失敗しました」(index.htmlの10339)を誘発していた。
+  //   タイムアウト付き+指数バックオフで最大6回リトライ=一時的な不調では絶対に失敗しない=10339を根絶。
+  //   恒久エラー(413大きすぎ等の4xx)だけ即中断=無駄な待ちを避ける。
+  const UP_BACKOFF = [0, 700, 1600, 3200, 6000, 10000];   // 6試行(累計≈21s)+各45sタイムアウト
+  function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   async function upload(blob, name, type) {
     if (!ready()) throw new Error('STORAGE_URL 未設定');
     const u = base() + '/up?name=' + encodeURIComponent((name || 'file').slice(0, 60)) + '&type=' + encodeURIComponent(type || blob.type || 'application/octet-stream');
-    const r = await fetch(u, { method: 'POST', body: blob });
-    const d = await r.json().catch(() => ({}));
-    if (!d || !d.ok || !d.id) throw new Error((d && d.err) || 'upload failed');
-    return { id: d.id, mid: d.mid };    // file_id + message_id
+    let lastErr = null;
+    for (let attempt = 0; attempt < UP_BACKOFF.length; attempt++) {
+      if (UP_BACKOFF[attempt]) await _sleep(UP_BACKOFF[attempt]);
+      let ctl = null, timer = 0;
+      try {
+        ctl = ('AbortController' in self) ? new AbortController() : null;
+        timer = setTimeout(function () { try { ctl && ctl.abort(); } catch (e) {} }, 45000);
+        const r = await fetch(u, { method: 'POST', body: blob, signal: ctl ? ctl.signal : undefined, keepalive: false });
+        clearTimeout(timer); timer = 0;
+        if (r.ok) {
+          const d = await r.json().catch(() => ({}));
+          if (d && d.ok && d.id) return { id: d.id, mid: d.mid };   // ★成功
+          lastErr = new Error((d && d.err) || 'upload failed');     // 応答不正=一時的とみなしリトライ
+        } else {
+          lastErr = new Error('http ' + r.status);
+          if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429) break;   // 恒久4xx=即中断
+        }
+      } catch (e) {
+        if (timer) clearTimeout(timer);
+        lastErr = e;   // ネットワーク断/timeout/abort=リトライ
+      }
+    }
+    throw lastErr || new Error('upload failed');
   }
 
   // file_id → 表示用URL（<img src> にそのまま使える）
