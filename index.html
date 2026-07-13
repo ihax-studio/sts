@@ -875,7 +875,7 @@ const sunGlowShell = new THREE.Mesh(
   new THREE.SphereGeometry(7, 64, 64),
   new THREE.ShaderMaterial({
     uniforms: {
-      glowColor: { value: new THREE.Color(0xffb24d) },
+      glowColor: { value: new THREE.Color(0xff7a2e) },
       viewVector:{ value: new THREE.Vector3(0,0,1) },
       c: { value: 0.42 }, p: { value: 4.2 },
     },
@@ -906,8 +906,8 @@ function makeSunGlowTex(){
   const x = c.getContext('2d');
   const g = x.createRadialGradient(128,128,0, 128,128,128);
   g.addColorStop(0.00, 'rgba(255,247,224,1.00)');
-  g.addColorStop(0.16, 'rgba(255,236,188,0.92)');
-  g.addColorStop(0.40, 'rgba(255,200,128,0.36)');
+  g.addColorStop(0.16, 'rgba(255,220,150,0.92)');
+  g.addColorStop(0.40, 'rgba(255,178,96,0.34)');
   g.addColorStop(0.68, 'rgba(255,170,92,0.09)');
   g.addColorStop(1.00, 'rgba(255,150,70,0.00)');
   x.fillStyle = g; x.fillRect(0,0,256,256);
@@ -924,7 +924,7 @@ const coronaIn = new THREE.Sprite(new THREE.SpriteMaterial({
 coronaIn.scale.set(24, 24, 1);
 sunGroup.add(coronaIn);
 const coronaOut = new THREE.Sprite(new THREE.SpriteMaterial({
-  map: SUN_GLOW, color: 0xffcf94, transparent: true,
+  map: SUN_GLOW, color: 0xffa860, transparent: true,
   blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.42, toneMapped: false,
 }));
 coronaOut.scale.set(52, 52, 1);
@@ -2228,7 +2228,9 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* OS標準カラーパレットを開く：<label>にinputを内包＝iOSでも確実に開く（虹色プリセット廃止）。+印で「自由な色」を示す */
   .gc-sw-pick{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; display:inline-block; width:30px; height:30px; flex:0 0 auto; border-radius:50%; cursor:pointer; overflow:hidden;
     border:none; padding:2px; box-sizing:border-box; box-shadow:none; background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); transition:transform .3s var(--gc-spring); }   /* ★パレット=細いグラデborder(2px)・中は選んだ色(::before) */
-  .gc-sw-pick::before{ content:""; position:absolute; inset:2px; border-radius:50%; background:var(--gc-user,#62d8ff); }
+  .gc-sw-pick::before{ content:""; position:absolute; inset:2px; border-radius:50%; background:var(--pick-in,var(--gc-user,#62d8ff)); transition:transform .4s var(--gc-spring); transform:scale(1); }   /* ★枠内=選んだ色(グラデborderは残す) */
+  .gc-sw-pick.just-picked::before{ animation:swPickIn .45s var(--gc-spring); }   /* ★選ぶと枠内の色がscaleupで出る */
+  @keyframes swPickIn{ 0%{ transform:scale(.4); } 60%{ transform:scale(1.12); } 100%{ transform:scale(1); } }
   .gc-sw-pick:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1.16); }
   .gc-sw-pick::after{touch-action:pan-y!important;overscroll-behavior-x:none!important; content:"+"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; font-weight:300; text-shadow:0 1px 3px rgba(0,0,0,.45); pointer-events:none; }
   .gc-sw-pickin{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; border:0; padding:0; margin:0; cursor:pointer; -webkit-appearance:none; appearance:none; }
@@ -2829,6 +2831,12 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
      キーライム緑 / タンジェリン橙 / ブルーベリー青紫 の高彩度・光沢・シャボン。LINE風バブル・文字小・アニメ無し。 */
   /* ★Classic=黒背景(ユーザ指示: 黒環境=ユーザ色/Classic=黒、の役割分担)。シャボン玉グラデは廃止のまま */
   html.classic #gcBg{ opacity:1 !important; background:#000 !important; background-size:cover !important; }
+  /* ★Classic背景=ランダムjellyfish動画(角radius22px)。speedはJSでランプ(1s待ち→2sで動き出し / 最後2sで減速して止まる) */
+  #gcJelly{ position:fixed; inset:0; z-index:1; border-radius:22px; overflow:hidden; opacity:0; pointer-events:none;
+    transition:opacity .8s var(--gc-ease); background:#000; }
+  #gcJelly video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:22px; }
+  html.classic #gcJelly{ opacity:1; }
+  html.classic.gc-tempglobe #gcJelly{ opacity:0 !important; }
   html.classic.gc-tempglobe #gcBg{ opacity:0 !important; }   /* ★classicでもピン(📍)の一時地球儀がちゃんと出る(黒背景の!importantに勝つ) */
   html.classic #gcBg::after{ content:none !important; }
   html.classic body.gc-inchat #gcSearchFab{ display:none !important; }   /* ★classicのチャット画面=右下に検索/再生中は出さない(→送信ボタンがあるから) */
@@ -3091,17 +3099,21 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   @keyframes gcSpin{ to{ transform:rotate(360deg); } }
   .gc-msgs-loading{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:center; justify-content:center; padding:46px 0; color:rgba(255,255,255,.55); }
 
-  /* ===== 引き継ぎ復元中オーバーレイ（背景blur＋中央「復元中」＋滑らかにフェードするドット。出/消ともフェード） ===== */
-  #gcRestore{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9600; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
-    background:rgba(10,11,16,.42); backdrop-filter:blur(28px) saturate(150%); -webkit-backdrop-filter:blur(28px) saturate(150%);
+  /* ===== 引き継ぎ復元中オーバーレイ（背景透明blur＋smile.mov scaleup＋Apple Watch風進捗リング。一周で完了バースト） ===== */
+  #gcRestore{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9600; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
+    background:transparent; backdrop-filter:blur(30px) saturate(150%); -webkit-backdrop-filter:blur(30px) saturate(150%);
     opacity:0; pointer-events:none; transition:opacity .55s var(--gc-ease); font-family:-apple-system,"SF Pro Text","Hiragino Sans",system-ui,sans-serif; }
   #gcRestore.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; pointer-events:auto; }
-  #gcRestore .rs-tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; font-size:19px; font-weight:500; letter-spacing:1.5px; }
-  #gcRestore .rs-dots{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; gap:8px; }
-  #gcRestore .rs-dots i{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:9px; height:9px; border-radius:50%; background:#fff; opacity:.22; animation:rsDot 1.25s var(--gc-ease) infinite; }
-  #gcRestore .rs-dots i:nth-child(2){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay:.18s; }
-  #gcRestore .rs-dots i:nth-child(3){touch-action:pan-y!important;overscroll-behavior-x:none!important; animation-delay:.36s; }
-  @keyframes rsDot{ 0%,100%{ opacity:.22; transform:scale(.82); } 45%{ opacity:1; transform:scale(1.18); } }
+  #gcRestore .rs-ring{ position:relative; width:150px; height:150px; transform:scale(.5); opacity:0; transition:transform .6s var(--gc-spring), opacity .5s var(--gc-ease); }   /* ★出=scaleup */
+  #gcRestore.show .rs-ring{ transform:scale(1); opacity:1; }
+  #gcRestore .rs-ring svg{ position:absolute; inset:0; transform:rotate(-90deg); }
+  #gcRestore .rs-ring .rs-face{ position:absolute; inset:20px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  #gcRestore .rs-ring .rs-face video{ width:118%; height:118%; object-fit:cover; mix-blend-mode:screen; }   /* ★smile.mov(黒背景)=screenで透過 */
+  #gcRestore .rs-tx{touch-action:pan-y!important;overscroll-behavior-x:none!important; color:#fff; font-size:17px; font-weight:500; letter-spacing:1.2px; opacity:.9; }
+  #gcRestore.rs-done .rs-ring{ transform:scale(1.35); opacity:0; transition:transform .7s var(--gc-spring), opacity .6s var(--gc-ease); }   /* ★完了=UIがscaleupで消える */
+  #gcRestore.rs-done .rs-tx{ opacity:0; transition:opacity .4s var(--gc-ease); }
+  .rs-burst-dot{ position:fixed; width:9px; height:9px; border-radius:50%; background:#fff; z-index:9601; pointer-events:none; opacity:1;
+    transition:transform .8s cubic-bezier(.16,1,.3,1), opacity .8s var(--gc-ease); }
 
   /* ===== パスキー作成 / デバイス別 生体認証で引き継ぐ (#gcBio) ===== */
   #gcBio{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9500; display:flex; visibility:hidden; align-items:center; justify-content:center; padding:24px;   /* ★display切替→visibility=0.5sフェードが確実に効く(再設計) */
@@ -3111,7 +3123,8 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   #gcBio .bio-veil{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; background:rgba(8,9,14,.42);
     backdrop-filter:blur(28px) saturate(150%); -webkit-backdrop-filter:blur(28px) saturate(150%); }
   #gcBio .bio-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:min(560px,92vw); padding:40px 30px 26px; text-align:center; color:#fff;
-    background:none; border:none; box-shadow:none; transform:scale(1.15); transition:transform 1s cubic-bezier(.22,1,.36,1); }   /* 枠なし・★出現=1.15→1を1sで */
+    background:rgba(255,255,255,.05); -webkit-backdrop-filter:blur(26px) saturate(150%); backdrop-filter:blur(26px) saturate(150%); border:none; box-shadow:none; border-radius:55px; transform:scale(1.15); transition:transform 1s cubic-bezier(.22,1,.36,1); }   /* ★背景透明blurのみ・作成=radius55px(引き継ぎはJSで50px)・出現=1.15→1を1sで */
+  #gcBio.bio-handoff .bio-card{ border-radius:50px; }   /* ★引き継ぎ=radius50px */
   #gcBio.show .bio-card{ transform:scale(1); }
   #gcBio.out{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0; transition:opacity .5s var(--gc-ease); }        /* ★0.5sフェードで閉じる */
   /* ★閉じる時=文字/アイコン/ボタンがスライドダウン+フェード(出る時の逆再生・遅延なし) */
@@ -3121,7 +3134,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   #gcBio.out .bio-acts{ transform:scale(.8); opacity:0; transition:transform .45s var(--gc-ease), opacity .35s var(--gc-ease); }
   #gcBio.out .bio-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1.15); }                         /* ★閉じ=1→1.15を1sで(出現の逆再生・baseの1s transitionだけを使う=重複なし) */
   /* smile(mov)= 枠/bg なし透明・出る時 scale up 0.5s ease */
-  #gcBio .bio-icon{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:132px; height:132px; margin:0 auto 22px; border-radius:50%; overflow:hidden;
+  #gcBio .bio-icon{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:132px; height:132px; margin:0 auto 22px; border-radius:50px; overflow:hidden;
     display:flex; align-items:center; justify-content:center; background:none !important; box-shadow:none !important;
     transform:scale(.3); opacity:0; transition:transform .5s var(--gc-ease), opacity .4s var(--gc-ease); }
   #gcBio.show .bio-icon{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); opacity:1; }
@@ -4077,7 +4090,8 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
   function markColor(c){
     if(!prof.admin){ prof.color=c; save(); }
     [].forEach.call(document.querySelectorAll(".gc-sw"),function(s){ if(s.dataset)s.classList.toggle("sel", s.dataset.c===c); });
-    [].forEach.call(document.querySelectorAll(".gc-sw-pick"),function(n){ if(/^#/.test(c))n.style.background=c; });
+    [].forEach.call(document.querySelectorAll(".gc-sw-pick"),function(n){ if(/^#/.test(c)){ n.style.setProperty("--pick-in", c);   // ★背景(グラデborder)は残し、枠内の色だけ更新+scaleup再生
+      n.classList.remove("just-picked"); void n.offsetWidth; n.classList.add("just-picked"); } });
     [].forEach.call(document.querySelectorAll(".gc-sw-pickin"),function(n){ try{ if(/^#/.test(c))n.value=c; }catch(_){} });
     if(/^#/.test(c)){ var _nb=$("nobAva"); if(_nb) _nb.style.background=c; var _ng=$("nobGo"); if(_ng) _ng.style.background=c; }   // 登録画面のアバター/→も選んだ色に追従
     if(prof.admin) return;                                  // 管理者は色固定（反映/保存しない）
@@ -4378,7 +4392,8 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
   function openMomentsArchive(){ var addr=myAddr()||uid; if(!db||!addr){ try{ dynamicIsland("接続を確認してね"); }catch(_){} return; }
     var ov=document.createElement("div"); ov.id="gcMomArch";
     ov.style.cssText="position:fixed;inset:0;z-index:9760;background:rgba(8,10,16,.62);-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px);display:flex;flex-direction:column;opacity:0;transition:opacity .3s var(--gc-ease);overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 56px) 16px calc(env(safe-area-inset-bottom,0px) + 24px);-webkit-overflow-scrolling:touch";
-    function close(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },320); }
+    var _galRef=db.ref("gallery/"+addr), _selfT=0;   // ★リアルタイム購読=削除/♥/追加が即反映(他ビュー/別端末と同期)。_selfT=自分の直近操作は楽観更新済でrebuild抑制(ちらつき防止)
+    function close(){ try{ _galRef.off(); }catch(_){} ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },320); }
     ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
     var bk=document.createElement("button"); bk.textContent="←"; bk.setAttribute("data-hswipe","");
     bk.style.cssText="position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:16px;border:none;background:none;color:#fff;font:300 32px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;padding:8px 12px;z-index:2;filter:drop-shadow(0 2px 10px rgba(0,0,0,.55));-webkit-tap-highlight-color:transparent";
@@ -4386,7 +4401,9 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var ti=document.createElement("div"); ti.textContent="思い出"; ti.style.cssText="color:#fff;font:700 22px/1 -apple-system,'Hiragino Sans',sans-serif;text-align:center;margin-bottom:6px"; ov.appendChild(ti);
     var sub=document.createElement("div"); sub.textContent="15ヶ月 · ♥は思い出を残せるよ"; sub.style.cssText="color:rgba(255,255,255,.5);font:500 11.5px/1 -apple-system,sans-serif;text-align:center;margin-bottom:16px"; ov.appendChild(sub);
     var grid=document.createElement("div"); grid.style.cssText="display:grid;grid-template-columns:repeat(auto-fill,minmax(40vw,1fr));gap:17px;max-width:560px;margin:0 auto;width:100%;padding:0 12px;box-sizing:border-box"; ov.appendChild(grid);   /* ★画像は少し小さく(ユーザ指示) */
-    db.ref("gallery/"+addr).once("value").then(function(s){ var v=s.val()||{};
+    _galRef.on("value", function(s){ if(Date.now()-_selfT<1400) return;   // ★自分の直近操作は楽観更新済=rebuildしない(ちらつき防止)。他端末/他ビューの変更だけ反映
+      var v=s.val()||{};   // ★valueで再構築=削除/♥/追加がリアルタイム反映
+      grid.innerHTML=""; try{ var _oldtl=$("gcMomTl"); if(_oldtl) _oldtl.remove(); }catch(_){}   // 前回のグリッド/タイムラインをクリアして作り直す
       var arr=Object.keys(v).map(function(k){ var e=v[k]||{}; var m={}; try{ m=JSON.parse(e.id||"{}"); }catch(_){} return {key:k, m:m, ts:(e.ts||m.ts||0)}; }).filter(function(x){ return x.m&&x.m.k; }).sort(function(a,b){ return b.ts-a.ts; });
       if(!arr.length){ var em=document.createElement("div"); em.textContent="まだ投稿がありません"; em.style.cssText="color:rgba(255,255,255,.5);text-align:center;grid-column:1/-1;padding:36px"; grid.appendChild(em); return; }
       /* ★日付ラベル(今日/昨日/--/--・去年以前は年)を先に計算=右端タイムラインの基準(日付を見やすく) */
@@ -4411,7 +4428,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
         if(m.e && Array.from(m.e).length<=3 && m.k!=="txt"){ var ebg=document.createElement("div"); ebg.textContent=m.e; ebg.style.cssText="position:absolute;right:7px;bottom:7px;font-size:26px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6))"; card.appendChild(ebg); }
         var faved=!!m.fav; var hb=document.createElement("button"); hb.textContent="♥";
         hb.style.cssText="position:absolute;left:10px;top:7px;border:none;background:none;font:400 39px/1 -apple-system,'SF Pro Display',sans-serif;color:"+(faved?"#ff375f":"rgba(255,255,255,.9)")+";cursor:pointer;padding:4px;filter:drop-shadow(0 1px 6px rgba(0,0,0,.6));transition:transform .3s var(--gc-spring);-webkit-tap-highlight-color:transparent;z-index:3";   // ★♥さらに大きく(39px)
-        hb.onclick=function(e){ e.stopPropagation(); haptic(); faved=!faved; m.fav=faved; hb.style.color=faved?"#ff375f":"rgba(255,255,255,.9)";
+        hb.onclick=function(e){ e.stopPropagation(); haptic(); _selfT=Date.now(); faved=!faved; m.fav=faved; hb.style.color=faved?"#ff375f":"rgba(255,255,255,.9)";
           hb.style.transition="none"; hb.style.transform="scale(.7)"; void hb.offsetWidth; hb.style.transition="transform .3s var(--gc-spring)"; hb.style.transform="scale(1)";   // ★押すたび(戻す時も)scale0.7→1
           try{ db.ref("gallery/"+addr+"/"+x.key+"/id").set(JSON.stringify(m)); }catch(_){}
           try{ dynamicIsland(faved?"思い出を残せるよ ♥":"お気に入りを解除"); }catch(_){} };
@@ -4419,7 +4436,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
         /* ★iOS風の削除アイコン(右上の丸✕)=モーメントから消す(0.3sで縮んで消える) */
         var delB=document.createElement("button"); delB.setAttribute("aria-label","削除"); delB.textContent="✕";
         delB.style.cssText="position:absolute;right:6px;top:6px;width:36px;height:36px;border:none;background:none;color:#fff;font:100 25px/1 -apple-system,'SF Pro Display',sans-serif;display:flex;align-items:center;justify-content:center;cursor:pointer;filter:drop-shadow(0 1px 6px rgba(0,0,0,.65));z-index:4;padding:0;-webkit-tap-highlight-color:transparent";   /* ★✕=weight1・今より大きく・枠なし */
-        delB.onclick=function(e){ e.stopPropagation(); haptic();
+        delB.onclick=function(e){ e.stopPropagation(); haptic(); _selfT=Date.now();
           card.style.transition="transform .3s var(--gc-ease), opacity .3s var(--gc-ease)"; card.style.transform="scale(.72)"; card.style.opacity="0";
           try{ db.ref("gallery/"+addr+"/"+x.key).remove(); }catch(_){}
           setTimeout(function(){ try{ card.remove(); }catch(_){} },300);
@@ -4450,7 +4467,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
               try{ dynamicIsland("記念日の思い出はまだないよ"+(prof.anniv.e||"💜")); }catch(_){} };
             tl.appendChild(ar); }
           ov.appendChild(tl); } }catch(_){}
-    }).catch(function(){});
+    }, function(){});   // ★.on(value, ok, cancel) — 権限/接続エラーは握りつぶす
     document.body.appendChild(ov); requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; }); }); haptic(); }
   window.__openMomentsArchive=openMomentsArchive;
   function stDelete(quiet){ var addr=myAddr()||uid; if(!db||!addr) return;
@@ -4681,7 +4698,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     function syncT(){ var F=FONTS[fi], TS=TSIZES[tsi]; tl.style.color=tcol; tl.style.fontWeight=String(F.w); tl.style.fontFamily=F.f;
       tl.style.fontSize=TS.px+"px"; tl.style.top=TS.top; tl.textContent=nowT(); }   // ★大=上/ミディアム=中央/小さい=下
     /* ★色ボタンの行は廃止=色はプレビュー円周のリングへ移動。Aa(左)とレンズ切替(右)は同じ行・より下に */
-    var arow=document.createElement("div"); arow.style.cssText="width:min(64vw,250px);display:flex;align-items:center;justify-content:space-between;margin-top:48px";   /* ★Aa/カメラ切替を少し下に(30→48px) */
+    var arow=document.createElement("div"); arow.style.cssText="width:min(64vw,250px);display:flex;align-items:center;justify-content:space-between;margin-top:44px";   /* ★Aa/カメラ切替=上下均等(44px) */
     var aaB=document.createElement("button"); aaB.textContent="Aa";
     aaB.style.cssText="min-width:56px;height:42px;border:none;background:none;color:#fff;font:800 22px/1 -apple-system,sans-serif;cursor:pointer;padding:0 12px;transition:transform .25s var(--gc-spring);-webkit-tap-highlight-color:transparent";
     aaB.onclick=function(e){ e.stopPropagation(); fi=(fi+1)%FONTS.length; var F=FONTS[fi];
@@ -4694,7 +4711,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     lensB.onclick=function(e){ e.stopPropagation(); if(recording) return; haptic(); facing=(facing==="user")?"environment":"user"; startCam(); };   // ★録画中の切替はストリーム破壊になるので無効
     arow.appendChild(aaB); arow.appendChild(lensB); ov.appendChild(arow);
     /* シャッター(写真=白 / 動画モード=赤丸)=より下に。押すと0.2s easeでscale0.7・離すと戻る */
-    var brow=document.createElement("div"); brow.style.cssText="display:flex;align-items:center;justify-content:center;margin-top:60px";   /* ★撮影ボタンも余白を空けて下に(48→60px) */
+    var brow=document.createElement("div"); brow.style.cssText="display:flex;align-items:center;justify-content:center;margin-top:44px";   /* ★撮影ボタン=上下均等(44px) */
     var shot=document.createElement("button"); shot.style.cssText="width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s, transform .2s ease;touch-action:none!important;-webkit-user-select:none";
     brow.appendChild(shot); ov.appendChild(brow);
     var zoomed=false;
@@ -7774,11 +7791,12 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       b4.onclick=function(ev){ ev.stopPropagation(); haptic(); mo.__close(); };
       mo.appendChild(b1); mo.appendChild(b2); mo.appendChild(b3); mo.appendChild(b4); };
     /* ★MBTI(好きな曲の下・slider式の縦スロット): I/E・N/S・T/F・P/J それぞれ上下スライドで選ぶ。X(不明)も選べて、Xを選ぶと😵がscaleupで出る */
+    /* ★😵はX(選んだ文字)の上に重ねてscaleupで出す=一時的(永久ではない) */
     function _mbDizzy(anchor){ try{ var r9=anchor.getBoundingClientRect(); var d9=document.createElement("div"); d9.textContent="😵";
-      d9.style.cssText="position:fixed;left:"+(r9.left+r9.width/2)+"px;top:"+(r9.top-10)+"px;transform:translate(-50%,-100%) scale(.2);font-size:34px;z-index:9970;pointer-events:none;opacity:0;transition:transform .5s var(--gc-spring), opacity .3s var(--gc-ease);filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))";
+      d9.style.cssText="position:fixed;left:"+(r9.left+r9.width/2)+"px;top:"+(r9.top+r9.height/2)+"px;transform:translate(-50%,-50%) scale(.3);font-size:32px;z-index:9970;pointer-events:none;opacity:0;transition:transform .5s var(--gc-spring), opacity .3s var(--gc-ease);filter:drop-shadow(0 2px 8px rgba(0,0,0,.55))";
       document.body.appendChild(d9);
-      requestAnimationFrame(function(){ requestAnimationFrame(function(){ d9.style.opacity="1"; d9.style.transform="translate(-50%,-100%) scale(1)"; }); });
-      setTimeout(function(){ d9.style.opacity="0"; d9.style.transform="translate(-50%,-100%) scale(.5)"; setTimeout(function(){ try{ d9.remove(); }catch(_){} },320); },1100); }catch(_){} }
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ d9.style.opacity="1"; d9.style.transform="translate(-50%,-50%) scale(1)"; }); });   // ★Xに重なってscaleup
+      setTimeout(function(){ d9.style.opacity="0"; d9.style.transform="translate(-50%,-50%) scale(.6)"; setTimeout(function(){ try{ d9.remove(); }catch(_){} },320); },1200); }catch(_){} }
     var MB_OPTS=[["I","E","X"],["N","S","X"],["T","F","X"],["P","J","X"]];
     var mbCur=(function(){ var v=String(prof.mbti||"XXXX").toUpperCase().split(""); return MB_OPTS.map(function(o,i){ var k=o.indexOf(v[i]||"X"); return k<0?(o.length-1):k; }); })();
     var mb=document.createElement("div"); mb.style.cssText="display:flex;align-items:center;justify-content:center;gap:15px;margin:0 0 2px";
@@ -8676,9 +8694,12 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       s.items=arr; _momBuild(); s.index=arr.length-1; _momGo(s.index, true); }
     if(!db||!addr){ fail(); return; }
     (authReady||Promise.resolve()).then(function(){ return prof.admin?claimAdmin():null; })
-      .then(function(){ return db.ref("gallery/"+addr).once("value"); })
-      .then(function(snap){ var v=snap.val()||{}; var arr=Object.keys(v).map(function(k){ var o=v[k]||{}; return { id:o.id, ts:(typeof o.ts==="number"?o.ts:0) }; }); fromArr(arr); })
-      .catch(fail); }
+      .then(function(){ try{ if(s.galRef){ s.galRef.off(); } }catch(_){} s.galRef=db.ref("gallery/"+addr);   // ★リアルタイム購読=削除/追加が即反映
+        s.galRef.on("value", function(snap){ if(_momState!==s) return; var v=snap.val()||{}; var arr=Object.keys(v).map(function(k){ var o=v[k]||{}; return { id:o.id, ts:(typeof o.ts==="number"?o.ts:0) }; });
+          var _keep=(s.items&&s.index!=null&&s.items[s.index])?s.items[s.index].id:null;   // 現在表示中のidを保持して再構築後も近い位置に戻す
+          fromArr(arr);
+          try{ if(_keep&&s.items&&s.items.length){ for(var i=0;i<s.items.length;i++){ if(s.items[i].id===_keep){ s.index=i; _momGo(i,true); break; } } } }catch(_){}
+        }, fail); }); }
   function openMomentApp(){ _momEnsureCSS();
     var ov=document.getElementById("gcMoment"); if(ov){ try{ ov.parentNode.removeChild(ov); }catch(_){} }
     ov=document.createElement("div"); ov.id="gcMoment";
@@ -8695,7 +8716,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     _momWireInput(); _momLoad(); }
   function closeMomentApp(){ var s=_momState; var ov=document.getElementById("gcMoment");
     try{ window.removeEventListener("keydown", _momKey); }catch(_){}
-    if(s){ try{ window.removeEventListener("mousemove", s._mm); }catch(_){} try{ window.removeEventListener("mouseup", s._mu); }catch(_){} try{ window.removeEventListener("resize", s._rz); }catch(_){} clearTimeout(s.lockT); }
+    if(s){ try{ window.removeEventListener("mousemove", s._mm); }catch(_){} try{ window.removeEventListener("mouseup", s._mu); }catch(_){} try{ window.removeEventListener("resize", s._rz); }catch(_){} clearTimeout(s.lockT); try{ if(s.galRef) s.galRef.off(); }catch(_){} }   // ★gallery購読を解除
     _momState=null;
     if(ov){ ov.style.transition="transform .8s cubic-bezier(.22,1,.36,1), opacity .8s ease"; ov.style.transformOrigin="center"; ov.style.opacity="0"; ov.style.transform="scale(1.6)"; setTimeout(function(){ try{ if(ov.parentNode) ov.parentNode.removeChild(ov); }catch(_){} },820); }   // ★閉じる=0.8s scaleup ease
     try{ if(prof.onboarded){ gotoHome(); } }catch(_){ try{ gcShowDock(); }catch(_){} } }
@@ -9263,6 +9284,12 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   function _helloFile(lang){ var b=String(lang||"en").toLowerCase().split(/[-_]/)[0]; return _helloLangMap[b]||"en"; }
   function _loadHello(lang, cb){ var f=_helloFile(lang); if(_helloData[f]){ cb(_helloData[f]); return; }
     fetch("hello/"+f+".json").then(function(r){ return r.json(); }).then(function(d){ _helloData[f]=d; cb(d); }).catch(function(){ cb(null); }); }
+  /* ★Welcome手書き(welcome/<lang>.json・helloと同じストローク形式)。言語コード直(en/ja/ko…)、無ければen */
+  var _welcomeData={};
+  function _loadWelcome(lang, cb){ var f=String(lang||"en").toLowerCase().split(/[-_]/)[0];
+    if(_welcomeData[f]){ cb(_welcomeData[f]); return; }
+    fetch("welcome/"+f+".json").then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){ _welcomeData[f]=d; cb(d); })
+      .catch(function(){ if(f!=="en"){ _loadWelcome("en", cb); } else { cb(null); } }); }
   function _gcHelloAnim(cv, data, color){ try{
     var DPR=Math.min(2,window.devicePixelRatio||1);
     var sc=data.scale||[1,1,1,1], sx=sc[0], sy=sc[1], sw=sc[3]||1;
@@ -9898,7 +9925,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
      +"#gcTodoOv .gctd-undo svg{width:16px;height:16px;color:#fff;}"
      +"#gcTodoOv .gctd-undo[hidden]{display:none;}"
      +"#gcTodoOv .gctd-undo:active{transform:translateX(-50%) scale(.96);}"
-     +"#gcTodoOv .gctd-barwrap{position:absolute;left:50%;bottom:clamp(14px,3.8%,28px);z-index:5;transform:translateX(-50%);width:max-content;max-width:calc(100% - 22px);display:flex;justify-content:center;}"
+     +"#gcTodoOv .gctd-barwrap{position:absolute;left:50%;bottom:clamp(14px,3.8%,28px);z-index:5;transform:translateX(-50%);width:max-content;max-width:calc(100% - 22px);display:flex;justify-content:center;transition:transform .5s ease,width .5s ease,left .5s ease;}"   /* ★名前変更等でバーが動く時0.5s ease */
      +"#gcTodoOv .gctd-bar{display:flex;align-items:stretch;border-radius:28px;background:rgba(255,255,255,.72);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);box-shadow:0 1px 1px rgba(0,0,0,.05),0 14px 36px rgba(0,0,0,.16);overflow:hidden;}"
      +"#gcTodoOv .arrow{flex:0 0 auto;width:44px;min-height:50px;display:grid;place-items:center;border:none;background:transparent;cursor:pointer;color:#1c1c1e;-webkit-appearance:none;appearance:none;outline:none;-webkit-tap-highlight-color:transparent;transition:transform .18s cubic-bezier(.32,.72,0,1),opacity .2s;}"
      +"#gcTodoOv .arrow svg{width:16px;height:16px;display:block;}"
@@ -10053,7 +10080,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     if(!document.getElementById("gcIntroCss")){ var st=document.createElement("style"); st.id="gcIntroCss";
       st.textContent="#gcIntroOv{position:fixed;inset:0;z-index:9800;display:flex;align-items:center;justify-content:flex-start;padding-left:7vw;opacity:0;transform:scale(1);transition:opacity .5s ease,transform .8s cubic-bezier(.16,1,.3,1);transform-origin:center;}"
       +"#gcIntroOv.show{opacity:1;} #gcIntroOv.go{opacity:0;transform:scale(1.8);}"
-      +"#gcIntroOv .iv{position:absolute;inset:0;background:rgba(8,10,16,.32);-webkit-backdrop-filter:blur(42px) saturate(150%);backdrop-filter:blur(42px) saturate(150%);}"
+      +"#gcIntroOv .iv{position:absolute;inset:0;background:transparent;-webkit-backdrop-filter:blur(42px) saturate(150%);backdrop-filter:blur(42px) saturate(150%);}"   /* ★最初の案内UI=背景透明blurのみ(暗いtint廃止) */
       +"#gcIntroOv .ir{position:relative;display:flex;align-items:center;gap:20px;padding:0 18px;}"
       +"#gcIntroOv .idock{width:72px;border-radius:40px;background:rgba(255,255,255,.92);flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:18px;padding:18px 0;box-shadow:0 10px 40px rgba(0,0,0,.4);opacity:0;transform:translateX(-26px);transition:all .6s cubic-bezier(.16,1,.3,1);}"
       +"#gcIntroOv.show .idock{opacity:1;transform:none;}"
@@ -10570,6 +10597,96 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       setTimeout(function(){ go.style.transition=""; go.style.transform=""; },620); }catch(_){}
 
     /* gcOnb で色/絵文字/名前を収集済み→直接 通知ステップへ */
+    /* ═══ 登録後オンボーディング: ① MBTIを選ぼう(Xスライダ+記念日追加) → ② Welcome(手書き+プロフ要約+QR+見たよ通知+読み取り+✓) ═══ */
+    function _onbClose(el){ if(!el) return; el.style.opacity="0"; setTimeout(function(){ try{ el.remove(); }catch(_){} },500); }
+    function _onbMBTI(){
+      var ov=document.createElement("div"); ov.id="gcOnbMbti";
+      ov.style.cssText="position:fixed;inset:0;z-index:9500;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;padding:0 9vw;box-sizing:border-box;background:transparent;-webkit-backdrop-filter:blur(30px) saturate(150%);backdrop-filter:blur(30px) saturate(150%);opacity:0;transition:opacity .5s var(--gc-ease)";
+      var ttl=document.createElement("div"); ttl.textContent="MBTIを選ぼう。"; ttl.style.cssText="color:#fff;font:200 40px/1.15 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;letter-spacing:.5px;opacity:0;transform:translateY(16px);transition:opacity .5s var(--gc-ease),transform .5s cubic-bezier(.22,1,.36,1)";
+      var sub=document.createElement("div"); sub.textContent="まずは慣れてみよう"; sub.style.cssText="color:rgba(255,255,255,.55);font:400 17px/1.4 -apple-system,'Hiragino Sans',sans-serif;margin-bottom:14px;opacity:0;transform:translateY(16px);transition:opacity .5s var(--gc-ease) .06s,transform .5s cubic-bezier(.22,1,.36,1) .06s";
+      ov.appendChild(ttl); ov.appendChild(sub);
+      /* MBTI 4列スライダ(openMyProfと同仕様のコンパクト版) */
+      var MB=[["I","E","X"],["N","S","X"],["T","F","X"],["P","J","X"]];
+      var cur=(function(){ var v=String(prof.mbti||"XXXX").toUpperCase().split(""); return MB.map(function(o,i){ var k=o.indexOf(v[i]||"X"); return k<0?(o.length-1):k; }); })();
+      var mb=document.createElement("div"); mb.style.cssText="display:flex;align-items:center;gap:22px;margin:2px 0 8px;opacity:0;transform:translateY(16px);transition:opacity .5s var(--gc-ease) .12s,transform .5s cubic-bezier(.22,1,.36,1) .12s";
+      function mbSave(){ var s=MB.map(function(o,i){ return o[cur[i]]; }).join(""); prof.mbti=(s==="XXXX")?null:s; save(); try{ if(db&&uid) db.ref("users/"+(myAddr()||uid)).update({ mbti:(prof.mbti||null) }); }catch(_){} }
+      MB.forEach(function(opts,ci){ var col=document.createElement("div");
+        col.style.cssText="position:relative;height:150px;width:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;cursor:ns-resize;user-select:none;-webkit-user-select:none;overflow:hidden;-webkit-mask:linear-gradient(180deg,transparent 0,#000 26%,#000 74%,transparent 100%);mask:linear-gradient(180deg,transparent 0,#000 26%,#000 74%,transparent 100%)";
+        var up=document.createElement("div"); up.style.cssText="color:rgba(255,255,255,.3);font:300 30px/1 -apple-system,'SF Pro Display',sans-serif;height:40px;display:flex;align-items:center";
+        var cu=document.createElement("div"); cu.style.cssText="color:#fff;font:200 56px/1 -apple-system,'SF Pro Display',sans-serif;height:70px;display:flex;align-items:center;will-change:transform,opacity";
+        var dn=document.createElement("div"); dn.style.cssText="color:rgba(255,255,255,.3);font:300 30px/1 -apple-system,'SF Pro Display',sans-serif;height:40px;display:flex;align-items:center";
+        function sync(sl){ var i=cur[ci]; up.textContent=opts[(i+opts.length-1)%opts.length]; dn.textContent=opts[(i+1)%opts.length];
+          if(sl===undefined){ cu.textContent=opts[i]; cu.__nsTxt=opts[i]; } else { _gcNumSlide(cu, opts[i], sl, 12); } }
+        function step(k){ cur[ci]=(cur[ci]+k+opts.length)%opts.length; sync(k>0); try{ haptic(); }catch(_){} mbSave(); }
+        sync(); col.appendChild(up); col.appendChild(cu); col.appendChild(dn);
+        (function(){ var y0=0,last=0,on=false; col.addEventListener("pointerdown",function(e){ e.stopPropagation(); y0=e.clientY; last=0; on=true; try{ col.setPointerCapture(e.pointerId); }catch(_){} });
+          col.addEventListener("pointermove",function(e){ if(!on)return; var st=Math.trunc((y0-e.clientY)/26); if(st!==last){ step(st>last?1:-1); last=st; } });
+          col.addEventListener("pointerup",function(){ if(on&&!last){ step(1); } on=false; }); col.addEventListener("pointercancel",function(){ on=false; }); })();
+        mb.appendChild(col); });
+      ov.appendChild(mb);
+      /* 記念日を追加(枠ボタン・押すと0.5sゆっくりease) */
+      var annB=document.createElement("button"); annB.textContent=(prof.anniv&&prof.anniv.m)?((prof.anniv.e||"💜")+" "+prof.anniv.m+"/"+ (prof.anniv.d||1)):"記念日を追加";
+      annB.style.cssText="border:1.5px solid rgba(255,255,255,.5);border-radius:99px;background:none;color:#fff;font:500 16px/1 -apple-system,'Hiragino Sans',sans-serif;padding:16px 34px;cursor:pointer;margin-top:12px;-webkit-tap-highlight-color:transparent;transition:transform .5s ease,background .5s ease;opacity:0;transform:translateY(16px)";
+      annB.style.transition="opacity .5s var(--gc-ease) .18s, transform .5s cubic-bezier(.22,1,.36,1) .18s";
+      annB.onclick=function(e){ e.stopPropagation(); haptic();
+        try{ var _bt=annB.getBoundingClientRect(); openEmojiRing(function(em){   // emoji選択→日付は今日で初期化(後で設定/プロフィールで変更可)
+          var d=new Date(); prof.anniv={ e:em, m:d.getMonth()+1, d:d.getDate() }; save(); try{ if(db&&uid) db.ref("users/"+(myAddr()||uid)).update({ anniv:prof.anniv }); }catch(_){}
+          annB.style.transition="transform .5s ease, background .5s ease"; annB.textContent=(prof.anniv.e||"💜")+" "+prof.anniv.m+"/"+prof.anniv.d; annB.style.background="rgba(255,255,255,.12)";
+        }, prof.anniv&&prof.anniv.e||"💜", {x:_bt.left+_bt.width/2, y:_bt.top}); }catch(_){} };
+      ov.appendChild(annB);
+      /* → 次へ(右下) */
+      var next=document.createElement("button"); next.setAttribute("aria-label","次へ"); next.innerHTML="→";
+      next.style.cssText="position:absolute;right:9vw;bottom:calc(env(safe-area-inset-bottom,0px) + 34px);border:none;background:none;color:#fff;font:100 40px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;padding:8px 14px;-webkit-tap-highlight-color:transparent;filter:drop-shadow(0 2px 10px rgba(0,0,0,.5));opacity:0;transition:opacity .5s var(--gc-ease) .24s,transform .3s var(--gc-spring)";
+      next.onclick=function(e){ e.stopPropagation(); haptic(); _onbClose(ov); setTimeout(_onbWelcome, 320); };
+      ov.appendChild(next);
+      document.body.appendChild(ov);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; [ttl,sub,mb,annB,next].forEach(function(el){ el.style.opacity="1"; el.style.transform="none"; }); }); });
+    }
+    function _onbWelcome(){
+      var ov=document.createElement("div"); ov.id="gcOnbWelcome";
+      ov.style.cssText="position:fixed;inset:0;z-index:9500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 24px calc(env(safe-area-inset-bottom,0px) + 90px);box-sizing:border-box;background:transparent;-webkit-backdrop-filter:blur(30px) saturate(150%);backdrop-filter:blur(30px) saturate(150%);opacity:0;transition:opacity .5s var(--gc-ease)";
+      /* 手書きWelcome */
+      var wc=document.createElement("canvas"); wc.style.cssText="display:block;margin-bottom:2px";
+      ov.appendChild(wc);
+      try{ _loadWelcome(_baseLang(navigator.language||"en"), function(dd){ if(dd){ _gcHelloAnim(wc, dd, "#fff"); wc.style.width="min(72vw,320px)"; wc.style.height="auto"; } else { var _wt=document.createElement("div"); _wt.textContent="Welcome"; _wt.style.cssText="color:#fff;font:200 48px/1 -apple-system,'SF Pro Display',sans-serif"; wc.replaceWith(_wt); } }); }catch(_){}
+      var sub=document.createElement("div"); sub.textContent="使ってくれてありがとう🔥"; sub.style.cssText="color:rgba(255,255,255,.5);font:300 17px/1.4 -apple-system,'Hiragino Sans',sans-serif;margin-bottom:22px";   // ★字は細く・少し大きめ
+      ov.appendChild(sub);
+      /* プロフ要約: [アイコン] 名前+MBTI💜記念日 | [QR] */
+      var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;gap:16px;width:100%;max-width:420px;justify-content:space-between";
+      var left=document.createElement("div"); left.style.cssText="display:flex;align-items:center;gap:14px;min-width:0;flex:1";
+      var ava=document.createElement("div"); ava.style.cssText="width:76px;height:76px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden;background:"+(prof.color||"#62d8ff");
+      try{ applyAva(ava, prof.ava||"🙂"); }catch(_){}
+      var meta=document.createElement("div"); meta.style.cssText="min-width:0";
+      var nm=document.createElement("div"); nm.textContent=prof.name||"User"; nm.style.cssText="color:#fff;font:300 30px/1.1 -apple-system,'SF Pro Display',sans-serif;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";   // ★名前は細く少し大きく
+      var subm=document.createElement("div"); var _mb=(prof.mbti||""); var _an=(prof.anniv&&prof.anniv.m)?((prof.anniv.e||"💜")+" "+prof.anniv.m+"/"+ (prof.anniv.d||1)):"";
+      subm.innerHTML=(_mb?("<span style='letter-spacing:1px'>"+_mb+"</span>"):"")+(_mb&&_an?"  ":"")+(_an||""); subm.style.cssText="color:rgba(255,255,255,.5);font:400 15px/1.3 -apple-system,'Hiragino Sans',sans-serif;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+      meta.appendChild(nm); meta.appendChild(subm); left.appendChild(ava); left.appendChild(meta);
+      var qr=document.createElement("div"); qr.id="gcOnbQR"; qr.style.cssText="width:96px;height:96px;flex:0 0 auto;border-radius:18px;background:#fff;padding:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(255,255,255,.25)";   // ★透明枠に白地
+      try{ (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(qr, gcQRText(), 80); }catch(_){} }); }catch(_){}   // 認証確定後にドットQR描画
+      row.appendChild(left); row.appendChild(qr); ov.appendChild(row);
+      /* 見たよ通知トグル */
+      var tgRow=document.createElement("button"); tgRow.type="button"; tgRow.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;max-width:420px;margin-top:16px;border:none;background:rgba(255,255,255,.08);border-radius:16px;padding:14px 18px;cursor:pointer;-webkit-tap-highlight-color:transparent";
+      var tgL=document.createElement("div"); tgL.textContent="👀 見たよ通知"; tgL.style.cssText="color:#fff;font:500 15px/1 -apple-system,'Hiragino Sans',sans-serif";
+      var tgK=document.createElement("div"); function _tgPaint(){ var on=(prof.seen!==false); tgK.style.background=on?"#34C759":"rgba(255,255,255,.22)"; tgK.firstChild.style.transform=on?"translateX(18px)":"translateX(0)"; }
+      tgK.style.cssText="width:44px;height:26px;border-radius:99px;position:relative;transition:background .25s var(--gc-ease);flex:0 0 auto";
+      var tgD=document.createElement("div"); tgD.style.cssText="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .25s var(--gc-spring)"; tgK.appendChild(tgD);
+      tgRow.appendChild(tgL); tgRow.appendChild(tgK); _tgPaint();
+      tgRow.onclick=function(e){ e.stopPropagation(); haptic(); try{ toggleSeen(prof.seen===false); }catch(_){ prof.seen=(prof.seen===false); save(); } _tgPaint(); };
+      ov.appendChild(tgRow);
+      /* 左下: 友達のコードを読み取る📸 / 右下: ✓ */
+      var scan=document.createElement("button"); scan.innerHTML="友達のコードを<br>読み取る📸"; scan.setAttribute("data-hswipe","");
+      scan.style.cssText="position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);border:none;background:none;color:#fff;font:400 16px/1.4 -apple-system,'Hiragino Sans',sans-serif;text-align:left;cursor:pointer;padding:4px;-webkit-tap-highlight-color:transparent;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))";
+      scan.onclick=function(e){ e.stopPropagation(); haptic(); try{ gcStartScan(); }catch(_){} };
+      var done=document.createElement("button"); done.innerHTML="✓"; done.setAttribute("aria-label","はじめる");
+      done.style.cssText="position:absolute;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);border:none;background:none;color:#fff;font:100 46px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;padding:6px 12px;-webkit-tap-highlight-color:transparent;filter:drop-shadow(0 2px 10px rgba(0,0,0,.55))";
+      done.onclick=function(e){ e.stopPropagation(); if(haptic.confirm)haptic.confirm(); else haptic();
+        prof.onboarded=true; save(); try{ saveProfileDB(); }catch(_){} try{ playComplete(); }catch(_){}
+        _onbClose(ov); setTimeout(function(){ try{ gotoHome(); }catch(_){} }, 340); };
+      ov.appendChild(scan); ov.appendChild(done);
+      document.body.appendChild(ov);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; }); });
+    }
+    window.__onbMBTI=_onbMBTI;
     function finishToReg(asAdmin){
       if(!asAdmin && !isStandalone()){ showPwaGate(); return; }   // ★新規アカウント作成のみ PWA(standalone) 必須。管理者ログイン(化学式)はPWA不要でどこでも可
       if(asAdmin){ closeOnboardSilently(); applyAdminMode();
@@ -10577,7 +10694,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       if(!prof.passkeyDone){ showBioGate("create", function(){ prof.passkeyDone=true; save(); finishToReg(false); }, function(){ var g=$("nobGo"); if(g) g.classList.remove("busy"); }); return; }   // ★パスキー登録は必須。キャンセル=戻る＝→のスピナーを解除して登録画面に留まる(くるくるバグ修正)
       save(); saveProfileDB();
       ov.style.opacity="0"; setTimeout(function(){ ov.classList.remove("show"); ov.className=""; ov.innerHTML=""; ov.style.opacity=""; },650);
-      show("gcNotif");
+      setTimeout(function(){ try{ _onbMBTI(); }catch(_){ show("gcNotif"); } }, 300);   // ★登録後: MBTIを選ぼう→Welcome の新オンボーディング(通知許可はWelcome内の見たよ通知トグルへ集約)
     }
   }
 
@@ -10663,6 +10780,118 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     else if(c==="auth/unauthorized-domain"){ try{ dynamicIsland("このドメインはFirebaseの承認済みドメインに未登録"); }catch(_){} }
     else if(c!=="auth/popup-closed-by-user"&&c!=="auth/cancelled-popup-request"){ try{ dynamicIsland(nm+"ログインに失敗しました"+(c?("("+c+")"):"")); }catch(_){} } }
   /* ★連携/ログインの完了処理を一本化(GitHub popup/redirect・LINE 全部ここへ集約) */
+  var GC_AI_GRAD="linear-gradient(120deg,#3E9BFF,#A15CFF 38%,#FF5FA8 68%,#FF9F5E)";   // ★Apple Intelligence風グラデ(ペア済み表示に共用)
+  function _ssoIsJP(){ try{ var tz=(Intl&&Intl.DateTimeFormat&&Intl.DateTimeFormat().resolvedOptions().timeZone)||""; return (tz==="Asia/Tokyo") || (String(navigator.language||"").toLowerCase().indexOf("ja")===0); }catch(_){ return false; } }
+  window.__ssoIsJP=_ssoIsJP;
+  /* ★連携解除(GitHub/LINE): prof.sso[kind]を外し、pk/<key>ブロブも消す=以後そのSSOでは復元できない */
+  function _ssoUnlink(kind){ if(!prof||!prof.sso||!prof.sso[kind]){ return; }
+    var key=prof.sso[kind]; var nm=(kind==="gh"?"GitHub":"LINE");
+    var mo=_stOverlay?_stOverlay(9767):null;
+    function doUnlink(){ try{ delete prof.sso[kind]; if(prof.sso&&!Object.keys(prof.sso).length) prof.sso=null; save(); saveProfileDB(); }catch(_){}
+      try{ if(db&&key) db.ref("pk/"+key).remove(); }catch(_){}
+      try{ haptic.confirm&&haptic.confirm(); }catch(_){} try{ dynamicIsland(nm+"の連携を解除しました"); }catch(_){} try{ window._syncSsoBtns&&window._syncSsoBtns(); }catch(_){} }
+    if(mo && _stRowBtn){ var b1=_stRowBtn(nm+"の連携を解除する"), b2=_stRowBtn("やめる"); b1.style.color="#ff8a8a"; b2.style.textAlign="center"; b2.style.background="rgba(255,255,255,.08)";
+      b1.onclick=function(e){ e.stopPropagation(); haptic(); mo.__close(); doUnlink(); };
+      b2.onclick=function(e){ e.stopPropagation(); haptic(); mo.__close(); };
+      mo.appendChild(b1); mo.appendChild(b2); }
+    else { doUnlink(); } }
+  window._ssoUnlink=_ssoUnlink;
+  /* ═══════════ 2ファクタ認証(2FA): LINE/GitHub連携済みの時だけ設定可。
+     有効化=回復コード(xxx-xxx-xxx)発行→prof.tfa{on,code}に保存+pkブロブへ。
+     パスキー復元時に2FA有効なら回復コード入力を要求(=2要素)。パスキー再発行は旧回復コードを失効。 ═══════════ */
+  function _tfaGenCode(){ var S="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", g=function(){ var r=""; for(var i=0;i<3;i++){ r+=S[Math.floor(Math.random()*S.length)]; } return r; }; return g()+"-"+g()+"-"+g(); }
+  function _tfaHasSso(){ return !!(prof && prof.sso && (prof.sso.gh||prof.sso.ln)); }
+  function _tfaSave(){ try{ save(); saveProfileDB(); }catch(_){} try{ if(prof.passkeyId) savePkBlob(); }catch(_){} }   // pkブロブにもtfaを反映=復元時に効く
+  function open2FA(){ if(!_tfaHasSso()){ try{ dynamicIsland("先にLINEかGitHubを連携してね(2要素の片方)"); }catch(_){} return; }
+    var ov=document.createElement("div"); ov.id="gc2fa";
+    ov.style.cssText="position:fixed;inset:0;z-index:9942;display:flex;align-items:center;justify-content:center;background:transparent;-webkit-backdrop-filter:blur(30px) saturate(150%);backdrop-filter:blur(30px) saturate(150%);opacity:0;transition:opacity .5s var(--gc-ease);-webkit-tap-highlight-color:transparent";
+    var card=document.createElement("div"); card.style.cssText="width:min(420px,88vw);display:flex;flex-direction:column;align-items:center;gap:16px;padding:8px 22px;text-align:center;transform:scale(.7);opacity:0;transition:transform .5s cubic-bezier(.22,1,.36,1),opacity .5s var(--gc-ease)";
+    ov.appendChild(card); document.body.appendChild(ov);
+    function _slideChildren(){ Array.prototype.forEach.call(card.children,function(c,i){ c.style.opacity="0"; c.style.transform="translateY(16px)"; c.style.transition="opacity .5s var(--gc-ease) "+(i*0.05)+"s, transform .5s cubic-bezier(.22,1,.36,1) "+(i*0.05)+"s";
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ c.style.opacity="1"; c.style.transform="none"; }); }); }); }   // ★文字スライドアップ
+    function close(){ ov.style.opacity="0"; card.style.transform="scale(.85)"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },500); }
+    ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
+    var _on=!!(prof.tfa&&prof.tfa.on);
+    function render(){ card.innerHTML="";
+      // smile.mov(上)
+      var ic=document.createElement("div"); ic.style.cssText="width:132px;height:132px;border-radius:55px;overflow:hidden;display:flex;align-items:center;justify-content:center";
+      ic.innerHTML='<video src="smile.mov" autoplay loop muted playsinline preload="auto" style="width:118%;height:118%;object-fit:cover;mix-blend-mode:screen"></video>'; card.appendChild(ic);
+      try{ var _v=ic.querySelector("video"); if(_v){ _v.muted=true; _v.play().catch(function(){}); } }catch(_){}
+      if(!_on){
+        var d=document.createElement("div"); d.style.cssText="color:#fff;font:500 15px/1.7 -apple-system,'Hiragino Sans',sans-serif;opacity:.92";
+        d.innerHTML="<b style='font-weight:700'>"+(_tfaKindName())+"とパスキーで2ファクタ認証を設定します</b><br>パスキーを復元する場合も2ファクタ認証が必要です<br>どちらかの認証方法が利用できない場合<br>回復コードを忘れずに保存する必要があります"; card.appendChild(d);
+        var b=document.createElement("button"); b.textContent="2ファクタ認証を有効にする";
+        b.style.cssText="border:none;border-radius:99px;background:#fff;color:#111;font:700 15px/1 -apple-system,'Hiragino Sans',sans-serif;padding:14px 28px;cursor:pointer;margin-top:4px;-webkit-tap-highlight-color:transparent";
+        b.onclick=function(e){ e.stopPropagation(); haptic(); var code=_tfaGenCode(); prof.tfa={ on:true, code:code, ts:Date.now() }; _tfaSave(); _on=true;
+          try{ if(haptic.confirm)haptic.confirm(); }catch(_){} render(); try{ window._syncSsoBtns&&window._syncSsoBtns(); }catch(_){} };
+        card.appendChild(b);
+      } else {
+        // 有効後: コードをscaleupで表示 + 「回復コードを表示」 + パスキー再発行(オプション=不透明)
+        var note=document.createElement("div"); note.style.cssText="color:#fff;font:500 13.5px/1.7 -apple-system,'Hiragino Sans',sans-serif;opacity:.9";
+        note.innerHTML="いずれかのログイン方法が使用できない場合<br>のために回復コードをスクショしておいて 👀"; card.appendChild(note);
+        var codeEl=document.createElement("div"); codeEl.textContent="回復コード: "+((prof.tfa&&prof.tfa.code)||"—");
+        codeEl.style.cssText="color:#fff;font:700 20px/1.3 ui-monospace,Menlo,monospace;letter-spacing:1px;padding:12px 18px;border-radius:16px;background:rgba(255,255,255,.08);transform:scale(.6);transition:transform .5s cubic-bezier(.22,1,.36,1)";
+        card.appendChild(codeEl); requestAnimationFrame(function(){ requestAnimationFrame(function(){ codeEl.style.transform="scale(1)"; }); });   // ★scaleupで出る
+        // ★パスキー再発行(オプション)=有効化後は不透明で押せる
+        var opt=document.createElement("div"); opt.style.cssText="margin-top:8px;opacity:1;display:flex;flex-direction:column;align-items:center;gap:8px";
+        var ot=document.createElement("div"); ot.style.cssText="color:rgba(255,255,255,.82);font:500 12.5px/1.6 -apple-system,'Hiragino Sans',sans-serif";
+        ot.innerHTML="<b style='font-weight:700;color:#fff'>パスキーを再発行</b><br>パスキーを無くした場合に使用可能です<br>現在このアカウント用のパスキーを正常に保存している場合は干渉する恐れがあります";
+        opt.appendChild(ot);
+        var reB=document.createElement("button"); reB.title="パスキーを再発行"; reB.setAttribute("aria-label","パスキーを再発行");
+        reB.style.cssText="width:52px;height:52px;border-radius:50%;border:none;background:rgba(255,255,255,.14);cursor:pointer;padding:13px;-webkit-tap-highlight-color:transparent;transition:transform .5s cubic-bezier(.16,1,.3,1)";
+        reB.innerHTML='<img src="retake.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:brightness(0) invert(1);pointer-events:none">';
+        var _rot=0; reB.onclick=function(e){ e.stopPropagation(); haptic(); _rot-=360; reB.style.transform="rotate("+_rot+"deg)";
+          try{ dynamicIsland("以前の回復コードは使えなくなるよ 👀"); }catch(_){}
+          setTimeout(function(){ _tfaReissuePasskey(function(){ render(); }); }, 260); };
+        opt.appendChild(reB); card.appendChild(opt);
+        // 回復コードを表示(blur背景)
+        var showB=document.createElement("button"); showB.textContent="回復コードを表示";
+        showB.style.cssText="border:none;background:none;color:rgba(255,255,255,.6);font:500 12.5px/1 -apple-system,'Hiragino Sans',sans-serif;cursor:pointer;margin-top:2px;-webkit-tap-highlight-color:transparent";
+        showB.onclick=function(e){ e.stopPropagation(); haptic(); _tfaShowCode(); };
+        card.appendChild(showB);
+        // 無効化
+        var offB=document.createElement("button"); offB.textContent="2ファクタ認証をオフにする";
+        offB.style.cssText="border:none;background:none;color:rgba(255,120,120,.85);font:500 12px/1 -apple-system,'Hiragino Sans',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent";
+        offB.onclick=function(e){ e.stopPropagation(); haptic(); prof.tfa=null; _tfaSave(); _on=false; render(); try{ window._syncSsoBtns&&window._syncSsoBtns(); }catch(_){} };
+        card.appendChild(offB);
+      }
+      _slideChildren();
+    }
+    render();
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; card.style.transform="scale(1)"; card.style.opacity="1"; }); });   // ★0.5s scaleup
+  }
+  window.__open2FA=open2FA;
+  function _tfaKindName(){ if(prof.sso&&prof.sso.ln) return "LINE"; if(prof.sso&&prof.sso.gh) return "GitHub"; return "SSO"; }
+  function _tfaShowCode(){ var ov=document.createElement("div"); ov.style.cssText="position:fixed;inset:0;z-index:9944;display:flex;align-items:center;justify-content:center;background:transparent;-webkit-backdrop-filter:blur(34px) saturate(150%);backdrop-filter:blur(34px) saturate(150%);opacity:0;transition:opacity .4s var(--gc-ease)";
+    var c=document.createElement("div"); c.textContent=((prof.tfa&&prof.tfa.code)||"—"); c.style.cssText="color:#fff;font:700 30px/1.3 ui-monospace,Menlo,monospace;letter-spacing:2px;transform:scale(.7);transition:transform .5s cubic-bezier(.22,1,.36,1)";
+    ov.appendChild(c); ov.addEventListener("click",function(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },420); });
+    document.body.appendChild(ov); requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; c.style.transform="scale(1)"; }); }); }
+  /* ★パスキー再発行: 新しいパスキーを作り、旧credの pk ブロブを消し、回復コードも更新(旧コード失効)。 */
+  function _tfaReissuePasskey(done){ if(typeof passkeyCreate!=="function"){ if(done)done(); return; }
+    var _oldPk=prof.passkeyId;
+    passkeyCreate().then(function(r){ var okv=(r===true||(r&&r.ok)||prof.passkeyId!==_oldPk);
+      if(!okv && r==="unsupported"){ try{ dynamicIsland("この端末はパスキー非対応"); }catch(_){} if(done)done(); return; }
+      try{ if(db && _oldPk && _oldPk!==prof.passkeyId) db.ref("pk/"+_oldPk).remove(); }catch(_){}   // 旧credブロブを消す
+      prof.tfa=prof.tfa||{on:true}; prof.tfa.code=_tfaGenCode(); prof.tfa.on=true; prof.tfa.ts=Date.now(); _tfaSave();   // ★旧回復コードは失効=新コード
+      try{ if(haptic.confirm)haptic.confirm(); dynamicIsland("パスキーを再発行しました(新しい回復コードを保存してね)"); }catch(_){}
+      if(done)done();
+    }).catch(function(){ try{ dynamicIsland("パスキーを再発行できませんでした"); }catch(_){} if(done)done(); }); }
+  /* ★復元時の2FAゲート: 復元アカウントのtfaがonなら回復コード入力を要求(2要素の片方)。正しければonOk。 */
+  function _tfaGate(acc, onOk, onFail){ if(!(acc&&acc.tfa&&acc.tfa.on&&acc.tfa.code)){ onOk(); return; }
+    var ov=document.createElement("div"); ov.style.cssText="position:fixed;inset:0;z-index:9946;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:transparent;-webkit-backdrop-filter:blur(32px) saturate(150%);backdrop-filter:blur(32px) saturate(150%);opacity:0;transition:opacity .5s var(--gc-ease);padding:24px;box-sizing:border-box";
+    var t=document.createElement("div"); t.innerHTML="2ファクタ認証<br><span style='font-weight:500;font-size:13px;opacity:.8'>回復コードを入力してね</span>"; t.style.cssText="color:#fff;font:700 19px/1.5 -apple-system,'Hiragino Sans',sans-serif;text-align:center";
+    var inp=document.createElement("input"); inp.type="text"; inp.placeholder="XXX-XXX-XXX"; inp.autocapitalize="characters"; inp.setAttribute("autocomplete","off"); inp.spellcheck=false;
+    inp.style.cssText="width:min(78vw,300px);border:none;border-radius:16px;background:rgba(255,255,255,.14);color:#fff;font:700 20px/1 ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;padding:14px;outline:none;text-transform:uppercase";
+    var go=document.createElement("button"); go.textContent="確認"; go.style.cssText="border:none;border-radius:99px;background:#fff;color:#111;font:700 15px/1 -apple-system,sans-serif;padding:13px 30px;cursor:pointer";
+    var cancel=document.createElement("button"); cancel.textContent="やめる"; cancel.style.cssText="border:none;background:none;color:rgba(255,255,255,.6);font:500 13px/1 -apple-system,sans-serif;cursor:pointer";
+    ov.appendChild(t); ov.appendChild(inp); ov.appendChild(go); ov.appendChild(cancel); document.body.appendChild(ov);
+    function close(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },500); }
+    function verify(){ var v=(inp.value||"").trim().toUpperCase().replace(/\s+/g,""); if(v===String(acc.tfa.code).toUpperCase()){ close(); onOk(); }
+      else { inp.style.animation="gcShake .5s"; setTimeout(function(){ inp.style.animation=""; },520); try{ if(haptic.error)haptic.error(); }catch(_){} try{ dynamicIsland("回復コードが違います"); }catch(_){} } }
+    go.onclick=function(e){ e.stopPropagation(); haptic(); verify(); };
+    inp.onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); verify(); } };
+    cancel.onclick=function(e){ e.stopPropagation(); haptic(); close(); if(onFail)onFail(); };
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; try{ inp.focus(); }catch(_){} }); }); }
   function _ssoComplete(kind, mode, pu){ if(!pu){ _ssoErr(new Error("no-uid"), kind); return; }
     var key=_ssoKey(kind, pu);
     if(mode==="link"){ if(!prof||!prof.name){ try{ dynamicIsland("先にアカウントを作ってね"); }catch(_){} return; }
@@ -10733,21 +10962,50 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   }catch(_){} }
   window.addEventListener("load", function(){ setTimeout(_ghResume, 700); });
   /* ★LINE=完全無料版(Firebase/GCIP不要): LINE認可コード→Worker(/line)でsub交換。リダイレクトで戻るためpendingを控えてbootで再開 */
+  /* ★LINEは「ブラウザで認可→Worker経由でRTDBに結果→PWAがpollで受け取る」リレー方式。
+     localStorageがPWA↔標準ブラウザで分離していても pt(ペアリングトークン)で確実に受け取れる=「状態が一致しませんでした」の根治。 */
+  var _linePoll=null, _linePt="";
+  function _lineWorker(){ return (typeof STORAGE_URL!=="undefined"&&STORAGE_URL)||"https://shake-toshake.s-users15.workers.dev"; }
   function _lineStart(mode){ var cid=window.LINE_CHANNEL_ID||"";
     if(!cid){ try{ dynamicIsland("LINE連携は準備中(チャネルID設定待ち)"); }catch(_){} return; }
-    var st2=Math.random().toString(36).slice(2)+Date.now().toString(36);
-    try{ localStorage.setItem("gc_line_state", st2); localStorage.setItem("gc_sso_pending", mode);
-      localStorage.setItem("gc_line_worker", (typeof STORAGE_URL!=="undefined"&&STORAGE_URL)||""); }catch(_){}
+    var pt=("p"+Math.random().toString(36).slice(2)+Date.now().toString(36)).replace(/[^A-Za-z0-9_-]/g,"").slice(0,64);
+    _linePt=pt;
+    try{ localStorage.setItem("gc_line_state", pt); localStorage.setItem("gc_line_pt", pt); localStorage.setItem("gc_sso_pending", mode);
+      localStorage.setItem("gc_line_worker", _lineWorker()); }catch(_){}
+    _lineStartPoll(pt, mode);   // ★開いた瞬間からWorkerをpoll(ブラウザで認可完了→RTDB経由でこのPWAに届く)
+    try{ dynamicIsland("ブラウザでLINEにログイン→完了したらこのアプリに戻ってね 👀"); }catch(_){}
     location.href="https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id="+encodeURIComponent(cid)
-      +"&redirect_uri="+encodeURIComponent(location.origin+"/line-cb.html")+"&state="+st2+"&scope=openid%20profile"; }
+      +"&redirect_uri="+encodeURIComponent(location.origin+"/line-cb.html")+"&state="+pt+"&scope=openid%20profile"; }
+  /* ★リレー受信=Firebase RTDB pk/linepair_<pt> を購読(line-cb.htmlが匿名SDKで書く)。localStorage分離を越えて確実に届く。
+     dbが使えない/遅い時のためworker /line/poll(FB_SECRETがある時のみ機能)にもフォールバック。 */
+  var _lineRef=null;
+  function _lineFinish(pt, mode, sub){ clearInterval(_linePoll); try{ if(_lineRef){ _lineRef.off(); _lineRef=null; } }catch(_){}
+    try{ if(db&&pt) db.ref("pk/linepair_"+pt).remove(); }catch(_){}   // 使い捨て
+    try{ localStorage.removeItem("gc_line_result"); localStorage.removeItem("gc_sso_pending"); localStorage.removeItem("gc_line_state"); localStorage.removeItem("gc_line_pt"); }catch(_){}
+    _ssoComplete("ln", mode||localStorage.getItem("gc_sso_pending")||"login", String(sub)); }
+  function _lineStartPoll(pt, mode){ clearInterval(_linePoll); var t0=Date.now(); if(!pt) return;
+    try{ if(_lineRef){ _lineRef.off(); } }catch(_){}
+    function _subOf(v){ if(!v) return ""; if(v.sub) return String(v.sub); try{ var pp=JSON.parse(v.p||"null"); if(pp&&pp.__linepair&&pp.sub) return String(pp.sub); }catch(_){} return ""; }
+    try{ if(db){ _lineRef=db.ref("pk/linepair_"+pt); _lineRef.on("value", function(s){ var v=s&&s.val&&s.val(); var sub=_subOf(v); if(sub){ _lineFinish(pt, mode, sub); } }); } }catch(_){}
+    var busy=false;
+    _linePoll=setInterval(function(){ if(Date.now()-t0>180000){ clearInterval(_linePoll); try{ if(_lineRef){ _lineRef.off(); _lineRef=null; } }catch(_){} return; }
+      /* Firebase購読の保険(worker側にFB_SECRETがある時のみ機能) */
+      if(busy) return; busy=true;
+      fetch(_lineWorker()+"/line/poll",{ method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ pt:pt }) })
+        .then(function(r){ return r.json(); }).then(function(d){ busy=false; if(d&&d.ok&&d.sub){ _lineFinish(pt, mode, d.sub); } }).catch(function(){ busy=false; }); }, 2500); }
   function _lineResume(){ try{
-    var pend=localStorage.getItem("gc_sso_pending"); if(!pend) return;
+    var pend=localStorage.getItem("gc_sso_pending"); var pt=localStorage.getItem("gc_line_pt")||"";
+    /* 同一コンテキストに戻れた場合: localStorageの結果を使う(従来互換) */
     var res=null; try{ res=JSON.parse(localStorage.getItem("gc_line_result")||"null"); }catch(_){}
-    if(!res||!res.sub||(Date.now()-(res.ts||0))>120000){ if(res){ localStorage.removeItem("gc_line_result"); localStorage.removeItem("gc_sso_pending"); } return; }
-    localStorage.removeItem("gc_line_result"); localStorage.removeItem("gc_sso_pending"); localStorage.removeItem("gc_line_state");
-    _ssoComplete("ln", pend, res.sub);   // ★連携/ログインを一本化(GitHubと共通)
+    if(res&&res.sub&&(Date.now()-(res.ts||0))<=120000){
+      localStorage.removeItem("gc_line_result"); localStorage.removeItem("gc_sso_pending"); localStorage.removeItem("gc_line_state"); localStorage.removeItem("gc_line_pt");
+      _ssoComplete("ln", pend||"login", res.sub); return; }
+    if(res){ try{ localStorage.removeItem("gc_line_result"); }catch(_){} }
+    /* 戻り先が別コンテキスト(標準ブラウザ)でも、pendingがあればWorkerをpoll=リレーで受け取る */
+    if(pend && pt){ _lineStartPoll(pt, pend); }
   }catch(_){} }
   window.addEventListener("load", function(){ setTimeout(_lineResume, 900); });
+  try{ document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="visible"){ try{ if(localStorage.getItem("gc_sso_pending")&&localStorage.getItem("gc_line_pt")) _lineResume(); }catch(_){} } }); }catch(_){}   // ★ブラウザから戻ってきた瞬間にも即pollを回す
   function ssoLink(kind){   // ★今のアカウントにLINE/GitHubを紐付け(以後それだけでログイン可能)
     if(!prof||!prof.name){ try{ dynamicIsland("先にアカウントを作ってね"); }catch(_){} return; }
     if(kind==="ln"){ _lineStart("link"); } else { _ghStart("link"); } }
@@ -10763,6 +11021,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       '<div class="bio-title"></div><div class="bio-sub"></div>'+
       '<div class="bio-acts'+(stack?" stack":"")+'"><button class="bio-cancel">キャンセル</button><button class="bio-act">アクティベート</button></div>'+
       '</div>';
+    ov.classList.toggle("bio-handoff", mode==="handoff");   // ★引き継ぎ=card radius50px(作成/その他=55px)
     ov.querySelector(".bio-title").textContent=sp.title;
     ov.querySelector(".bio-sub").textContent=sp.sub;
     var card=ov.querySelector(".bio-card"), actB=ov.querySelector(".bio-act"), canB=ov.querySelector(".bio-cancel");
@@ -10777,15 +11036,17 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     /* ★地域でLINE/GitHubを出し分け(日本=LINE/海外=GitHub)。アイコン右上に半透明の丸、
        タップ or 右スワイプ(ease)で「LINEでログイン」の字がslideupで出て→ログイン。正規ホストのみ */
     if(mode==="handoff" && _ssoAllowedHost()){ try{
-      var _tz=""; try{ _tz=(Intl.DateTimeFormat().resolvedOptions().timeZone||""); }catch(_){}
-      var _jp=(_tz==="Asia/Tokyo") || (String(navigator.language||"").toLowerCase().indexOf("ja")===0);
+      var _jp=_ssoIsJP();   // ★日本=LINE / 日本以外=GitHub(統一)
       var _kind=_jp?"ln":"gh", _nm2=_jp?"LINE":"GitHub";
       var _bi2=ov.querySelector(".bio-icon");
-      if(_bi2){ var _bw=document.createElement("button"); _bw.type="button"; _bw.id="gcBioSso"; _bw.textContent=_nm2;
-        _bw.style.cssText="position:absolute;right:-52px;top:-16px;width:64px;height:64px;border-radius:50%;border:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;"
-          +"background:rgba(255,255,255,.10);color:rgba(255,255,255,.72);font:600 "+(_jp?"14px":"12.5px")+"/1 -apple-system,'SF Pro Text',sans-serif;letter-spacing:.3px;"
-          +"opacity:0; transform:translateX(-8px) scale(.8); transition:transform .7s cubic-bezier(.22,1,.36,1), opacity .5s var(--gc-ease), background .3s var(--gc-ease)";
-        if(_jp){ _bw.style.color="rgba(180,255,206,.85)"; }
+      if(_bi2){ var _bw=document.createElement("button"); _bw.type="button"; _bw.id="gcBioSso";
+        /* ★丸ブランドアイコン: LINE=緑丸に白LINE / GitHub=濃紺丸に白octocat */
+        _bw.innerHTML=_jp
+          ? '<span style="font:800 12px/1 -apple-system,sans-serif;color:#fff;letter-spacing:.2px">LINE</span>'
+          : '<svg viewBox="0 0 16 16" width="30" height="30" fill="#fff" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+        _bw.style.cssText="position:absolute;right:-52px;top:-16px;width:64px;height:64px;border-radius:50%;border:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;"
+          +"background:"+(_jp?"#06C755":"#24292f")+";box-shadow:0 6px 18px rgba(0,0,0,.4);"
+          +"opacity:0; transform:translateX(-8px) scale(.8); transition:transform .7s cubic-bezier(.22,1,.36,1), opacity .5s var(--gc-ease), filter .3s var(--gc-ease)";
         _bi2.style.position="relative"; _bi2.appendChild(_bw);
         requestAnimationFrame(function(){ requestAnimationFrame(function(){ _bw.style.opacity="1"; _bw.style.transform="translateX(0) scale(1)"; }); });
         var _lbl=null;
@@ -10793,7 +11054,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           _lbl.style.cssText="position:absolute;left:50%;top:calc(100% + 10px);transform:translate(-50%,14px);opacity:0;white-space:nowrap;color:#fff;font:600 13px/1 -apple-system,'Hiragino Sans',sans-serif;text-shadow:0 2px 12px rgba(0,0,0,.5);transition:transform .5s cubic-bezier(.22,1,.36,1), opacity .4s var(--gc-ease);pointer-events:none";
           _bw.appendChild(_lbl);
           requestAnimationFrame(function(){ requestAnimationFrame(function(){ _lbl.style.opacity="1"; _lbl.style.transform="translate(-50%,0)"; }); }); }   // ★字がslideupで出る
-        function _fire(){ if(_bioBusy) return; try{ haptic(); }catch(_){} _bw.style.background="rgba(255,255,255,.22)";
+        function _fire(){ if(_bioBusy) return; try{ haptic(); }catch(_){} _bw.style.filter="brightness(1.25)";
           close(); setTimeout(function(){ try{ ssoLogin(_kind); }catch(_){} },240); }
         var _sx0=0,_drag=false;
         _bw.addEventListener("pointerdown", function(e){ e.stopPropagation(); _sx0=e.clientX; _drag=true; _showLbl(); });
@@ -10823,8 +11084,29 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
 
   function openHandoffEnter(){ showBioGate("handoff", doPasskeyLogin, function(){ try{ location.reload(); }catch(_){} }); }   // B9: 引き継ぎ(ログイン)キャンセル→ページ再読み込み
   /* 引き継ぎ復元中オーバーレイ（背景blur＋「復元中」＋滑らかなドット。出/消ともフェード） */
-  function showRestoring(msg){ var ov=document.getElementById("gcRestore"); if(!ov){ ov=document.createElement("div"); ov.id="gcRestore"; ov.innerHTML='<div class="rs-tx"></div><div class="rs-dots"><i></i><i></i><i></i></div>'; document.body.appendChild(ov); } ov.querySelector(".rs-tx").textContent=msg||"復元中"; void ov.offsetWidth; ov.classList.add("show"); }
-  function hideRestoring(){ var ov=document.getElementById("gcRestore"); if(!ov) return; ov.classList.remove("show"); setTimeout(function(){ try{ if(ov.parentNode && !ov.classList.contains("show")) ov.parentNode.removeChild(ov); }catch(_){} },600); }   // .55s フェードアウト後に除去
+  var _rsCirc=2*Math.PI*66;   // r=66のリング周長
+  function showRestoring(msg){ var ov=document.getElementById("gcRestore");
+    if(!ov){ ov=document.createElement("div"); ov.id="gcRestore";
+      ov.innerHTML='<div class="rs-ring"><svg viewBox="0 0 150 150" width="150" height="150">'
+        +'<circle cx="75" cy="75" r="66" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="6"/>'
+        +'<circle class="rs-prog" cx="75" cy="75" r="66" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+_rsCirc.toFixed(1)+'" stroke-dashoffset="'+_rsCirc.toFixed(1)+'" style="transition:stroke-dashoffset .3s var(--gc-ease)"/></svg>'
+        +'<div class="rs-face"><video src="smile.mov" autoplay loop muted playsinline preload="auto"></video></div></div>'
+        +'<div class="rs-tx"></div>';
+      document.body.appendChild(ov); try{ var v=ov.querySelector("video"); if(v){ v.muted=true; v.play().catch(function(){}); } }catch(_){} }
+    ov.classList.remove("rs-done"); ov.querySelector(".rs-tx").textContent=msg||"復元中"; void ov.offsetWidth; ov.classList.add("show");
+    _restoreProg(0.08); }   // ★開始=わずかに進む(動いてる合図)
+  function _restoreProg(frac){ try{ var ov=document.getElementById("gcRestore"); if(!ov)return; var p=ov.querySelector(".rs-prog"); if(!p)return;
+    frac=Math.max(0,Math.min(1,frac)); p.style.strokeDashoffset=String(_rsCirc*(1-frac)); }catch(_){} }   // ★進むたび0.3s easeで進捗リングが伸びる
+  window.__restoreProg=_restoreProg;
+  function _restoreBurst(){ try{ var ov=document.getElementById("gcRestore"); if(!ov)return; var rg=ov.querySelector(".rs-ring"); var r=rg?rg.getBoundingClientRect():{left:innerWidth/2,top:innerHeight/2,width:0,height:0};
+    var cx=r.left+r.width/2, cy=r.top+r.height/2;
+    for(var i=0;i<20;i++){ (function(i){ var d=document.createElement("div"); d.className="rs-burst-dot"; var a=(i/20)*6.2832; var dist=Math.max(innerWidth,innerHeight)*0.62;
+      d.style.left=cx+"px"; d.style.top=cy+"px"; document.body.appendChild(d);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ d.style.transform="translate("+(Math.cos(a)*dist)+"px,"+(Math.sin(a)*dist)+"px) scale(.3)"; d.style.opacity="0"; }); });
+      setTimeout(function(){ try{ d.remove(); }catch(_){} },850); })(i); } }catch(_){} }   // ★一周(完了)=ドットが全体に広がる
+  function hideRestoring(){ var ov=document.getElementById("gcRestore"); if(!ov) return;
+    _restoreProg(1);   // 完了=リング一周
+    setTimeout(function(){ try{ _restoreBurst(); ov.classList.add("rs-done"); }catch(_){} setTimeout(function(){ ov.classList.remove("show"); setTimeout(function(){ try{ if(ov.parentNode && !ov.classList.contains("show")) ov.parentNode.removeChild(ov); }catch(_){} },700); },120); }, 300); }   // ★一周してから完了バースト+UI scaleup
   /* パスキー認証済み＝そのまま共通ログイン（コード不要）。ローカルにアカウントがあれば即ログイン */
   function doPasskeyLogin(r){
     var credId=r&&r.id;
@@ -10848,10 +11130,13 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       var _hdone=false, _shown=true; showRestoring("復元中");   // ★パスキー認証直後に即「復元中」＝登録画面で止まって見えない（確実に引き継ぎ中だと分かる）
       function _endRestore(){ if(_shown){ _shown=false; hideRestoring(); } }
       var _hto=setTimeout(function(){ if(_hdone)return; _hdone=true; _endRestore(); try{ dynamicIsland("引き継ぎに時間がかかっています。通信環境を確認して、もう一度お試しください"); }catch(_){} },12000);   // ★once()が返らなくても永久「復元中」で固まらない
-      (authReady||Promise.resolve()).then(function(){ return db.ref("pk/"+credId).once("value"); }).then(function(s){ if(_hdone)return; _hdone=true; clearTimeout(_hto); var v=s.val();
+      try{ _restoreProg(0.35); }catch(_){}   // 認証OK→pk読取へ
+      (authReady||Promise.resolve()).then(function(){ try{ _restoreProg(0.55); }catch(_){} return db.ref("pk/"+credId).once("value"); }).then(function(s){ if(_hdone)return; _hdone=true; clearTimeout(_hto); var v=s.val(); try{ _restoreProg(0.8); }catch(_){}   // pk取得
       if(v&&v.p){ var acc=null; try{ acc=JSON.parse(v.p); }catch(_){}
-        if(acc){ var _finRestore=function(){ prof=acc; prof.passkeyId=credId; prof.onboarded=true; save(); refreshProfileUI(); syncAllToggles(); closeOnboardSilently();
+        if(acc){ var _finRestore0=function(){ prof=acc; prof.passkeyId=credId; prof.onboarded=true; save(); refreshProfileUI(); syncAllToggles(); closeOnboardSilently();
             if(prof.admin){ _endRestore(); becomeAdminNow(); } else { try{ saveProfileDB(); }catch(_){} _endRestore(); showHandoffComplete(function(){ gotoHome(); }); } };   // 復元成功→チャット画面(home)へ
+          // ★2FA有効なら回復コードを要求(=パスキー+回復コードの2要素)。片方でも欠ければ復元しない
+          var _finRestore=function(){ try{ if(acc.tfa && acc.tfa.on){ _endRestore(); _tfaGate(acc, function(){ showRestoring("復元中"); _restoreProg(0.85); _finRestore0(); }, function(){ try{ dynamicIsland("2ファクタ認証がキャンセルされました"); }catch(_){} }); return; } }catch(_){} _finRestore0(); };
           // ★削除済みアカウント(管理者が削除した利用者など)は復元させない＝元の users/<u> が存在する利用者だけ復元可。確認失敗時はfail-open(正規利用者を巻き込まない)。
           if(!acc.admin && v.u && db){ db.ref("users/"+v.u).once("value").then(function(us){ if(us.exists()){ _finRestore(); } else { _endRestore(); try{ dynamicIsland("すでに削除した垢などは復元できません"); }catch(_){} } }).catch(function(){ _finRestore(); }); }
           else { _finRestore(); } return; } }
@@ -10937,14 +11222,29 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     // 設定シート（縦トグル・アイコンのみ）
     $("gcSetNotif").onclick=function(){ var on=!this.classList.contains("on"); ctPulse(this); haptic(); toggleNotif(on); if(on)ctSound(true,false); else ctSound(false,false); };
     $("gcSetSeen").onclick=function(){ var on=!this.classList.contains("on"); ctPulse(this); haptic(); toggleSeen(on); ctSound(on,false); };
-    /* ★GitHub/LINE連携(設定・🔔👀の隣)。連携済み=.onで光る(_syncSsoBtns) */
-    try{ var _sgh=$("gcSetGh"), _sln=$("gcSetLn"); var _ssoOk=_ssoAllowedHost();
-      if(_sgh) _sgh.style.display=_ssoOk?"":"none"; if(_sln) _sln.style.display=_ssoOk?"":"none";   // ★正規ホスト以外は連携ボタンを出さない
-      window._syncSsoBtns=function(){ try{ if(_sgh) _sgh.classList.toggle("on", !!(prof.sso&&prof.sso.gh)); if(_sln) _sln.classList.toggle("on", !!(prof.sso&&prof.sso.ln)); }catch(_){} };
-      if(_ssoOk){
-        if(_sgh) _sgh.onclick=function(){ ctPulse(this); haptic(); ssoLink("gh"); setTimeout(window._syncSsoBtns,1200); };
-        if(_sln) _sln.onclick=function(){ ctPulse(this); haptic(); ssoLink("ln"); setTimeout(window._syncSsoBtns,1200); };
-      }
+    /* ★GitHub/LINE連携(設定・🔔👀の隣)。連携済み=Apple Intelligenceグラデ色。押すと連携済みなら解除・未連携なら連携。日本=LINE / 日本以外=GitHub */
+    try{ var _sgh=$("gcSetGh"), _sln=$("gcSetLn"); var _ssoOk=_ssoAllowedHost(); var _jpReg=_ssoIsJP();
+      var _showGh=(_ssoOk && !_jpReg), _showLn=(_ssoOk && _jpReg);   // ★地域: 日本=LINEだけ / 日本以外=GitHubだけ
+      if(_sgh) _sgh.style.display=_showGh?"":"none"; if(_sln) _sln.style.display=_showLn?"":"none";
+      window._syncSsoBtns=function(){ try{
+        [[_sgh,"gh"],[_sln,"ln"]].forEach(function(p){ var b=p[0]; if(!b)return; var on=!!(prof.sso&&prof.sso[p[1]]); b.classList.toggle("on", on);
+          if(on){ b.style.background=GC_AI_GRAD; b.style.color="#fff"; b.style.borderColor="transparent"; b.style.boxShadow="0 0 14px rgba(161,92,255,.5)"; }   // ★ペア済み=Intelligence色
+          else { b.style.background=""; b.style.color=""; b.style.borderColor=""; b.style.boxShadow=""; } }); }catch(_){} };
+      function _ssoTap(kind){ var on=!!(prof.sso&&prof.sso[kind]);
+        if(on){ _ssoUnlink(kind); } else { ssoLink(kind); } setTimeout(window._syncSsoBtns,1200); }
+      if(_showGh && _sgh) _sgh.onclick=function(){ ctPulse(this); haptic(); _ssoTap("gh"); };
+      if(_showLn && _sln) _sln.onclick=function(){ ctPulse(this); haptic(); _ssoTap("ln"); };
+      /* ★2FA(doublelock)ボタン: SSO連携済みの時だけ隣に出す。2FA有効=locked-2fa.png(ピンク) */
+      try{ var _row=(_sgh&&_sgh.parentNode)||(_sln&&_sln.parentNode); if(_ssoOk && _row){ var _2b=$("gcSet2fa");
+        if(!_2b){ _2b=document.createElement("button"); _2b.id="gcSet2fa"; _2b.className="gc-ctoggle"; _2b.title="2ファクタ認証";
+          _2b.style.cssText="display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden";
+          _2b.innerHTML='<img id="gcSet2faIc" src="doublelock.png" alt="2FA" style="width:26px;height:26px;object-fit:contain">'; _row.appendChild(_2b); }
+        _2b.onclick=function(){ ctPulse(this); haptic(); open2FA(); setTimeout(window._syncSsoBtns,600); };
+        var _prevSync=window._syncSsoBtns;
+        window._syncSsoBtns=function(){ try{ _prevSync&&_prevSync(); }catch(_){}
+          try{ var b=$("gcSet2fa"); if(b){ var linked=_tfaHasSso(); b.style.display=linked?"":"none";
+            var ic=$("gcSet2faIc"); if(ic) ic.src=(prof.tfa&&prof.tfa.on)?"locked-2fa.png":"doublelock.png"; } }catch(_){} }; }
+      }catch(_){}
       window._syncSsoBtns(); }catch(_){}
     // アカウント変更ピル / 保存・復活 / 電源スライド削除 / 管理者一覧
     $("gcProfPill").onclick=function(){ haptic(); try{ closeSettings(); }catch(_){} setTimeout(function(){ try{ openMyProf(); }catch(_){} },200); };   // ★旧・編集ダイヤログ(gcProfEdit=コピー&貼る入り)は廃止→新プロフィールUIに一本化
@@ -11617,10 +11917,43 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     inp.click(); }
   /* ── Classic(LINE風)モード切替(P3) ── html.classic を付けるだけ＝見た目の実装はP4のCSS(Frutiger Aero)。
      背景swatch(globe/dark/色)を選ぶと解除。Classicトグルでオン/オフ。 */
+  /* ★Classic背景のjellyfish動画コントローラ: ランダム選択+速度ランプ(止まる→1s待ち→2sで動き出し→再生→最後2sで減速して止まる)。
+     状態は保持=閉じて開き直しても「止まった状態」から1s待って動き出す。 */
+  var _jelly={ v:null, wrap:null, phase:"idle", tmr:null, raf:null };
+  function _jellyRamp(from,to,ms,done){ var v=_jelly.v; if(!v) return; var t0=performance.now();
+    cancelAnimationFrame(_jelly.raf);
+    (function step(now){ var p=Math.min(1,(now-t0)/ms), e=1-Math.pow(1-p,2); var r=from+(to-from)*e;
+      try{ v.playbackRate=Math.max(0.0,r); if(r>0.02 && v.paused){ v.play().catch(function(){}); } }catch(_){}
+      if(p<1){ _jelly.raf=requestAnimationFrame(step); } else { try{ if(to<=0.02){ v.pause(); } }catch(_){} if(done) done(); } })(t0);
+  }
+  function _jellyCycleStart(){ var v=_jelly.v; if(!v) return; clearTimeout(_jelly.tmr); _jelly.phase="waiting";
+    _jelly.tmr=setTimeout(function(){ if(_jelly.phase!=="waiting")return; _jelly.phase="rampup";
+      _jellyRamp(0,1,2000,function(){ _jelly.phase="playing"; _jellyWatchEnd(); });   // ★1s待ち→2sで動き出し
+    }, 1000);
+  }
+  function _jellyWatchEnd(){ var v=_jelly.v; if(!v) return; v.ontimeupdate=function(){
+    if(!v.duration) return; if(v.currentTime>=v.duration-2 && _jelly.phase==="playing"){ _jelly.phase="rampdown"; v.ontimeupdate=null;
+      _jellyRamp(v.playbackRate,0,2000,function(){ _jelly.phase="stopped"; try{ v.pause(); v.currentTime=0; }catch(_){}
+        _jellyCycleStart();   // ★止まってから1s待って再び動き出す
+      }); } };
+  }
+  function _jellyOn(){ try{
+    var host=$("gcJelly"); if(!host){ host=document.createElement("div"); host.id="gcJelly"; var bg=$("gcBg"); if(bg&&bg.parentNode){ bg.parentNode.insertBefore(host, bg.nextSibling); } else { document.body.appendChild(host); } }
+    if(!_jelly.v){ var v=document.createElement("video"); v.muted=true; v.setAttribute("playsinline",""); v.setAttribute("muted",""); v.loop=false; v.preload="auto"; v.playsInline=true;
+      var n=1+Math.floor(Math.random()*7); v.src="jelly/jelly"+n+".mp4"; host.innerHTML=""; host.appendChild(v); _jelly.v=v; _jelly.wrap=host;
+      try{ v.playbackRate=0; }catch(_){} }
+    if(_jelly.phase==="idle"||_jelly.phase==="stopped"||_jelly.phase==="off"){ _jelly.phase="stopped"; _jellyCycleStart(); }   // 止まった状態から1s待って動き出す
+  }catch(_){} }
+  function _jellyOff(){ try{ clearTimeout(_jelly.tmr); cancelAnimationFrame(_jelly.raf); if(_jelly.v){ _jelly.v.pause(); _jelly.v.ontimeupdate=null; } _jelly.phase="off"; }catch(_){} }
+  try{ document.addEventListener("visibilitychange", function(){ try{ if(!document.documentElement.classList.contains("classic")) return;
+    if(document.visibilityState==="hidden"){ clearTimeout(_jelly.tmr); cancelAnimationFrame(_jelly.raf); if(_jelly.v){ _jelly.v.pause(); } if(_jelly.phase!=="stopped"&&_jelly.phase!=="off"){ _jelly.phase="stopped"; } }   // ★閉じたら止まった状態を保持
+    else { if(_jelly.v){ _jelly.phase="stopped"; _jellyCycleStart(); } }   // ★開き直し=止まった状態から1s待って動き出す
+  }catch(_){} }); }catch(_){}
   function applyClassicState(){ var on=(loadEnv().ui==="classic"); document.documentElement.classList.toggle("classic", on);
-    if(on){ clearTimeout(window.__bgPauseT); window.__globePaused=true; document.body.classList.add("gc-noglobe"); var bg=$("gcBg"); if(bg) bg.style.opacity="1"; } }   // Classicは地球儀を止め前面のCSS背景(P4)を見せる
+    if(on){ clearTimeout(window.__bgPauseT); window.__globePaused=true; document.body.classList.add("gc-noglobe"); var bg=$("gcBg"); if(bg) bg.style.opacity="1"; try{ _jellyOn(); }catch(_){} }
+    else { try{ _jellyOff(); }catch(_){} } }   // Classicは地球儀を止め前面のjellyfish背景を見せる
   function toggleClassic(){ var e=loadEnv();
-    if(e.ui==="classic"){ e.ui="normal"; saveEnv(e); document.documentElement.classList.remove("classic"); applyEnv(e.mode||"globe"); }
+    if(e.ui==="classic"){ e.ui="normal"; saveEnv(e); document.documentElement.classList.remove("classic"); try{ _jellyOff(); }catch(_){} applyEnv(e.mode||"globe"); }
     else { e.ui="classic"; saveEnv(e); applyClassicState(); }
     buildEnvSwatches(); haptic(); setTimeout(function(){ try{ switchApp("user"); }catch(_){} }, 480); }
 
@@ -11651,7 +11984,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     var deck=!!dk.__deck;
     var r=dk.getBoundingClientRect(); var w=r.width||46, h=r.height||46;
     var L, T;
-    if(deck && shown){ L=(window.innerWidth-w)/2; T=window.innerHeight-h-64; }   // apps=中央・底から64px(少し上)
+    if(deck && shown){ L=(window.innerWidth-w)/2; T=_sInset("--sat")+10; }   // ★apps中はsearchの上(最上部中央)へ移動(ユーザ指示)
     else { T=(window.innerHeight-h)/2;                                            // 縦中央
       if(shown){ L=right?(window.innerWidth-w-12-_sInset("--sar")):(12+_sInset("--sal")); }
       else { L=right?(window.innerWidth+40):(-w-40); } }                          // 非表示=画面外

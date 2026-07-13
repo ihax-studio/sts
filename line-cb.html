@@ -1,28 +1,54 @@
 <!doctype html>
 <!-- line-cb.html — LINEログインのコールバック(完全無料版・Firebase/GCIP不要)。
-     認可コードをWorker(/line)でsubに交換し、localStorageに置いて本体(/)へ戻る。
-     本体は boot 時に gc_sso_pending + gc_line_result を見て 連携 or ログイン を再開する。 -->
+     認可コードをWorker(/line)でsubに交換し、Firebase RTDB `pk/linepair_<pt>` にクライアントSDK(匿名認証)で書く。
+     PWAは同じ pk/linepair_<pt> を購読して受け取る=PWA↔標準ブラウザでlocalStorageが分離していても確実に連携できる(「状態が一致しませんでした」の根治)。 -->
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LINEでログイン中…</title>
-<style>html,body{height:100%;margin:0;background:#0a0a11;color:#fff;font:600 16px/1.6 -apple-system,'Hiragino Sans',sans-serif;display:flex;align-items:center;justify-content:center;text-align:center}</style>
+<style>html,body{height:100%;margin:0;background:#0a0a11;color:#fff;font:600 16px/1.6 -apple-system,'Hiragino Sans',sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box}</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head><body>
 <div id="m">LINEでログイン中…</div>
 <script>
 (function(){
   var m=document.getElementById("m");
-  function fail(t){ m.textContent=t||"LINEログインに失敗しました"; setTimeout(function(){ location.replace("/"); },1600); }
+  function fail(t){ m.textContent=t||"LINEログインに失敗しました"; setTimeout(function(){ location.replace("/"); },1900); }
+  function ok(){ m.textContent="LINEでログインしました ✅ このアプリ(Shake to Shake)に戻ってね"; }
+  var FIREBASE_CONFIG={
+    apiKey:"AIzaSyCUIZzl-T4Vn3XaofEtsoI3S5zlNt8xsXI",
+    authDomain:"ichat-pwa.firebaseapp.com",
+    databaseURL:"https://ichat-pwa-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:"ichat-pwa", storageBucket:"ichat-pwa.firebasestorage.app",
+    messagingSenderId:"492134459695", appId:"1:492134459695:web:98fb0367b530abbe2299da"
+  };
   try{
     var q=new URLSearchParams(location.search);
     var code=q.get("code"), state=q.get("state"), err=q.get("error");
     if(err){ fail(err==="access_denied"?"キャンセルしました":"LINEログインに失敗しました"); return; }
     var want=localStorage.getItem("gc_line_state")||"";
-    if(!code || !state || state!==want){ fail("状態が一致しませんでした(もう一度どうぞ)"); return; }
+    if(!code || !state){ fail("状態が一致しませんでした(もう一度どうぞ)"); return; }
+    if(want && state!==want){ fail("状態が一致しませんでした(もう一度どうぞ)"); return; }   // ★同一コンテキストの時だけ厳格照合。別ブラウザ(want空)はstate=ptをリレーキーに使う
+    var pt=String(state).replace(/[^A-Za-z0-9_-]/g,"").slice(0,64);
     var WORKER=localStorage.getItem("gc_line_worker")||"https://shake-toshake.s-users15.workers.dev";
-    fetch(WORKER+"/line",{ method:"POST", headers:{ "content-type":"application/json" },
-      body:JSON.stringify({ code:code, redirect_uri:location.origin+"/line-cb.html" }) })
-      .then(function(r){ return r.json(); })
+    // Firebaseを匿名で用意(結果をpk/linepair_<pt>に置く=PWAが購読して受け取る)
+    var _fb=null, _db=null; try{ _fb=firebase.initializeApp(FIREBASE_CONFIG); _db=firebase.database(); }catch(_){}
+    var _authP = (_fb ? firebase.auth().signInAnonymously().catch(function(){ return null; }) : Promise.resolve(null));
+    _authP.then(function(){
+      return fetch(WORKER+"/line",{ method:"POST", headers:{ "content-type":"application/json" },
+        body:JSON.stringify({ code:code, redirect_uri:location.origin+"/line-cb.html", pt:pt }) });
+    }).then(function(r){ return r.json(); })
       .then(function(d){
-        if(d && d.ok && d.sub){ localStorage.setItem("gc_line_result", JSON.stringify({ sub:d.sub, name:d.name||"", ts:Date.now() })); location.replace("/"); }
+        if(d && d.ok && d.sub){
+          try{ localStorage.setItem("gc_line_result", JSON.stringify({ sub:d.sub, name:d.name||"", ts:Date.now() })); }catch(_){}
+          // ★pkルールに.validate(p/u/exp必須)があっても通るよう、通常のpkブロブ形状に合わせる。subはp(JSON)にも入れる
+          var payload={ p:JSON.stringify({ __linepair:1, sub:String(d.sub), name:String(d.name||"") }), u:null, exp:Date.now()+600000, sub:String(d.sub), name:String(d.name||""), ts:Date.now() };
+          if(_db && pt){
+            // ★クライアントSDKで pk/linepair_<pt> に書く(既存ルールで匿名read/write可)→PWAが購読で受け取る
+            _db.ref("pk/linepair_"+pt).set(payload).then(function(){ ok(); setTimeout(function(){ try{ location.replace("/"); }catch(_){} },2600); })
+              .catch(function(){ ok(); setTimeout(function(){ try{ location.replace("/"); }catch(_){} },2600); });   // 書けなくても/へ戻ればlocalStorage経路で復帰(同一コンテキスト時)
+          } else { location.replace("/"); }
+        }
         else if(d && d.err==="not-configured"){ fail("LINE連携は準備中です(チャネル設定待ち)"); }
         else { fail(); }
       }).catch(function(){ fail("通信に失敗しました"); });

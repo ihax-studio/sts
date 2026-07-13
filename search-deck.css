@@ -117,7 +117,7 @@
 .sd-ghost .nm{ text-shadow:0 2px 10px rgba(0,0,0,.7); }
 /* ★×バッジ(友達タイルの中央下・前面): 編集モードで0.3sで出る。押すと「振って削除」UIへ */
 .sd-app{ position:relative; }
-.sd-min{ position:absolute; left:50%; bottom:-7px; z-index:6; width:26px; height:26px; border-radius:50%; border:none; padding:0;
+.sd-min{ position:absolute; left:50%; bottom:6px; z-index:6; width:26px; height:26px; border-radius:50%; border:none; padding:0;
   background:#fff; color:#111; font:300 17px/1 -apple-system,'SF Pro Display',sans-serif;
   display:flex; align-items:center; justify-content:center; box-shadow:none;
   cursor:pointer; -webkit-tap-highlight-color:transparent; pointer-events:auto;
@@ -127,15 +127,15 @@
 /* ★ドラッグ中の第2ドロップ先: 画面下の友達レール(＋/カメラ除く)。
    slideup/リフトは廃止=フェードのみ(トランジション重複と他要素との干渉を防ぐ・ユーザ指示)。かざすとユーザー色リングが0.3sで出る/離れると消える */
 /* ★友達をドックに置くとき=下に「枠なり」で出る。出る=scaleup(0.3s)/消える=scaledown ease。dockより下・中央 */
+/* ★友達一覧のバーがスライドアップ=枠なし(bg/border無し・ユーザ指示)。scaleupで出る・かざすとユーザー色リング */
 #sdRailDrop{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 6px); z-index:9857; display:flex; gap:12px; align-items:center;
   max-width:94vw; overflow-x:auto; -webkit-overflow-scrolling:touch;
   padding:10px 16px;
-  border-radius:22px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16);
-  -webkit-backdrop-filter:blur(26px) saturate(150%); backdrop-filter:blur(26px) saturate(150%);
+  border-radius:22px; background:none; border:none;
   transform:translate(-50%,0) scale(.82); transform-origin:center bottom; opacity:0; pointer-events:none;
   transition:opacity .3s var(--gc-ease), transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s var(--gc-ease); }
 #sdRailDrop.show{ opacity:1; transform:translate(-50%,0) scale(1); }   /* ★scaleupで出る */
-#sdRailDrop.sd-rd-over{ box-shadow:0 0 0 3px var(--gc-user,#62d8ff), 0 0 22px var(--gc-user,#62d8ff); }
+#sdRailDrop.sd-rd-over{ box-shadow:0 0 0 3px var(--gc-user,#62d8ff), 0 0 22px var(--gc-user,#62d8ff); border-radius:26px; }
 #sdRailDrop::-webkit-scrollbar{ display:none; }
 .sd-rd-it{ flex:0 0 auto; display:flex; flex-direction:column; align-items:center; }
 .sd-rd-av{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;

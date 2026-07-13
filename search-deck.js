@@ -407,7 +407,7 @@
       ghost.style.cssText='position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;margin:0;z-index:99999;pointer-events:none;opacity:.96;transform:scale(1.14);transition:transform .18s cubic-bezier(.22,1,.36,1)';   /* ★黒shadow廃止 */
       document.body.appendChild(ghost);
       ph=t; ph.classList.add('sd-ph');
-      if(t.getAttribute('data-fr')) railShow();   /* ★友達タイルのドラッグ中だけ下の友達レール(ドロップ先)がslideup */
+      railShow();   /* ★友達もアプリもドラッグ中に下の友達レール(ドロップ先)がslideup(appもここに置ける) */
     }
     function move(e){ if(!dragging||!ghost) return;
       lastX=e.clientX; lastY=e.clientY;
@@ -441,9 +441,10 @@
             if(_nm){ window.__gcAddDockApp({n:_nm, i:_is}); } }
           didDrop=true; }
         if(_dk) _dk.classList.remove('gcdk-drop'); }catch(_){}
-      /* ★下の友達レールへドロップ=ピン留め(友達のみ) */
-      try{ if(!didDrop && ph && railEl && railOver(lastX,lastY)){ var _fr2=ph.getAttribute('data-fr');
-        if(_fr2 && window.__gcAddDockApp){ window.__gcAddDockApp({ f:_fr2, n:ph.getAttribute('data-nm-raw')||'友達', av:ph.getAttribute('data-av')||'🙂', c:ph.getAttribute('data-c')||'#62d8ff' }); } } }catch(_){}
+      /* ★下の友達レールへドロップ=ドックに追加(友達もアプリも) */
+      try{ if(!didDrop && ph && railEl && railOver(lastX,lastY) && window.__gcAddDockApp){ var _fr2=ph.getAttribute('data-fr');
+        if(_fr2){ window.__gcAddDockApp({ f:_fr2, n:ph.getAttribute('data-nm-raw')||'友達', av:ph.getAttribute('data-av')||'🙂', c:ph.getAttribute('data-c')||'#62d8ff' }); }
+        else { var _nm3=ph.getAttribute('data-nm-raw')||''; var _ie3=ph.querySelector('img.ic'); var _is3=_ie3?(_ie3.getAttribute('src')||''):''; if(_nm3){ window.__gcAddDockApp({ n:_nm3, i:_is3 }); } } } }catch(_){}
       railHide();
       if(!editing) grid.classList.remove('sd-editing');   /* ★編集モード継続中はジグルを維持(iOS風) */
       if(els.scroll) els.scroll.style.overflowY='';

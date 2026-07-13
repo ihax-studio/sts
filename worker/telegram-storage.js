@@ -73,7 +73,32 @@ export default {
         if (!j || !j.id_token) return json({ ok: false, err: 'exchange-failed' }, 401, cors);
         const p = JSON.parse(atob(j.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
         if (!p || !p.sub) return json({ ok: false, err: 'no-sub' }, 401, cors);
-        return json({ ok: true, sub: String(p.sub), name: String(p.name || '') }, 200, cors);
+        // ★ブラウザ→PWAリレー: pairing token(pt)があればRTDBに結果を置く=別コンテキスト(標準ブラウザ)で認可が完了しても、PWAが /line/poll で受け取れる(localStorage分離=「状態が一致しませんでした」の根治)
+        const pt = String((b.pt || '')).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+        if (pt) { try {
+          const FB = (env.FB_URL || '').replace(/\/+$/, '');
+          if (FB && env.FB_SECRET) await fetch(FB + '/linePair/' + pt + '.json?auth=' + encodeURIComponent(env.FB_SECRET),
+            { method: 'PUT', body: JSON.stringify({ sub: String(p.sub), name: String(p.name || ''), ts: Date.now() }) });
+        } catch (e) {} }
+        return json({ ok: true, sub: String(p.sub), name: String(p.name || ''), relayed: !!pt }, 200, cors);
+      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
+    }
+    // ---- LINEペアリング結果の受け取り(PWAがポーリング): pt をキーに RTDB/linePair/<pt> を読んで返し、取得できたら消す ----
+    if (req.method === 'POST' && url.pathname === '/line/poll') {
+      try {
+        const b = await req.json();
+        const pt = String((b.pt || '')).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+        if (!pt) return json({ ok: false, err: 'bad-request' }, 400, cors);
+        const FB = (env.FB_URL || '').replace(/\/+$/, '');
+        if (!FB || !env.FB_SECRET) return json({ ok: false, err: 'no-relay' }, 503, cors);
+        const A = '?auth=' + encodeURIComponent(env.FB_SECRET);
+        const r = await fetch(FB + '/linePair/' + pt + '.json' + A);
+        const d = await r.json();
+        if (d && d.sub) {
+          try { await fetch(FB + '/linePair/' + pt + '.json' + A, { method: 'DELETE' }); } catch (e) {}   // 一度取ったら消す(使い捨て)
+          return json({ ok: true, sub: String(d.sub), name: String(d.name || '') }, 200, cors);
+        }
+        return json({ ok: false, pending: true }, 200, cors);
       } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
     }
 
