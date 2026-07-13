@@ -3124,7 +3124,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* ===== パスキー作成 / デバイス別 生体認証で引き継ぐ (#gcBio) ===== */
   #gcBio{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9500; display:flex; visibility:hidden; align-items:center; justify-content:center; padding:24px;   /* ★display切替→visibility=0.5sフェードが確実に効く(再設計) */
     font-family:-apple-system,"SF Pro Text","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
-    opacity:0; transition:opacity .5s var(--gc-ease), visibility .5s; -webkit-tap-highlight-color:transparent; }   /* ★引き継ぎUI=0.5sフェード+文字スライドアップ(出る/閉じる両方) */
+    opacity:0; transition:opacity .7s cubic-bezier(.16,1,.3,1), visibility .7s; -webkit-tap-highlight-color:transparent; }   /* ★引き継ぎ最初のUI=0.7s cubicで表示/非表示(出る/閉じる両方・ユーザ指示) */
   #gcBio.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; visibility:visible; opacity:1; }
   #gcBio .bio-veil{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; background:rgba(8,9,14,.42);
     backdrop-filter:blur(28px) saturate(150%); -webkit-backdrop-filter:blur(28px) saturate(150%); }
@@ -3132,7 +3132,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
     background:transparent; -webkit-backdrop-filter:blur(26px) saturate(150%); backdrop-filter:blur(26px) saturate(150%); border:none; box-shadow:none; border-radius:55px; transform:scale(1.15); transition:transform 1s cubic-bezier(.22,1,.36,1); }   /* ★背景透明blurのみ(枠色なし・ユーザ指示)・作成=radius55px(引き継ぎはJSで50px) */
   #gcBio.bio-handoff .bio-card{ border-radius:50px; }   /* ★引き継ぎ=radius50px */
   #gcBio.show .bio-card{ transform:scale(1); }
-  #gcBio.out{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0; transition:opacity .5s var(--gc-ease); }        /* ★0.5sフェードで閉じる */
+  #gcBio.out{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:0; transition:opacity .7s cubic-bezier(.16,1,.3,1); }        /* ★0.7s cubicで閉じる */
   /* ★閉じる時=文字/アイコン/ボタンがスライドダウン+フェード(出る時の逆再生・遅延なし) */
   #gcBio.out .bio-icon{ transform:scale(.55); opacity:0; transition:transform .5s var(--gc-ease), opacity .4s var(--gc-ease); }
   #gcBio.out .bio-title{ transform:translateY(22px); opacity:0; transition:transform .5s var(--gc-ease), opacity .4s var(--gc-ease); }
@@ -8357,22 +8357,22 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
         document.head.appendChild(s); }); }
       function raceOk(ps){ return new Promise(function(res,rej){ var left=ps.length; if(!left) return rej(0);
         ps.forEach(function(p){ Promise.resolve(p).then(res, function(){ if(--left===0) rej(0); }); }); }); }   // ★最初に成功した1つを採用(全滅なら失敗)
+      function okj(p){ return Promise.resolve(p).then(function(j){ if(j&&j.results&&j.results.length) return j; throw 0; }); }   // ★非空だけ採用(空/429/エラーは自然脱落)
       function pull(extra, cc, qq){ var qs="country="+(cc||"JP")+"&media=music&entity=song&limit=200"+extra+"&term="+encodeURIComponent(qq||q);   // ★limit=200(API上限)＝制限なし・手当たり次第全部出す
         var base="https://itunes.apple.com/search?"+qs;
         var _cf=(typeof STORAGE_URL!=="undefined"&&STORAGE_URL)?(STORAGE_URL+"/itunes?"+qs):null;
-        /* ①JSONP直(ユーザIP・CORS不要・CSP許可済) → ②プロキシ3種を同時レース(同一オリジン/corsproxy/allorigins=最速採用)
-           → ③Worker(iTunesがCF共有IPをブロックしがち=最後の保険)。旧「直CORS fetch」段はCORSヘッダ無しで常に失敗するため廃止。 */
-        /* ★iPhone(携帯回線)根治: キャリアCGNATの共有IPはiTunesにレート制限されがち=直JSONPが失敗する。
-           その時はNetlifyの同一オリジンプロキシを「JSONPで」踏む(NetlifyのIPは制限されない・scriptタグ=CORS不要)。 */
         var _nfBase="https://shake-to-shake.netlify.app/itunes-api/search?"+qs;
         var _onNetlify=(location.hostname.indexOf("netlify.app")>=0);
-        return jsonp(base,6000)
-          .catch(function(){ return _onNetlify? Promise.reject(0) : jsonp(_nfBase,7000); })   // ★Netlify以外(pages.dev等)からの第2波=Netlify経由JSONP
-          .catch(function(){ return raceOk([ jget("/itunes-api/search?"+qs,9000),
-                                             jget("https://corsproxy.io/?url="+encodeURIComponent(base),9000),
-                                             jget("https://api.allorigins.win/raw?url="+encodeURIComponent(base),9000) ]); })
-          .catch(function(){ return _cf? jget(_cf,5000) : Promise.reject(0); })
-          .then(function(j){ return ((j&&j.results)||[]); }).catch(function(){ return []; }); }
+        /* ★iPhone根治(2026-07-13): 直列catchウォーターフォール(前段のtimeout待ちで最悪6s+7s遅延)を廃止し、
+           確実な複数ソースを"同時レース→最速の【非空】を採用"に。理由=Apple iTunesはCloudflareのegress IPと
+           携帯CGNATの共有IPを429で弾く(実測)が、NetlifyのIPは非制限=Netlifyプロキシ経由なら確実に出る。
+           ①直JSONP(ユーザIP=WiFiで最速) ②Netlifyプロキシ(IP非制限=iPhoneでも確実・on-Netlifyはsame-origin)
+           ③CF worker(429時はworker側でNetlifyへ自動フォールバック済) ④corsproxy(別IP保険)。 */
+        var cands=[ okj(jsonp(base,6000)) ];                                                   // ①直JSONP
+        cands.push(okj(_onNetlify ? jget("/itunes-api/search?"+qs,8000) : jsonp(_nfBase,7000)));// ②Netlifyプロキシ(確実)
+        if(_cf) cands.push(okj(jget(_cf,7000)));                                                // ③CF worker(429→Netlify自動fallback)
+        cands.push(okj(jget("https://corsproxy.io/?url="+encodeURIComponent(base),9000)));      // ④別IPプロキシ保険
+        return raceOk(cands).then(function(j){ return ((j&&j.results)||[]); }).catch(function(){ return []; }); }
       /* ★リクエストはJP+US+作曲者(+ひらがな→カタカナ)の最大4本だけ＝レート制限内で最大の網羅。
          単語1語でもアーティスト名でも200件×ストア分マージで出る。 */
       var _pulls=[ pull("","JP"), pull("","US"), pull("&attribute=composerTerm","JP") ];
@@ -9871,10 +9871,8 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       var row2=document.createElement("div"); row2.className="gc-att-row gc-att-bottom";
       var sfl=attImg("sumi shuffle","sumi-fire-seed.png","Shuffle", function(){ haptic(); closeAttach(); setTimeout(function(){ attachSumi("shuffle"); },160); });
       row2.appendChild(sfl.w);
-      var tdW=document.createElement("div"); tdW.className="gc-att-col";
-      var tdBtn=document.createElement("button"); tdBtn.className="gc-att-todo"; tdBtn.textContent="＋ Todo";
-      tdBtn.onclick=function(){ haptic(); closeAttach(); setTimeout(openTodo,160); };
-      tdW.appendChild(tdBtn); row2.appendChild(tdW);
+      var td=attImg("todo","Todo.png","Todo", function(){ haptic(); closeAttach(); setTimeout(openTodo,160); });   // ★丸いTodo.pngアイコンに統一(Shuffle/Heartと同じ丸ボタン)
+      row2.appendChild(td.w);
       var hrt=attImg("sumi heart","sumi-beast-seed.png","Heart", function(){ haptic(); var rm=chatRoom; closeAttach(); setTimeout(function(){ try{ var _c=window.__gcCurSong; if(_c){ var s={ t:String(_c.title||_c.trackName||"").slice(0,120), a:String(_c.artist||_c.artistName||"").slice(0,80), art:String(_c.art||((_c.artworkUrl100||"").replace("100x100","300x300"))||"").slice(0,300), p:String(_c.preview||_c.previewUrl||"").slice(0,300), u:String(_c.u||_c.trackViewUrl||"").slice(0,300) }; s.c=_songColor(s.t+"|"+s.a); pushMessage(rm,"cxheart:"+JSON.stringify(s)); try{ dynamicIsland("鼓動で曲を送りました 💓"); }catch(_){} } else { attachSumi("beast"); } }catch(_){} },160); });   // ★再生中は今の曲を送る/そうでなければheart墨流し
       try{ var _hc=window.__gcCurSong; if(_hc){ var _hl=hrt.w.querySelector(".gc-att-lab"); if(_hl) _hl.textContent=(_hc.title||_hc.trackName||"曲"); } }catch(_){}   // ★再生中はラベル=曲名
       row2.appendChild(hrt.w);
@@ -11054,7 +11052,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     ov.querySelector(".bio-sub").textContent=sp.sub;
     var card=ov.querySelector(".bio-card"), actB=ov.querySelector(".bio-act"), canB=ov.querySelector(".bio-cancel");
     try{ var v=ov.querySelector("video"); if(v){ v.muted=true; v.play().catch(function(){}); } }catch(_){}
-    function close(){ _bioGen++; _bioBusy=false; ov.classList.add("out"); ov.classList.remove("show"); setTimeout(function(){ ov.innerHTML=""; ov.classList.remove("out"); },520); }   // 閉じる＝世代を進めてbusy解除＝以降のパスキー結果を無効化（★0.5sフェード+文字スライドダウン）
+    function close(){ _bioGen++; _bioBusy=false; ov.classList.add("out"); ov.classList.remove("show"); setTimeout(function(){ ov.innerHTML=""; ov.classList.remove("out"); },720); }   // 閉じる＝世代を進めてbusy解除＝以降のパスキー結果を無効化（★0.7s cubicフェード+文字スライドダウン）
     // 管理者ログインの入口は利用者に見せない（ボタン・化学式を出さない）。引き継ぎ画面のアイコンを長押し(1.2s)した時だけ管理者ログインを開く＝隠し動作。
     if(mode==="handoff"){ var bi=ov.querySelector(".bio-icon"); if(bi){ var _lpT=null;
       var _lpClear=function(){ if(_lpT){ clearTimeout(_lpT); _lpT=null; } };
@@ -11076,9 +11074,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           +"background:"+(_jp?"#06C755":"#24292f")+";box-shadow:0 6px 18px rgba(0,0,0,.4);"
           +"opacity:0; transform:translateX(-8px) scale(.8); transition:transform .7s cubic-bezier(.22,1,.36,1), opacity .5s var(--gc-ease), filter .3s var(--gc-ease)";
         _bi2.style.position="relative"; _bi2.appendChild(_bw);
-        requestAnimationFrame(function(){ requestAnimationFrame(function(){ _bw.style.opacity="1"; _bw.style.transform="translateX(0) scale(1)"; }); });
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){ _bw.style.opacity="0.55"; _bw.style.transform="translateX(0) scale(1)"; }); });   // ★静止時は半透明(ユーザ指示)。操作(タップ/スワイプ)で不透明に
         var _lbl=null;
-        function _showLbl(){ if(_lbl) return; _lbl=document.createElement("div"); _lbl.textContent=_nm2+"でログイン";
+        function _showLbl(){ _bw.style.opacity="1";   // ★触れたら不透明に
+          if(_lbl) return; _lbl=document.createElement("div"); _lbl.textContent=_nm2+"でログイン";
           _lbl.style.cssText="position:absolute;left:50%;top:calc(100% + 10px);transform:translate(-50%,14px);opacity:0;white-space:nowrap;color:#fff;font:600 13px/1 -apple-system,'Hiragino Sans',sans-serif;text-shadow:0 2px 12px rgba(0,0,0,.5);transition:transform .5s cubic-bezier(.22,1,.36,1), opacity .4s var(--gc-ease);pointer-events:none";
           _bw.appendChild(_lbl);
           requestAnimationFrame(function(){ requestAnimationFrame(function(){ _lbl.style.opacity="1"; _lbl.style.transform="translate(-50%,0)"; }); }); }   // ★字がslideupで出る
