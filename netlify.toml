@@ -64,11 +64,6 @@
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
-[[headers]]
-  for = "/app.js"
-  [headers.values]
-    Cache-Control = "no-cache"
-
 # ★検索UI/アプリ一覧テンプレも常に再検証＝古い版を配り続けない（Aero LEAP追加・検索修正が即反映）。変更なしなら304で軽い。
 [[headers]]
   for = "/spotlight-tpl.js"

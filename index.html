@@ -2391,7 +2391,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* ★再生中ジャケット化は「会話の中」だけ(ユーザ指示)。友達一覧(ホーム)では常に検索アイコンのまま */
   body.gc-inchat #gcSearchFab.np2{ background:var(--np-art,#222) center/cover no-repeat !important; border-radius:22px; border:none !important; }   /* ★再生中を開くジャケット=radius22px・border無し */
   body.gc-inchat #gcSearchFab.np2 .ic{ display:none; }
-  #gcLocFab{touch-action:pan-y!important;overscroll-behavior-x:none!important; left:22px; width:56px; height:56px; font-size:26px; }   /* 左下＝現在地📍 */
+  #gcLocFab{touch-action:pan-y!important;overscroll-behavior-x:none!important; left:22px; width:60px; height:60px; font-size:26px; }   /* 左下=自分アイコン(投稿)。★右下の検索FAB(60px)と同サイズ=左右対称(ユーザ指示) */
   #gcChatBackFab{touch-action:pan-y!important;overscroll-behavior-x:none!important; left:22px; font-size:30px; font-weight:300; color:#fff; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif; }   /* ★黒環境のチャット左下=SF Pro ← 戻る */
   /* Purple Music 再生中: 左下pinをジャケット(角丸55)＋レベルリングに(デフォルト非表示=再生中だけ) */
   #gcLocFab.np{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:0; background:var(--np-art,#222) center/cover no-repeat; border-radius:16px; --np-lvl:0;
@@ -2399,7 +2399,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
     transition:box-shadow .1s linear, border-radius .3s var(--gc-spring); }
   /* 自分のアカウント設定＝中央下に[アイコン+名前]のピル */
   /* ★中央寄せをtransform:translateX(-50%)からmargin-inline:autoへ=gcFabIn(scale)入場や:activeと衝突しない(位置ズレ根治)。shadowはinsetのみ(外側ドロップ廃止) */
-  #gcAvaFab{touch-action:pan-y!important;overscroll-behavior-x:none!important; left:0; right:0; margin-left:auto; margin-right:auto; width:-webkit-fit-content; width:fit-content; max-width:60vw; height:58px; border-radius:99px; padding:0 18px 0 4px; gap:9px; box-shadow:inset 0 1px 0 rgba(255,255,255,.28); }
+  #gcAvaFab{touch-action:pan-y!important;overscroll-behavior-x:none!important; left:0; right:0; margin-left:auto; margin-right:auto; width:-webkit-fit-content; width:fit-content; max-width:60vw; height:58px; border-radius:99px; padding:0 14px; gap:9px; box-shadow:inset 0 1px 0 rgba(255,255,255,.28); }   /* ★padding左右対称=アイコン廃止(P26)後に文字が7px左へズレていたのを根治(中央揃え・ユーザ指示) */
   #gcAvaFab:active{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:none; scale:.95; }   /* ★transform不使用=個別scaleで押下(位置を動かさない) */
   #gcAvaFab .gc-user-av{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:50px; height:50px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
   #gcAvaIc{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:24px; overflow:hidden; background-size:cover; background-position:center; }
@@ -2407,7 +2407,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* ★通知の identityカード(ユーザ指示): 枠(ピル背景)を消す/アバターの再生中リングは残す/名前の下にMBTI・記念日/件数は枠色の1:1丸 */
   #gcAvaFab{ background:transparent !important; border:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; box-shadow:none !important; }
   #gcAvaFab #gcAvaName{ text-shadow:0 1px 6px rgba(0,0,0,.55); }
-  .gc-ava-col{ display:flex; flex-direction:column; justify-content:center; align-items:flex-start; min-width:0; line-height:1.12; }
+  .gc-ava-col{ display:flex; flex-direction:column; justify-content:center; align-items:center; min-width:0; line-height:1.12; text-align:center; }   /* ★名前とMBTIを互いに中央揃え(flex-startのガタつき廃止・ユーザ指示) */
   #gcAvaSub{ font:600 11px/1.3 -apple-system,'SF Pro Text',sans-serif; letter-spacing:2px; color:rgba(255,255,255,.62); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:42vw; text-shadow:0 1px 5px rgba(0,0,0,.5); }
   body.gc-bgwhite #gcAvaSub{ color:rgba(0,0,0,.5); text-shadow:none; }
   #gcAvaCount{ display:none; min-width:40px; height:40px; align-items:center; justify-content:center; background:none; color:var(--gc-user,#62d8ff); font:100 21px/1 -apple-system,'SF Pro Display','SF Pro Text',sans-serif; flex:0 0 auto; padding:0 4px; margin-left:2px; cursor:pointer; -webkit-tap-highlight-color:transparent; text-shadow:0 1px 7px rgba(0,0,0,.5); }   /* ★件数=枠(丸)撤去・数字はSF Pro weight1・少し大きく・押しやすい40pxヒット(ユーザ指示) */
@@ -2577,15 +2577,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   .gc-slider-knob{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; top:5px; left:5px; width:50px; height:50px; border-radius:50%; cursor:grab; touch-action:none; display:flex; align-items:center; justify-content:center;
     background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2); }   /* iOS18風フラットな白ノブ */
 
-  /* プロフィール編集（アカウント変更ピル） */
-  #gcProfEdit{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9410; display:none; align-items:center; justify-content:center; padding:24px;
-    background:rgba(0,0,0,.4); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
-  #gcProfEdit.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; }
-  .gc-pe-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:min(420px,92vw); background:var(--gc-glass); border:.5px solid var(--gc-stroke); border-radius:26px; padding:22px; text-align:center;
-    backdrop-filter:blur(34px) saturate(170%); -webkit-backdrop-filter:blur(34px) saturate(170%); box-shadow:0 26px 70px rgba(0,0,0,.5); }
-  .gc-pe-ava{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:74px; height:74px; border-radius:50%; border:1px solid rgba(255,255,255,.3); background:rgba(255,255,255,.1); font-size:38px; cursor:pointer; margin-bottom:12px; }
-  .gc-pe-name{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:100%; background:transparent; border:none; border-bottom:.5px solid rgba(255,255,255,.2); outline:none; color:#fff; font-size:20px; text-align:center; padding:8px 0; margin-bottom:12px; }
-  .gc-pe-done{touch-action:pan-y!important;overscroll-behavior-x:none!important; margin-top:8px; background:linear-gradient(135deg,var(--gc-accent),var(--gc-accent2)); border:none; color:#fff; font-size:15px; font-weight:600; padding:11px 28px; border-radius:99px; cursor:pointer; }
+  /* 旧プロフィール編集ピルのCSSは削除済み */
 
   /* 管理者アカウント一覧（globe 新UI） */
   #gcAdminOv{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9420; display:none; flex-direction:column; padding:calc(env(safe-area-inset-top,0px)+16px) 16px calc(env(safe-area-inset-bottom,0px)+16px);
@@ -2676,10 +2668,10 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   .gc-fr-back{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; margin:18px auto 0; background:rgba(255,255,255,.12); border:none; color:#fff; font-size:15px; padding:10px 24px; border-radius:99px; cursor:pointer; }
 
   /* ダイアログは 0.3s scale で開閉（閉じる時も scale） */
-  #gcPwaGate, #gcProfEdit, #gcHandoff{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex !important; align-items:center; justify-content:center; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .3s var(--gc-ease), visibility 0s linear .3s; }
-  #gcPwaGate.show, #gcProfEdit.show, #gcHandoff.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; pointer-events:auto; transition:opacity .3s var(--gc-ease); }
-  #gcPwaGate > .gc-pwa-card, #gcProfEdit > .gc-pe-card, #gcHandoff > .gc-ho-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.84); transition:transform .3s var(--gc-spring); }
-  #gcPwaGate.show > .gc-pwa-card, #gcProfEdit.show > .gc-pe-card, #gcHandoff.show > .gc-ho-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); }
+  #gcPwaGate, #gcHandoff{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex !important; align-items:center; justify-content:center; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .3s var(--gc-ease), visibility 0s linear .3s; }
+  #gcPwaGate.show, #gcHandoff.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; opacity:1; visibility:visible; pointer-events:auto; transition:opacity .3s var(--gc-ease); }
+  #gcPwaGate > .gc-pwa-card, #gcHandoff > .gc-ho-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(.84); transition:transform .3s var(--gc-spring); }
+  #gcPwaGate.show > .gc-pwa-card, #gcHandoff.show > .gc-ho-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; transform:scale(1); }
 
   /* 移行アシスタントのコード式UI(#gcHandoff/.gc-ho-card 等)CSSは完全廃止。.gc-power.gc-ho-left(設定の移行ボタン)は維持 */
   #gcHandoff .hidden{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:none; }
@@ -3906,7 +3898,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
     </button>
     <!-- ★🔔 👀 自分アイコン を信号機状(丸角ピルに3つの丸)に -->
     <div class="gc-ctoggles gc-signal">
-      <button class="gc-ctoggle" id="gcSetNotif" style="display:none">🔔</button>
+      <button class="gc-ctoggle" id="gcSetNotif">🔔</button><!-- ★通知トグル復活: display:noneのせいで一度逃すと二度と通知をONにできなかった(根治・ユーザ指示) -->
       <button class="gc-ctoggle" id="gcSetSeen">👀</button>
       <button class="gc-ctoggle gc-sso-gh" id="gcSetGh" title="GitHub連携">GitHub</button>
       <button class="gc-ctoggle gc-ctoggle-me" id="gcSetMe" title="自分の設定"><span class="me-ava" id="gcSetMeAva">🙂</span></button>
@@ -3956,16 +3948,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   </div>
 </div>
 
-<!-- プロフィール編集（アカウント変更ピル）-->
-<div id="gcProfEdit">
-  <div class="gc-pe-card">
-    <button class="gc-pe-ava" id="gcPeAva">🙂</button>
-    <input class="gc-pe-name" id="gcPeName" maxlength="20" placeholder="名前" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <div class="gc-swatches" id="gcPeSw"></div>
-    <button class="gc-pe-done" id="gcPeDone">完了</button>
-    <button class="gc-copy-code" id="gcPeCopyCode" style="margin-top:12px;font-size:15px;padding:9px 22px">自分のコードをコピー &amp; 友達のを貼る</button>
-  </div>
-</div>
+<!-- 旧プロフィール編集ピル(#gcProfEdit)は削除済み — 現行は openMyProf -->
 
 <!-- 管理者：アカウント一覧（globe の新UI）-->
 <div id="gcAdminOv">
@@ -5545,11 +5528,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       c.appendChild(a); c.appendChild(nm); c.onclick=function(){ _sendDoc(r.room, r.name, name, code); try{ ov.remove(); }catch(_){} }; list.appendChild(c); });
     var cancel=document.createElement("button"); cancel.textContent="やめる"; cancel.style.cssText="margin-top:20px;border:none;background:rgba(255,255,255,.16);color:#fff;border-radius:12px;padding:11px 22px;font-size:15px;cursor:pointer"; cancel.onclick=function(){ try{ ov.remove(); }catch(_){} }; ov.appendChild(cancel);
     document.body.appendChild(ov); try{ haptic(); }catch(_){} }
-  var _pmPending=null;
-  function openPurpleMusic(track, list){
-    _pmPending = track ? { type:"pm-play", track:track, list:(list||null), _ts:Date.now() } : null;   // _ts=鮮度判定（古い保留は再生しない）
-    try{ if(window.__openApp) window.__openApp("apps/purple-music.html","Purple Music"); }catch(_){}
-  }
+  var _pmPending=null;   // 旧Purple Music iframe連携の名残(pm-readyブリッジ互換用)。openPurpleMusic本体は削除済み(呼び出し元ゼロ・アプリはPlayerXに統合)
   /* Purple Music の iframe が起動時に postMessage('pm-ready') →（30秒以内に積んだ）保留中の曲を渡して再生させる。
      アプリ一覧から開いた時（保留無し/古い保留）は何も再生しない＝古い曲の誤再生を防ぐ。 */
   /* 左下pin=now-playing(ジャケ+レベルリング)。デフォルト非表示=再生中だけ */
@@ -5657,7 +5636,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     gcNowPlaying({playing:true, art:(t.art||((t.artworkUrl100||"").replace("100x100","300x300"))||""), title:t.title||t.trackName||""}); try{ _gcMediaSession(t); }catch(_){} _gcStartLvl(); try{ haptic(); }catch(_){} }
   function gcToggleSong(){ var a=_gcAud; if(!a)return; if(a.paused){ var p=a.play(); if(p&&p.catch)p.catch(function(){}); gcNowPlaying({playing:true}); _gcStartLvl(); } else { a.pause(); } }
   window.__gcPlaySong=gcPlaySong;   // テスト用
-  function gcReopenPM(){ var ov=$("gcAppOv"); if(ov && window.__appState && /purple-music/.test(window.__appState.url||"")){ ov.style.display="flex"; void ov.offsetWidth; ov.classList.add("show"); ov.style.opacity="1"; ov.style.transform="none"; try{ gcHideDock(); }catch(_){} try{ haptic(); }catch(_){} } else { try{ openPurpleMusic(null); }catch(_){} } }
+  /* 旧gcReopenPM(Purple Music再表示)は削除済み — 再生UIは openPlayerX/openPod に統合 */
   window.__gcNowPlaying=gcNowPlaying;   // テスト用
 
   /* ═══════════ MusicX: 統合ミュージック(Purple Musicアプリ廃止) ═══════════
@@ -6278,9 +6257,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     f.addEventListener("pointerup", up); f.addEventListener("pointercancel", cancelH);
     f.addEventListener("lostpointercapture", function(){ if(drag||ghost) cancelH(); });   // ★Mac修復: capture喪失でもドラッグ状態を必ず解除＝右下の再生中がドラッグ固着するバグ根治
     window.addEventListener("pointerup", function(e){ if(drag||ghost){ try{ up(e); }catch(_){} } }, false); })();   // ★保険: FABのpointerupを取りこぼしても window で確実に後始末(up は冪等=二重送信しない)
-  /* 旧Purple Music導線の置換: np pinタップ/openPurpleMusic → 新プレイヤー */
-  gcReopenPM=function(){ openPlayerX(); };
-  openPurpleMusic=function(t){ if(t){ try{ gcPlaySong(t); }catch(_){} } openPlayerX(); };
+  /* 旧Purple Music導線(gcReopenPM/openPurpleMusic)は完全削除済み — 新プレイヤーは openPlayerX / openPod */
   window.addEventListener("message", function(e){
     try{ var fr=document.getElementById("gcAppFrame");
       if(!fr || e.source!==fr.contentWindow) return;
@@ -6355,17 +6332,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
   function _npPlaying(){ return _vox.on ? !!_vox.src : (_gcAud && !_gcAud.paused); }
   function _npSyncPlayIcon(){ var b=document.getElementById("gcNpPlay"); if(!b)return;
     b.innerHTML=_npPlaying()?'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
-  function gcNpToggle(){ if(_vox.on){ if(_vox.src){ _vox.offset=_vox.offset+(_vox.ctx.currentTime-_vox.startedAt); _voxStop(); window.__pmPlaying=false; try{gcNowPlaying({playing:false});}catch(_){} } else { _voxStartAt(_vox.offset, true); } }
-    else { gcToggleSong(); } _npSyncPlayIcon(); }
-  function _npTick(){ (function loop(){ if(!document.getElementById("gcNP")){_npRAF=null;return;}
-    var cur=0,dur=0;
-    if(_vox.on){ dur=_vox.dur||30; cur=_vox.src?Math.min(dur,_vox.offset+(_vox.ctx.currentTime-_vox.startedAt)):_vox.offset; }
-    else if(_gcAud){ cur=_gcAud.currentTime||0; dur=_gcAud.duration||30; }
-    var f=document.getElementById("gcNpSeekF"); if(f)f.style.width=(dur?(cur/dur*100):0)+"%";
-    var cu=document.getElementById("gcNpCur"); if(cu)cu.textContent=_fmtT(cur);
-    var to=document.getElementById("gcNpTot"); if(to)to.textContent=_fmtT(dur);
-    _npSyncPlayIcon(); _npRAF=requestAnimationFrame(loop); })(); }
-  /* ★旧・再生中シート(#gcNP・下▾/music.png声削減)は全廃(ユーザ指示)。再生中UIは EQ5本のフルプレイヤー(非classic) / iPod(classic) のみ */
+  /* 旧・再生中シート(#gcNP)のgcNpToggle/_npTickは削除済み(呼び出し元ゼロ)。再生中UIは EQ5本のフルプレイヤー(非classic) / iPod(classic) のみ */
   function openNowPlaying(){ try{ if(document.documentElement.classList.contains("classic")){ openPod(); } else { openPlayerX(); } }catch(_){} }
   function closeNowPlaying(){ }
   window.__openNowPlaying=openNowPlaying;
@@ -6565,25 +6532,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
   function refreshProfileUI(){ if($("gcPpName"))$("gcPpName").textContent=prof.name||"User"; if($("gcAvaName"))$("gcAvaName").textContent=prof.name||"User"; if($("gcAvaIc"))applyAva($("gcAvaIc"),prof.ava);
     try{ var _asub=$("gcAvaSub"); if(_asub){ var _mb=_mbtiLabel(prof.mbti); var _an=(prof.anniv&&prof.anniv.m)?(prof.anniv.m+"/"+(prof.anniv.d||1)):""; var _p=[]; if(_mb&&_mb!=="未設定です") _p.push(_mb.split("").join(" ")); if(_an) _p.push(_an); _asub.textContent=_p.join(" · "); _asub.style.display=_p.length?"":"none"; } }catch(_){}   // ★identityカードの「MBTI · 記念日」サブ行
     refreshAvatars(); try{ _syncYouFab(); }catch(_){} try{ _syncEnvDual(); }catch(_){} }
-  /* ★旧・プロフィール編集ダイヤログは廃止(ユーザ指示: 「自分のをコピー&友達のを貼る」入りの古いUI)。
-     名前=プロフィールUIのinput / 色=同スウォッチ / アイコン=emojiリング / ID=電源とcheckの間 に移設済み。
-     openProfEdit自体はどこからも呼ばれない(封印)。 */
-  function openProfEdit(){
-    var adm=!!prof.admin;   // 管理者(と)は名前・アイコン・色を変更不可
-    $("gcPeName").value=prof.name||""; $("gcPeName").readOnly=adm;
-    refreshAvatars(); buildSwatches("gcPeSw");
-    $("gcPeSw").style.display=adm?"none":"";   // 色スウォッチも隠す
-    $("gcProfEdit").classList.add("show");
-  }
-  function setupProfEdit(){
-    $("gcPeAva").onclick=function(){ if(prof.admin) return; openEmojiRing(); };
-    $("gcPeDone").onclick=function(){
-      if(prof.admin){ enforceAdminIdentity(); $("gcProfEdit").classList.remove("show"); return; }
-      var nm=($("gcPeName").value||"").trim(); if(nm)prof.name=nm;
-      if(!avaIsImg(prof.ava)) prof.ava=$("gcPeAva").textContent||prof.ava;
-      save(); saveProfileDBLazy(); refreshProfileUI(); $("gcProfEdit").classList.remove("show"); }   // ★編集は遅延同期=リクエスト節約
-    $("gcProfEdit").addEventListener("click",function(e){ if(e.target===this) $("gcProfEdit").classList.remove("show"); });
-  }
+  /* 旧・プロフィール編集ダイヤログ(openProfEdit/setupProfEdit/#gcProfEdit)は完全削除済み — 現行は openMyProf のプロフィールUI */
   /* ── .shake バックアップ/復元（誕生月で復号・アカウント引き継ぎは1ヶ月期限・会話復元は常時・本人のみ） ── */
   var SHAKE_MS=30*24*3600*1000;
   function _shakeKey(bmonth, saltB64){ var enc=new TextEncoder();
@@ -8237,7 +8186,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
   function toggleNotif(on){ prof.notif=on; save(); if(on){ enableNotif().then(function(ok){ if(!ok){ prof.notif=false; save(); syncAllToggles(); ctSound(false,true); ctPulse($("gcSetNotif")); toast("通知が許可されませんでした"); } }); } syncAllToggles(); }
   /* ★P15: アカウント作成後に「通知を許可しよう」UI(トグル廃止方針)。許可→enableNotif、拒否→「設定からONに…👀」を0.5s easeで差替。 */
   function _askNotifPerm(){
-    try{ if(typeof Notification==="undefined") return; if(Notification.permission==="granted"){ prof.notif=true; save(); return; } }catch(_){ return; }
+    try{ if(typeof Notification==="undefined") return; if(Notification.permission==="granted"){ prof.notif=true; save(); try{ enableNotif(); }catch(_){} return; } }catch(_){ return; }   // ★granted時もenableNotif=購読レコード(push/<uid>)欠落/失効の自己修復
     var ov=document.createElement("div");
     ov.style.cssText="position:fixed;inset:0;z-index:9866;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;box-sizing:border-box;background:rgba(8,8,10,.34);-webkit-backdrop-filter:blur(38px) saturate(1.4);backdrop-filter:blur(38px) saturate(1.4);opacity:0;transition:opacity .5s var(--gc-ease)";
     var card=document.createElement("div");
@@ -10909,21 +10858,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       });
     }); });
   }
-  /* ★動画送信(復活): 📎の🎬→OS動画選択→30秒以下=「そのまま送信/pppで編集」/30秒超=ppp編集(容量枠のため)。
-     そのまま送信=チャンクアップロード(完全無料Worker)→cxvid。 */
-  function pickVideoForChat(room){ if(!room) return;
-    var f=document.createElement("input"); f.type="file"; f.accept="video/*,.mp4,.mov,.m4v,.webm";
-    f.onchange=function(){ var file=f.files&&f.files[0]; if(!file) return;
-      var url=null; try{ url=URL.createObjectURL(file); }catch(_){}
-      var vt=document.createElement("video"); vt.preload="metadata"; if(url) vt.src=url;
-      var _done=false; function go(dur){ if(_done)return; _done=true; try{ if(url) URL.revokeObjectURL(url); }catch(_){}
-        if(dur>30.5 || (file&&file.size>50*1024*1024)){ try{ dynamicIsland((file&&file.size>50*1024*1024)?"大きい動画はpppで軽くして送ってね ✂️":"30秒を超える動画はpppで編集してね ✂️"); }catch(_){} _mediaClipRoom=room; setTimeout(function(){ try{ window.__openApp("apps/cinema-studio-final.html?to=chat","🍍ppp"); }catch(_){} },320); return; }   // ★大容量or30秒超=ppp(解像度を落として)
-        videoSendChoice(room, file); }
-      vt.onloadedmetadata=function(){ go(vt.duration||0); };
-      vt.onerror=function(){ go(0); };
-      setTimeout(function(){ if(!_done) go(vt.duration||0); }, 2500);
-    };
-    f.click(); }
+  /* 旧pickVideoForChat(呼び出し元ゼロ)は削除済み — 動画送信の現行経路は _pickMediaForChat(画像&動画1ピッカー) */
   function videoSendChoice(room, file){
     var ov=_stOverlay(9767);
     var b1=_stRowBtn("📤 そのまま送信"), b2=_stRowBtn("✂️ ppp で編集して送る"), b3=_stRowBtn("キャンセル");
@@ -10959,9 +10894,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       if(!("serviceWorker"in navigator)||!("PushManager"in window)) return true;
       return navigator.serviceWorker.ready.then(function(reg){
         return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(VAPID_PUBLIC)}).then(function(sub){
-          try{ if(db&&uid){ var subj=JSON.parse(JSON.stringify(sub));
-            if(prof.admin){ (authReady||Promise.resolve()).then(claimAdmin).then(function(){ try{ db.ref("push/"+ADMIN_ID+"/"+uid).set(subj); }catch(_){} }); }   // ★管理者は端末/アカウントごとに push/and_admin/<uid> へ(上書きしない)＝全アカウントへ同じ通知が届く
-            else db.ref("push/"+uid).set(subj); } }catch(_){}
+          /* ★authReadyを待ってから保存=起動直後(uid未確定)にenableNotifが走ると購読が黙って保存されず「通知が来ない」の根治 */
+          (authReady||Promise.resolve()).then(function(){ try{ if(db&&uid){ var subj=JSON.parse(JSON.stringify(sub));
+            if(prof.admin){ Promise.resolve(claimAdmin()).then(function(){ try{ db.ref("push/"+ADMIN_ID+"/"+uid).set(subj); }catch(_){} }); }   // ★管理者は端末/アカウントごとに push/and_admin/<uid> へ(上書きしない)＝全アカウントへ同じ通知が届く
+            else db.ref("push/"+uid).set(subj); } }catch(_){} });
           return true;
         }).catch(function(e){ console.warn("push sub",e); return true; });
       }).catch(function(){ return true; });
@@ -11910,7 +11846,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       head.addEventListener("touchend",function(e){ if(!track)return; track=false; var t=e.changedTouches&&e.changedTouches[0]; if(!t)return; var dx=t.clientX-x0, dy=t.clientY-y0;
         if(dx>56 && Math.abs(dy)<44){ var ro=(prof.rooms||[]).filter(function(x){ return x.room===chatRoom; })[0]; if(ro&&(ro.group||/^g_/.test(chatRoom||""))){ haptic(); openGroupAcct(ro); } } },{passive:true});
     })();
-    setupDelSlider(); setupProfEdit(); setupSettingsSwipe();
+    setupDelSlider(); setupSettingsSwipe();
     $("gcQuoteX").onclick=clearQuote;   // 引用解除
     $("gcPwaX").onclick=function(){ $("gcPwaGate").classList.remove("show"); };
     $("gcNotifGo").onclick=function(){ show("gcWelcome"); };
@@ -11919,7 +11855,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     $("gcAddQR").onclick=copyMyInvite;
     (function(){ function wireCopy(id, single){ var cc=$(id); if(!cc) return;   // ★単タップ=指定動作 / ダブルタップ=OS標準の共有ダイヤログ
         cc.onclick=function(){ if(cc.__t){ clearTimeout(cc.__t); cc.__t=null; try{ shareMyInvite(); }catch(_){} } else { cc.__t=setTimeout(function(){ cc.__t=null; try{ single(); }catch(_){} }, 280); } }; }
-      wireCopy("gcAddCopyCode", copyFriendCode); wireCopy("gcPeCopyCode", copyAndPasteCode); })();   // 設定の「自分のコードをコピー&友達のを貼る」=ペースト→コピー
+      wireCopy("gcAddCopyCode", copyFriendCode); })();   // 設定の「自分のコードをコピー&友達のを貼る」=ペースト→コピー
     $("gcAddAva").onclick=copyMyInvite; $("gcAddName").onclick=copyMyInvite;
     $("gcAddGo").onclick=function(){ prof.onboarded=true; save(); saveProfileDB(); playComplete(); if(!consumeInvite()) gotoHome(); };
 
@@ -12144,7 +12080,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     restoreRoomsFromCache();        // ★キャッシュに在るのに一覧に無い会話を「画面の中に」復活＝friends掃除/別端末でも過去会話が出る
     restoreAdminConvos();           // ★管理者(と)はconvosミラーから関与会話を全部復活＝キャッシュ無し端末でも過去会話が出る（一般ユーザはno-op）
     restoreChatsFromBackup(true);   // 起動時のみローカルキャッシュから空部屋を復元。定期スナップショット(backupChats)は廃止＝サーバ読取のリクエストを増やさない。キャッシュはライブ受信(cacheMsg)で随時更新される。
-    if(prof.notif||prof.admin){ try{ enableNotif(); }catch(_){} }   // 通知ONや管理者は起動時に購読を復帰＝新着がちゃんと来る
+    if(prof.notif||prof.admin||(prof.notif==null&&typeof Notification!=="undefined"&&Notification.permission==="granted")){ try{ enableNotif(); }catch(_){} }   // 通知ONや管理者は起動時に購読を復帰＝新着がちゃんと来る。★OS権限granted済みでprof.notif未記録(引き継ぎ等)も自己修復(明示OFF=falseは尊重)
     if(!prof.loc){ var _rg=myRegion(); if(_rg){ prof.loc=_rg; save(); try{ if(db&&uid&&!prof.admin) db.ref("users/"+uid+"/loc").set(_rg); }catch(_){} } }   // 管理者は users/<uid> を作らない
     /* ★古いアカウントにも常に最新情報を反映＝起動の度に users/<uid> を最新プロフィール(名前/アイコン/色/pkフラグ/時刻)で更新。
        これで旧PWA/旧アカウントでも、管理者の一覧に最新状態(パスキー有無含む)が必ず入る。 */
