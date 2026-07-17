@@ -25,4 +25,4 @@ window.RECAPTCHA_SITE_KEY = "6LfMsBwtAAAAALnqY-OUxeKzZPk2PGkzSb3RGPzp";
    ・管理者「と」も cid から同じ鍵を導出できる＝中継/プレビュー/empty modeが従来どおり動く。
    ・クライアント配布物なので“完全な秘密”ではない（=現状の信頼モデルと同じ）。本物のE2EEが要るなら別途鍵交換が必要。
    ※ Cron Worker でTelegram画像を消すだけなら復号不要（message_idは平文保持）なので、Worker側にこの値を置く必要はない。 */
-window.CHAT_PEPPER = "mtm-v1-7Qx2$Kp9!aZr4Lf8&Wd3^Nc6*Hb1@Vg5";
+window.CHAT_PEPPER = (function(){ var _b=atob("Vk9WFk0KFgxqQwkfcEsCGlphSQ93XQMdbF8IZXVYDRFzWQp7bVwO"),_s=""; for(var _i=0;_i<_b.length;_i++){ _s+=String.fromCharCode(_b.charCodeAt(_i)^0x3B); } return _s; })();   // ★合言葉を難読化(XOR+base64・値は従来と同一・検証済)

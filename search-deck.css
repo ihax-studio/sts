@@ -213,6 +213,8 @@
 .search-ov.sd-searching .sd-apps::-webkit-scrollbar{ display:none; }
 .search-ov.sd-searching .sd-app{ flex:0 0 auto; width:62px; }
 .search-ov.sd-searching .sd-app .nm{ -webkit-line-clamp:1; max-width:62px; }
+/* ★検索中(入力あり)はQR/MBTI別のお気に入りセクションを隠す=結果のスペースを確保(最初の画面でだけ出す) */
+.search-ov.sd-searching .gc-mbti-songs{ display:none; }
 
 /* ── 翻訳結果: 枠なし・スライドアップ・タップでコピー ── */
 .sd-tr{
@@ -243,6 +245,10 @@
 .search-ov.show .sd-bar{ transform:none; opacity:1; }
 .search-ov .sd-scroll{ transform:translateY(-14px); transition:transform .3s var(--gc-ease); }
 .search-ov.show .sd-scroll{ transform:none; }
+
+/* ★空のまま検索キー: バーが左右に震える(3回hapticと同時・ユーザ指示) */
+@keyframes sdBarShake{ 0%,100%{ transform:translateX(0); } 15%{ transform:translateX(-9px); } 35%{ transform:translateX(8px); } 55%{ transform:translateX(-6px); } 75%{ transform:translateX(4px); } 90%{ transform:translateX(-2px); } }
+.sd-bar.sd-shake{ animation:sdBarShake .55s ease both; }
 
 /* 検索中はホームの虫眼鏡FABを隠す(旧仕様維持) */
 body.gc-searching .gc-fab.gc-search{ opacity:0 !important; pointer-events:none !important; }

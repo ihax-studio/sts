@@ -41,8 +41,8 @@
 })();
 </script>
 <link rel="stylesheet" href="globe.css">
-<link rel="stylesheet" href="search-deck.css?v=11">
-<script src="search-deck.js?v=11"></script>
+<link rel="stylesheet" href="search-deck.css?v=12">
+<script src="search-deck.js?v=12"></script>
 <script>window.IHAX_MODEL_BASE="";/* ★iHaxモデル=HuggingFace直配信(完全無料)で確定。R2を使う時だけ公開URLを入れる */
 /* ★LINEログインは廃止(2026-07)。二次ログイン/引き継ぎはGitHub連携+パスキーに一本化 */</script>
 <script src="ihax.js?v=5" defer></script>
@@ -1965,23 +1965,18 @@ var _plDefs={
 var _plCache={};
 /* ★アストロノミー: 太陽 + 太陽系外の星(系外惑星)。テクスチャはシード付き手続き生成Canvas=完全オフライン・CSP不要。 */
 var _exoDefs={
-  sun:     { kind:'sun',    seed:3,  c:['#fff3b0','#ffd23f','#ff9f1c','#ff5e00'], emi:0xffffff, emiI:0.98, rough:1.0  },
-  proxima: { kind:'rocky',  seed:7,  c:['#8a4a33','#5a2d20','#cf8a5c'],           emi:0xff8a4a, emiI:0.22, rough:0.93 },
-  trappist:{ kind:'rocky',  seed:11, c:['#41706c','#294845','#c4e2da'],           emi:0x7fd8c8, emiI:0.20, rough:0.90 },
-  kepler:  { kind:'rocky',  seed:23, c:['#3b6ea8','#2c8a4e','#e8f4ff'],           emi:0xa8d4ff, emiI:0.26, rough:0.86 },
-  hd189:   { kind:'banded', seed:5,  c:['#16308f','#2a4fd0','#0d1e5e','#5f8cf0'], emi:0x4f7fff, emiI:0.36, rough:0.70 },
-  cancri:  { kind:'lava',   seed:13, c:['#2a1a16','#170d0b','#ff7a26','#ffc36b'], emi:0xff5a1a, emiI:0.50, rough:0.96 }
-};
+  sun:     { kind:'sun',    seed:3,  c:['#fff3b0','#ffd23f','#ff9f1c','#ff5e00'], emi:0xffffff, emiI:0.98, rough:1.0  }
+};   // ★系外惑星(手続き生成=低解像度)は廃止(ユーザ指示)。太陽のみ高解像度生成
 function _exoRnd(s){ return function(){ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }   // シード付きPRNG=毎回同じ見た目
 var _exoCache={};
 function _exoPaint(key){ if(_exoCache[key]) return _exoCache[key];
-  var d=_exoDefs[key], W=512, H=256, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  var d=_exoDefs[key], W=2048, H=1024, K=W/512, cv=document.createElement('canvas'); cv.width=W; cv.height=H;   // ★512→2048=フルスクリーンでも粗くない(太陽)
   var g=cv.getContext('2d'), rnd=_exoRnd(d.seed*2654435761>>>0 || 1), i, x, y, r, gr;
   function blob(x,y,r,col,a){ gr=g.createRadialGradient(x,y,0,x,y,r); gr.addColorStop(0,col); gr.addColorStop(1,'rgba(0,0,0,0)'); g.globalAlpha=a; g.fillStyle=gr; g.fillRect(x-r,y-r,r*2,r*2); g.globalAlpha=1; }
   if(d.kind==='sun'){
     g.fillStyle=d.c[1]; g.fillRect(0,0,W,H);
-    for(i=0;i<340;i++){ blob(rnd()*W, rnd()*H, 4+rnd()*14, (rnd()<0.55?d.c[0]:d.c[2]), 0.05+rnd()*0.16); }   // 粒状斑
-    for(i=0;i<26;i++){ blob(rnd()*W, rnd()*H, 5+rnd()*11, d.c[3], 0.10+rnd()*0.18); }                        // 黒点ぎみの深い橙
+    for(i=0;i<1400;i++){ blob(rnd()*W, rnd()*H, (4+rnd()*14)*K, (rnd()<0.55?d.c[0]:d.c[2]), 0.05+rnd()*0.16); }   // 粒状斑(高解像度に合わせ数/径をスケール)
+    for(i=0;i<80;i++){ blob(rnd()*W, rnd()*H, (5+rnd()*11)*K, d.c[3], 0.10+rnd()*0.18); }                        // 黒点ぎみの深い橙
     gr=g.createLinearGradient(0,0,0,H); gr.addColorStop(0,'rgba(255,255,255,.14)'); gr.addColorStop(.5,'rgba(255,255,255,0)'); gr.addColorStop(1,'rgba(120,30,0,.20)'); g.fillStyle=gr; g.fillRect(0,0,W,H);
   } else if(d.kind==='banded'){
     g.fillStyle=d.c[0]; g.fillRect(0,0,W,H);
@@ -2529,8 +2524,6 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   .gc-ctoggles.gc-signal .gc-ctoggle{ width:64px; height:64px; font-size:30px; background:#fff; color:#111; border:none; box-shadow:0 3px 10px rgba(0,0,0,.22); }
   .gc-ctoggles.gc-signal .gc-ctoggle.on{ box-shadow:0 0 0 3px rgba(124,192,255,.9), 0 3px 10px rgba(0,0,0,.22); }
   /* ★GitHub連携(黒丸白字+白縁)。連携済み=.onで光る。(LINE連携は廃止2026-07) */
-  .gc-ctoggles.gc-signal .gc-ctoggle.gc-sso-gh{ background:#000; color:#fff; font:600 13.5px/1 -apple-system,'SF Pro Text',sans-serif; letter-spacing:.2px; box-shadow:0 0 0 2.5px #fff, 0 3px 10px rgba(0,0,0,.22); }
-  .gc-ctoggles.gc-signal .gc-ctoggle.gc-sso-gh.on{ box-shadow:0 0 0 2.5px #fff, 0 0 16px rgba(255,255,255,.6), 0 3px 10px rgba(0,0,0,.22); }
   .gc-ctoggle{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:78px; height:78px; border-radius:50%; cursor:pointer; font-size:38px; padding:0;
     background:#0a0a0c; color:#fff; border:3px solid rgba(255,255,255,.14);
     display:flex; align-items:center; justify-content:center;
@@ -2671,7 +2664,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
 
   /* アカウント作成 PWA 必須ゲート */
   #gcPwaGate{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9500; display:none; align-items:center; justify-content:center; padding:28px;
-    background:rgba(0,0,0,.5); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); }
+    background:transparent; backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); }   /* ★初期設定系の背景は完全透明(blurのみ・ユーザ指示2026-07-18) */
   #gcPwaGate.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; }
   .gc-pwa-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:min(420px,92vw); text-align:center; padding:30px 24px; border-radius:28px; color:#fff;
     background:var(--gc-glass); border:.5px solid var(--gc-stroke); backdrop-filter:blur(34px) saturate(170%); -webkit-backdrop-filter:blur(34px) saturate(170%); box-shadow:0 26px 70px rgba(0,0,0,.5); }
@@ -3295,7 +3288,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
     font-family:-apple-system,"SF Pro Text","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
     opacity:0; transition:opacity .7s cubic-bezier(.16,1,.3,1), visibility .7s; -webkit-tap-highlight-color:transparent; }   /* ★引き継ぎ最初のUI=0.7s cubicで表示/非表示(出る/閉じる両方・ユーザ指示) */
   #gcBio.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; visibility:visible; opacity:1; }
-  #gcBio .bio-veil{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; background:rgba(8,9,14,.42);
+  #gcBio .bio-veil{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:absolute; inset:0; background:transparent;   /* ★初期設定の背景は何があっても完全透明(灰青tint廃止・ユーザ指示2026-07-18) */
     backdrop-filter:blur(28px) saturate(150%); -webkit-backdrop-filter:blur(28px) saturate(150%); }
   #gcBio .bio-card{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:relative; width:min(560px,92vw); padding:40px 30px 26px; text-align:center; color:#fff;
     background:transparent; -webkit-backdrop-filter:blur(26px) saturate(150%); backdrop-filter:blur(26px) saturate(150%); border:none; box-shadow:none; border-radius:55px; transform:scale(1.15); transition:transform 1s cubic-bezier(.22,1,.36,1); }   /* ★背景透明blurのみ(枠色なし・ユーザ指示)・作成=radius55px(引き継ぎはJSで50px) */
@@ -3680,7 +3673,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   body.gc-bgcolor .gc-rail-av, body.gc-bgcolor .gc-set-fr-av,
   html.classic .gc-rail-av, html.classic .gc-set-fr-av{ box-shadow:none; }   /* 友達一覧(+グループ含む)の影は色背景＋Classicでは消す */
   body.gc-bgcolor #gcSearchFab.np2, body.gc-bgcolor .np2, body.gc-bgcolor #gcAvaFab.playing{ box-shadow:none !important; }   /* ★色背景=友達/自分の再生中ジャケットの黒box-shadowを消す(ユーザ指示) */
-  #gcSetSeen, #gcSetGh, #gcSet2fa{ display:none !important; }   /* ★P16: 見たよ/GitHub/2FA はlock→プライバシーパネルへ融合(パネルが各ボタンを呼ぶ) */
+  #gcSetSeen{ display:none !important; }   /* ★P16: 見たよ はlock→プライバシーパネルへ融合(GitHub/2FAは廃止) */
   #gcAvaFab .gc-user-av{ display:none !important; }   /* ★P26: 中央はアイコンを消す＝名前＋MBTIのみ(自分アイコンは左下=投稿UIへ移動) */
   .gcSw.globe{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:#0a57e0 url("https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg") center/cover no-repeat;
     box-shadow:inset -8px -9px 18px rgba(0,0,0,.5), inset 7px 7px 15px rgba(255,255,255,.28); }   /* 本物の地球テクスチャ＋inset球体シェーディング(外側ドロップ廃止) */
@@ -3706,7 +3699,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   #gcEnvChoose .ecX{ position:fixed; top:calc(env(safe-area-inset-top,0px) + 12px); right:16px; width:44px; height:44px; border:none; background:none; color:#fff; font:100 26px/44px -apple-system,"SF Pro Display",system-ui,sans-serif; text-align:center; z-index:2; pointer-events:auto; text-shadow:0 1px 8px rgba(0,0,0,.5); cursor:pointer; }
   #gcEnvChoose .ecRow{ position:absolute; left:50%; top:50%; bottom:auto; transform:translate(-50%,calc(-50% + 28px)); display:flex; align-items:center; gap:16px; padding:16px 20px; border-radius:46px; pointer-events:auto;   /* ★上下中央に配置(ユーザ指示) */
     background:rgba(255,255,255,.10); -webkit-backdrop-filter:blur(40px) saturate(1.7); backdrop-filter:blur(40px) saturate(1.7); box-shadow:0 18px 60px rgba(0,0,0,.42), inset 0 0 0 .5px rgba(255,255,255,.20);
-    opacity:0; max-width:92vw; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; transition:transform .6s var(--gc-spring), opacity .5s var(--gc-ease); }   /* ★スマホで左右スワイプ可 */
+    opacity:0; max-width:96vw; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; transition:transform .6s var(--gc-spring), opacity .5s var(--gc-ease); }   /* ★スマホで左右スワイプ可 */
   #gcEnvChoose .ecRow::-webkit-scrollbar{ display:none; }
   #gcEnvChoose.show .ecRow{ transform:translate(-50%,-50%); opacity:1; }
   /* ★environmentタブ内のスウォッチは横スワイプを妨げない(pan-yだけだと横スクロールがブロックされタブが動かない=根治) */
@@ -3714,17 +3707,25 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* ★アストロノミー星ストリップ: タブと同じガラスの横一列。左右スワイプで動く(overflow-x+snap)・タップで星を適用 */
   #gcEnvChoose .ecAstro{ position:absolute; left:50%; top:calc(50% + 64px); transform:translate(-50%,12px); display:flex; align-items:center; gap:14px; padding:13px 18px; border-radius:40px; pointer-events:auto;
     background:rgba(255,255,255,.10); -webkit-backdrop-filter:blur(40px) saturate(1.7); backdrop-filter:blur(40px) saturate(1.7); box-shadow:0 18px 60px rgba(0,0,0,.42), inset 0 0 0 .5px rgba(255,255,255,.20);
-    opacity:0; max-width:92vw; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; scroll-snap-type:x proximity; transition:transform .5s var(--gc-ease), opacity .5s var(--gc-ease); }
+    opacity:0; max-width:96vw; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; scroll-snap-type:x proximity; transition:transform .5s var(--gc-ease), opacity .5s var(--gc-ease); }
   #gcEnvChoose .ecAstro::-webkit-scrollbar{ display:none; }
   #gcEnvChoose .ecAstro.show{ transform:translate(-50%,0); opacity:1; }
   #gcEnvChoose .ecAstro .gcSw{ width:56px; height:56px; scroll-snap-align:center; }
+  /* ★environmentタブ/星ストリップが画面幅で見切れない=幅ごとにサイズを縮めて全部収める+押しやすく(ユーザ指示) */
+  @media (max-width:520px){
+    #gcEnvChoose .ecRow{ gap:12px; padding:14px 16px; }
+    #gcEnvChoose .ecRow .gcSw{ width:56px; height:56px; }
+    #gcEnvChoose .ecAstro{ gap:12px; padding:12px 16px; }
+    #gcEnvChoose .ecAstro .gcSw{ width:54px; height:54px; }
+  }
+  @media (max-width:374px){
+    #gcEnvChoose .ecRow{ gap:10px; padding:12px 14px; }
+    #gcEnvChoose .ecRow .gcSw{ width:50px; height:50px; }
+    #gcEnvChoose .ecAstro{ gap:10px; padding:11px 14px; }
+    #gcEnvChoose .ecAstro .gcSw{ width:48px; height:48px; }
+  }
   /* ★星ごとの背景グロー(星に対するtransitionはopacity/transformのみ=カクつかない) */
   body[data-globebody="sun"] #globeWrap{ background:radial-gradient(ellipse 82% 72% at 50% 44%, rgba(255,178,64,.36), rgba(255,140,0,0) 74%); }
-  body[data-globebody="cancri"] #globeWrap{ background:radial-gradient(ellipse 70% 60% at 50% 44%, rgba(255,92,26,.24), rgba(255,92,26,0) 70%); }
-  body[data-globebody="hd189"] #globeWrap{ background:radial-gradient(ellipse 70% 60% at 50% 44%, rgba(80,124,255,.22), rgba(80,124,255,0) 70%); }
-  body[data-globebody="proxima"] #globeWrap{ background:radial-gradient(ellipse 66% 56% at 50% 44%, rgba(255,138,74,.18), rgba(255,138,74,0) 68%); }
-  body[data-globebody="trappist"] #globeWrap{ background:radial-gradient(ellipse 66% 56% at 50% 44%, rgba(127,216,200,.16), rgba(127,216,200,0) 68%); }
-  body[data-globebody="kepler"] #globeWrap{ background:radial-gradient(ellipse 66% 56% at 50% 44%, rgba(168,212,255,.18), rgba(168,212,255,0) 68%); }
   /* ★P19b: 地球儀を選ぶと国旗が国の上に出る(project()で回転追従)・タップでpin */
   #gcEnvChoose .ecPins{ position:absolute; inset:0; pointer-events:none; z-index:1; }
   #gcEnvChoose .ecFlag{ position:absolute; left:0; top:0; width:36px; height:36px; border:none; border-radius:50%; padding:0; font-size:21px; line-height:36px; text-align:center;
@@ -3950,7 +3951,6 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
     <div class="gc-ctoggles gc-signal">
       <button class="gc-ctoggle" id="gcSetNotif">🔔</button><!-- ★通知トグル復活: display:noneのせいで一度逃すと二度と通知をONにできなかった(根治・ユーザ指示) -->
       <button class="gc-ctoggle" id="gcSetSeen">👀</button>
-      <button class="gc-ctoggle gc-sso-gh" id="gcSetGh" title="GitHub連携">GitHub</button>
       <button class="gc-ctoggle gc-ctoggle-me" id="gcSetMe" title="自分の設定"><span class="me-ava" id="gcSetMeAva">🙂</span></button>
     </div>
     <!-- ★名前+アイコンのピルは管理者のみ(非管理者は非表示) -->
@@ -4791,7 +4791,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var timerSec=0, TMR=121, TMC=2*Math.PI*TMR;
     /* プレビュー(円形)+emojiリングのホルダ。★動画モード=完全なスクエアではなく3:4(縦長) */
     var holder=document.createElement("div"); holder.style.cssText="position:relative;width:min(64vw,250px);height:min(64vw,250px);flex:0 0 auto;transition:height .3s var(--gc-ease)";
-    var wrap=document.createElement("div"); wrap.style.cssText="position:absolute;inset:0;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px rgba(255,255,255,.9), 0 24px 60px rgba(0,0,0,.5);background:#111;transition:border-radius .3s var(--gc-ease), transform .5s var(--gc-spring)";   // ★scale1.2は0.5sでデカくなる
+    var wrap=document.createElement("div"); wrap.style.cssText="position:absolute;inset:0;border-radius:40%;overflow:hidden;box-shadow:0 0 0 3px rgba(255,255,255,.9), 0 24px 60px rgba(0,0,0,.5);background:#111;transition:border-radius .3s var(--gc-ease), transform .5s var(--gc-spring)";   // ★radius少し減=スーパー楕円(squircle)ぽく(ユーザ指示)。scale1.2は0.5sでデカくなる
     var vid=document.createElement("video"); vid.setAttribute("playsinline",""); vid.muted=true; vid.autoplay=true;
     vid.style.cssText="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)";
     var tl=document.createElement("div"); function nowT(){ var d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
@@ -4894,22 +4894,24 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       .then(function(st2){ stream=st2; vid.srcObject=st2; vid.style.transform=(facing==="user")?"scaleX(-1)":"none"; })
       .catch(function(){ try{ dynamicIsland("カメラを許可してね"); }catch(_){} ov.__close(); }); }
     startCam();
-    /* ★QR読み取りをカメラに統合(独立スキャナ廃止・機能は維持)。招待コード/Mac CLIログイン/Cloudflareミラーを読む */
+    /* ★QR読み取りをカメラに統合(独立スキャナ廃止・機能は維持)。招待コード/Mac CLIログイン/Cloudflareミラーを読む。
+       ★スキャンモードでなくても「その円形のカメラUI」で常時QRが読める(ユーザ指示)。認識できるコードの時だけ反応(普通の撮影は邪魔しない) */
     if(_scan){
       var _sqHint=document.createElement("div"); _sqHint.textContent="QR・招待コード・Macを読み取ってね";
       _sqHint.style.cssText="position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);text-align:center;color:rgba(255,255,255,.92);font:600 14px/1.4 -apple-system,'Hiragino Sans',sans-serif;z-index:6;pointer-events:none;text-shadow:0 2px 10px rgba(0,0,0,.5)"; ov.appendChild(_sqHint);
-      var _sqCv=null,_sqCx=null,_sqLast=0,_sqDone=false;
+    }
+    (function(){ var _sqCv=null,_sqCx=null,_sqLast=0,_sqDone=false;
       gcLoadScript("lib/jsQR.js").then(function(){ _sqCv=document.createElement("canvas"); _sqCx=_sqCv.getContext("2d",{willReadFrequently:true});
         (function sqTick(ts){ if(_sqDone||!ov.parentNode) return;   // カメラが閉じたら停止
-          try{ if(window.jsQR && vid.readyState===vid.HAVE_ENOUGH_DATA && ((ts||0)-_sqLast)>120){ _sqLast=ts||0;
+          try{ if(window.jsQR && vid.readyState===vid.HAVE_ENOUGH_DATA && ((ts||0)-_sqLast)>120 && !recording && !counting){ _sqLast=ts||0;   // ★録画/カウントダウン中は読まない
             var vw=vid.videoWidth||0, vh=vid.videoHeight||0, sc=vw?Math.min(1,540/Math.max(vw,vh)):1;
             _sqCv.width=Math.max(1,Math.round(vw*sc)); _sqCv.height=Math.max(1,Math.round(vh*sc)); _sqCx.drawImage(vid,0,0,_sqCv.width,_sqCv.height);
             var _im=_sqCx.getImageData(0,0,_sqCv.width,_sqCv.height); var _r=jsQR(_im.data,_im.width,_im.height,{inversionAttempts:"attemptBoth"});
             if(_r&&_r.data){ if(gcOnScanned(_r.data)){ _sqDone=true; try{ ov.__close(); }catch(_){} return; } }
           } }catch(_){}
           requestAnimationFrame(sqTick); })(0);
-      }).catch(function(){ try{ dynamicIsland("QR読み取りを読み込めませんでした"); }catch(_){} });
-    }
+      }).catch(function(){ if(_scan){ try{ dynamicIsland("QR読み取りを読み込めませんでした"); }catch(_){} } });
+    })();
     function syncT(){ var F=FONTS[fi], TS=TSIZES[tsi]; tl.style.color=tcol; tl.style.fontWeight=String(F.w); tl.style.fontFamily=F.f;
       tl.style.fontSize=TS.px+"px"; tl.style.top=TS.top; tl.textContent=nowT(); }   // ★大=上/ミディアム=中央/小さい=下
     /* ★色ボタンの行は廃止=色はプレビュー円周のリングへ移動。Aa(左)とレンズ切替(右)は同じ行・より下に */
@@ -4931,7 +4933,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     brow.appendChild(shot); ov.appendChild(brow);
     var zoomed=false;
     function applyMode(){   // ★動画モード: radius小さい方に0.3s+3:4(縦長)・シャッター=赤丸・タイマー/リングは無効
-      wrap.style.borderRadius=videoMode?"15px":"50%";
+      wrap.style.borderRadius=videoMode?"15px":"40%";   // ★写真=スーパー楕円ぽく(40%)
       holder.style.height=videoMode?"calc(min(64vw, 250px) * 1.3334)":"min(64vw, 250px)";
       shot.style.background=videoMode?"rgba(255,60,60,.92)":"rgba(255,255,255,.25)";
       tmSvg.style.opacity=videoMode?"0":"1"; tmKnob.style.pointerEvents=videoMode?"none":"auto";
@@ -5109,7 +5111,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       shareShot._so=_stShareScreen(im, function(pick, ctl){ if(shared) return; shared=true;
         ctl.so.__close(); ov.__close();
         stPost({ img:(pick.img||durl), vid:null, t:pendEmo||"", sg:pick.sg, ef:pick.ef, loc:pick.loc }); }); }   // ★pick.img=画像orドットマトリクス(タップ選択) / loc=位置情報
-    function _resetRecUI(){ wrap.style.borderRadius=videoMode?"15px":"50%"; wrap.style.transform=zoomed?"scale(1.2)":""; shot.style.background=videoMode?"rgba(255,60,60,.92)":"rgba(255,255,255,.25)";
+    function _resetRecUI(){ wrap.style.borderRadius=videoMode?"15px":"40%"; wrap.style.transform=zoomed?"scale(1.2)":""; shot.style.background=videoMode?"rgba(255,60,60,.92)":"rgba(255,255,255,.25)";
       holder.style.height=videoMode?"calc(min(64vw, 250px) * 1.3334)":"min(64vw, 250px)"; }
     function startRec(){ if(recording||!stream) return; if(typeof MediaRecorder==="undefined"){ try{ dynamicIsland("この端末は動画に未対応"); }catch(_){} return; }
       recording=true; recChunks=[]; try{ if(haptic.confirm)haptic.confirm(); }catch(_){}
@@ -5231,307 +5233,9 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       dB.onclick=function(e){ e.stopPropagation(); haptic(); stDelete(); ov.__close(); };
       rowB.appendChild(eB); rowB.appendChild(dB); ov.appendChild(rowB); } }, true); }
   window.__stViewer=stViewer;
-  /* ═══════════ カメラapp: プレビュー+下に撮影。左=＋(投稿の方のカメラ) 右=自分のアイコン(0.3sで設定=QRへ)。
-     撮ると0.3sで撮影後の画面: ↓保存する(SF Pro) + 友達が横並び=選んで「→」で送る(未選択の→は半透明) ═══════════ */
-  function openCamApp(){ if($("gcCamApp")) return;
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ try{ dynamicIsland("カメラに対応していません"); }catch(_){} return; }
-    var ov=document.createElement("div"); ov.id="gcCamApp";
-    ov.style.cssText="position:fixed;inset:0;z-index:9756;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;opacity:0;transition:opacity .3s var(--gc-ease)";
-    var stream=null, facing="environment", _qrTick=null, _qrCv=null, _qrCx=null, _qrLast="", _qrLastT=0, _uiT=null;
-    function stopCam(){ try{ if(stream) stream.getTracks().forEach(function(tr){ tr.stop(); }); }catch(_){} stream=null; }
-    function close(){ stopCam(); try{ cancelAnimationFrame(_qrTick); }catch(_){} clearInterval(_qrTick); ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },320); }
-    ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
-    /* ★QRもすぐ読める: sts-cli(Macと繋ぐ)/友達追加URL=既存の読み取り処理へ、その他URL=Dynamic Island風(黒)で上に出る */
-    function _camUrlIsland(tx){ var ex=ov.querySelector(".gc-cam-url"); if(ex){ try{ ex.remove(); }catch(_){} }
-      var isUrl=/^https?:\/\//i.test(tx);
-      var p=document.createElement("button"); p.className="gc-cam-url";
-      p.style.cssText="position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%) scale(.55);max-width:86vw;border:none;border-radius:99px;background:#000;color:#fff;font:600 14px/1.2 -apple-system,'SF Pro Text','Hiragino Sans',sans-serif;padding:15px 24px;box-shadow:0 14px 34px rgba(0,0,0,.65);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0;transition:transform .45s var(--gc-spring), opacity .3s var(--gc-ease);z-index:4;-webkit-tap-highlight-color:transparent";
-      p.textContent=tx;
-      p.onclick=function(e2){ e2.stopPropagation(); haptic();
-        if(isUrl){ try{ window.open(tx,"_blank"); }catch(_){} }
-        else { try{ navigator.clipboard.writeText(tx); }catch(_){} try{ dynamicIsland("コピーしました"); }catch(_){} } };
-      ov.appendChild(p);
-      requestAnimationFrame(function(){ requestAnimationFrame(function(){ p.style.opacity="1"; p.style.transform="translateX(-50%) scale(1)"; }); });
-      clearTimeout(_uiT); _uiT=setTimeout(function(){ p.style.opacity="0"; p.style.transform="translateX(-50%) scale(.7)"; setTimeout(function(){ try{ p.remove(); }catch(_){} },320); },6000); }
-    function _camQrHit(tx){ try{ haptic(); }catch(_){}
-      if(/^sts-cli:/i.test(tx)){ close(); setTimeout(function(){ try{ gcOnScanned(tx); }catch(_){} },340); return; }   // Macと繋ぐ(CLI)
-      if(_looksLikeMirror(tx)){ close(); setTimeout(function(){ try{ openMacMirror(tx); }catch(_){} },340); return; }   // ★Cloudflareミラーリンク=Macミラーリング(スマホは横向き)
-      var pr=null; try{ pr=parseInvite(tx); }catch(_){}
-      if(pr){ close(); setTimeout(function(){ try{ if(!gcOnScanned(tx)){ handleInviteString(tx); } }catch(_){ try{ handleInviteString(tx); }catch(__){} } },340); return; }   // 友達追加URL
-      _camUrlIsland(tx); }
-    var _qrBusy=false, _qrPrev=0;
-    function _camQr(){ if(!stream||!vd.videoWidth||!window.jsQR||_qrBusy) return; _qrBusy=true;
-      try{ if(!_qrCv){ _qrCv=document.createElement("canvas"); _qrCx=_qrCv.getContext("2d",{willReadFrequently:true}); }
-        var vw=vd.videoWidth, vh=vd.videoHeight, sc=Math.min(1, 560/Math.max(vw,vh));
-        _qrCv.width=Math.max(1,Math.round(vw*sc)); _qrCv.height=Math.max(1,Math.round(vh*sc));
-        _qrCx.drawImage(vd,0,0,_qrCv.width,_qrCv.height);
-        var img=_qrCx.getImageData(0,0,_qrCv.width,_qrCv.height);
-        var res=jsQR(img.data,img.width,img.height,{ inversionAttempts:"attemptBoth" });   // ★反転(白黒逆)QRも認識
-        if(res&&res.data){ var tx=String(res.data).trim();
-          if(tx && !(tx===_qrLast && Date.now()-_qrLastT<4000)){ _qrLast=tx; _qrLastT=Date.now(); _camQrHit(tx); } } }catch(_){}
-      _qrBusy=false; }
-    /* ★QR系はすぐ反応: interval(0.42s)をやめ、rAFで≒0.11s間隔の常時スキャン(gcStartScanと同等の即応) */
-    try{ gcLoadScript("lib/jsQR.js").then(function(){
-      (function loop(ts){ if(!document.body.contains(ov)) return;
-        if(!_qrPrev || (ts-_qrPrev)>=110){ _qrPrev=ts||1; _camQr(); }
-        _qrTick=requestAnimationFrame(loop); })(0); }).catch(function(){}); }catch(_){}
-    var pv=document.createElement("div"); pv.style.cssText="position:relative;width:min(86vw,380px);height:min(112vw,500px);border-radius:22px;overflow:hidden;background:#111;box-shadow:0 0 0 2px rgba(255,255,255,.55), 0 24px 60px rgba(0,0,0,.5)";
-    var vd=document.createElement("video"); vd.setAttribute("playsinline",""); vd.muted=true; vd.autoplay=true;
-    vd.style.cssText="width:100%;height:100%;object-fit:cover";
-    pv.appendChild(vd); ov.appendChild(pv);
-    /* ★円形のemojiリング: 押すとカメラの中(プレビュー中央下)にemojiが入る=撮影で写真にも焼き込まれる */
-    var pendEmo9="", _CAM_EMO=["🫶🏻","❤️","🔥","🎧","🥹","✨","😎","🌙"], _PALE9=["#d9c9b8","#cdbcff","#bcd9ff","#ffd6c2","#c9e8d0","#ffd0e0","#e8ddc8","#c2ecec"];
-    var emoBig9=document.createElement("div"); emoBig9.style.cssText="position:absolute;left:50%;bottom:5%;transform:translateX(-50%) scale(.2);font-size:36px;line-height:1;display:none;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5));transition:transform .5s var(--gc-spring);pointer-events:none;z-index:3"; pv.appendChild(emoBig9);
-    _CAM_EMO.forEach(function(em,i){ var a9=(i/_CAM_EMO.length)*Math.PI*2 - Math.PI/2, R9=41;   // ★プレビュー中央を中心にした円形配置
-      var b9=document.createElement("button"); b9.textContent=em;
-      var fc9=(em==="🎧")?"#ffffff":_PALE9[i%_PALE9.length];
-      b9.style.cssText="position:absolute;left:calc(50% + "+(R9*Math.cos(a9)).toFixed(1)+"%);top:calc(50% + "+(R9*0.72*Math.sin(a9)).toFixed(1)+"%);transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;border:none;background:transparent;box-shadow:0 0 0 1.5px "+fc9+"88;font-size:20px;line-height:1;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;z-index:4;transition:background .3s var(--gc-ease)";
-      b9.onclick=function(e){ e.stopPropagation(); haptic();
-        if(pendEmo9===em){ pendEmo9=""; emoBig9.style.display="none"; b9.style.background="transparent"; return; }   // もう一回=外す
-        pendEmo9=em; Array.prototype.forEach.call(pv.querySelectorAll("button"),function(x9){ x9.style.background="transparent"; }); b9.style.background=fc9+"55";
-        emoBig9.textContent=em; emoBig9.style.display="block"; emoBig9.style.transform="translateX(-50%) scale(.2)";
-        requestAnimationFrame(function(){ requestAnimationFrame(function(){ emoBig9.style.transform="translateX(-50%) scale(1)"; }); }); };
-      pv.appendChild(b9); });
-    navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ideal:1280} }, audio:false })
-      .then(function(st2){ stream=st2; vd.srcObject=st2; })
-      .catch(function(){ facing="user"; navigator.mediaDevices.getUserMedia({ video:true, audio:false })
-        .then(function(st3){ stream=st3; vd.srcObject=st3; vd.style.transform="scaleX(-1)"; })
-        .catch(function(){ try{ dynamicIsland("カメラを許可してね"); }catch(_){} close(); }); });
-    var row=document.createElement("div"); row.style.cssText="width:min(86vw,380px);display:flex;align-items:center;justify-content:center;gap:54px";   // ★3つのボタンは離しすぎない
-    var plus=document.createElement("button"); plus.textContent="＋";
-    plus.style.cssText="width:52px;height:52px;border-radius:50%;border:none;background:none;color:#fff;font:100 34px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent";   /* ★＋=SF Pro weight1・枠なし(ユーザ指示) */
-    plus.onclick=function(e){ e.stopPropagation(); haptic(); close(); setTimeout(stCamera, 340); };   // ★＋=投稿の方のカメラが開く
-    var shot=document.createElement("button");
-    shot.style.cssText="width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .2s ease,background .3s ease";
-    /* ★普通のカメラでも長押しで動画(3:4・0.7sで赤くなる)。タップ=写真 */
-    var camRec=null, camRecChunks=[], camRecording=false, camLpT=null, camJustRec=false, camRecMax=null;
-    function _camVidReset(){ pv.style.transition="box-shadow .7s var(--gc-ease)"; pv.style.boxShadow="0 0 0 2px rgba(255,255,255,.55), 0 24px 60px rgba(0,0,0,.5)"; shot.style.background="rgba(255,255,255,.25)"; }
-    function _camStartVid(){ if(camRecording||!stream) return; if(typeof MediaRecorder==="undefined"){ try{ dynamicIsland("この端末は動画に未対応"); }catch(_){} return; }
-      camRecording=true; camRecChunks=[]; try{ if(haptic.confirm)haptic.confirm(); else haptic(); }catch(_){}
-      pv.style.transition="box-shadow .7s var(--gc-ease)"; pv.style.boxShadow="0 0 0 3px #ff3c3c, 0 24px 60px rgba(0,0,0,.5)"; shot.style.background="rgba(255,60,60,.9)";   // ★3:4のまま0.7sで赤リング
-      var mime=""; ["video/mp4","video/webm;codecs=vp9","video/webm"].some(function(m){ try{ if(MediaRecorder.isTypeSupported(m)){ mime=m; return true; } }catch(_){} return false; });
-      var opt={ videoBitsPerSecond:600000 }; if(mime) opt.mimeType=mime;
-      try{ camRec=new MediaRecorder(stream, opt); }catch(_){ try{ camRec=new MediaRecorder(stream); }catch(__){ camRecording=false; _camVidReset(); try{ dynamicIsland("この端末は動画に未対応"); }catch(e2){} return; } }
-      camRec.ondataavailable=function(ev){ if(ev.data&&ev.data.size) camRecChunks.push(ev.data); };
-      camRec.onstop=function(){ clearTimeout(camRecMax); _camVidReset(); if(!camRecording) return; camRecording=false; camJustRec=true; setTimeout(function(){ camJustRec=false; },600);
-        var blob=new Blob(camRecChunks,{type:(camRec.mimeType||"video/mp4")}); if(!blob.size) return; afterVid(blob); };
-      camRec.start(400); camRecMax=setTimeout(function(){ try{ camRec.stop(); }catch(_){} }, 300000); }   // 最長300秒
-    function _camStopVid(){ if(camRecording&&camRec){ try{ camRec.stop(); }catch(_){} } }
-    shot.addEventListener("pointerdown", function(){ shot.style.transform="scale(.7)"; clearTimeout(camLpT); camLpT=setTimeout(_camStartVid, 350); });   // ★350msで録画開始
-    ["pointerup","pointercancel"].forEach(function(evn){ shot.addEventListener(evn, function(){ shot.style.transform=""; clearTimeout(camLpT); if(camRecording) _camStopVid(); }); });
-    var _cocOld=close; close=function(){ try{ if(camRecording&&camRec){ camRecording=false; camRec.stop(); } }catch(_){} clearTimeout(camLpT); clearTimeout(camRecMax); _cocOld(); };
-    var meB=document.createElement("button");
-    meB.style.cssText="width:52px;height:52px;border-radius:50%;border:none;background:"+(prof.color||"#62d8ff")+";display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.75);-webkit-tap-highlight-color:transparent";
-    try{ applyAva(meB, prof.ava||"🙂"); }catch(_){}
-    meB.onclick=function(e){ e.stopPropagation(); haptic(); close(); setTimeout(function(){ try{ openSettings(); }catch(_){} },300); };   // ★0.3sで設定(自分のQRが出せる)へ
-    row.appendChild(plus); row.appendChild(shot); row.appendChild(meB); ov.appendChild(row);
-    function after(durl){ var so=_stOverlay(9766);
-      var curUrl=durl, efv="";
-      /* ★エフェクト(明るさ等)を焼き込んだ最終画像を返す(ctx.filter非対応機はプレビューのみ=そのまま) */
-      function _outUrl(cb3){ if(!efv){ cb3(curUrl); return; }
-        try{ var im9=new Image(); im9.onload=function(){ try{
-            var cv9=document.createElement("canvas"); cv9.width=im9.naturalWidth||im9.width; cv9.height=im9.naturalHeight||im9.height; var cx9=cv9.getContext("2d");
-            if(typeof cx9.filter==="string"){ cx9.filter=efv; cx9.drawImage(im9,0,0); cb3(cv9.toDataURL("image/jpeg",0.86)); } else { cb3(curUrl); } }catch(_){ cb3(curUrl); } };
-          im9.onerror=function(){ cb3(curUrl); }; im9.src=curUrl; }catch(_){ cb3(curUrl); } }
-      var frame=document.createElement("div");
-      frame.style.cssText="width:min(64vw,250px);height:min(64vw,250px);border-radius:15px;overflow:hidden;box-shadow:0 0 0 2.5px rgba(255,255,255,.85), 0 0 26px rgba(255,255,255,.30), 0 24px 60px rgba(0,0,0,.5)";
-      var im=document.createElement("img"); im.src=curUrl; im.alt="";
-      im.style.cssText="width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.2);transition:transform 1s cubic-bezier(.16,1,.3,1)";
-      frame.appendChild(im); so.appendChild(frame);
-      requestAnimationFrame(function(){ requestAnimationFrame(function(){ im.style.transform="scale(1)"; }); });
-      /* ★普通のカメラでも撮影後にeffect(明るさ)+🫨を出す(ユーザ指示) */
-      var frow2=document.createElement("div"); frow2.style.cssText="display:flex;align-items:center;gap:26px;margin-top:18px";
-      var efB2=document.createElement("button"); efB2.title="エフェクト";
-      efB2.style.cssText="width:48px;height:48px;border-radius:50%;border:1.5px solid rgba(255,255,255,.5);background:none;cursor:pointer;padding:11px;-webkit-tap-highlight-color:transparent";
-      efB2.innerHTML='<img src="effect.png" alt="fx" style="width:100%;height:100%;object-fit:contain;filter:brightness(0) invert(1)">';
-      efB2.onclick=function(ev){ ev.stopPropagation(); haptic();
-        var ep=document.createElement("div"); ep.style.cssText="position:fixed;inset:0;z-index:9769;background:rgba(0,0,0,.08)";   // ★ぼかさない=プレビューを見ながらいじれる
-        var sh2=document.createElement("div"); sh2.style.cssText="position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;padding:18px 16px calc(env(safe-area-inset-bottom,0px) + 20px);border-radius:24px 24px 0 0;background:rgba(12,14,20,.78);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);transform:translateY(100%);transition:transform .35s var(--gc-spring)";
-        var EFX=[{n:"なし",f:""},{n:"ソフト",f:"brightness(1.06) contrast(.92) saturate(.9)"},{n:"モノ",f:"grayscale(1) contrast(1.05)"},{n:"あたたか",f:"sepia(.28) saturate(1.25) brightness(1.03)"}];
-        var base="", br=1;
-        try{ var m0=efv.match(/^(.*?)\s*brightness\(([\d.]+)\)\s*$/); if(m0&&EFX.some(function(x){return x.f===m0[1].trim();})){ base=m0[1].trim(); br=+m0[2]||1; } else if(EFX.some(function(x){return x.f===efv;})){ base=efv; } }catch(_){}
-        var chips=document.createElement("div"); chips.style.cssText="display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;max-width:92vw;-webkit-overflow-scrolling:touch;padding:2px";
-        var chipEls=[];
-        EFX.forEach(function(fx){ var c=document.createElement("button"); c.textContent=fx.n;
-          c.style.cssText="flex:0 0 auto;border:none;border-radius:99px;background:rgba(255,255,255,"+((fx.f===base)?".3":".12")+");color:#fff;font:600 13.5px/1 -apple-system,'Hiragino Sans',sans-serif;padding:11px 18px;cursor:pointer";
-          c.onclick=function(e2){ e2.stopPropagation(); haptic(); base=fx.f; chipEls.forEach(function(x){ x.style.background="rgba(255,255,255,.12)"; }); c.style.background="rgba(255,255,255,.3)"; apply9(); };
-          chipEls.push(c); chips.appendChild(c); });
-        var slb=document.createElement("div"); slb.textContent="☀️ 明るさ"; slb.style.cssText="color:rgba(255,255,255,.7);font:600 12.5px/1 -apple-system,'Hiragino Sans',sans-serif;margin-top:14px";
-        var sl=document.createElement("input"); sl.type="range"; sl.min="60"; sl.max="150"; sl.value=String(Math.round(br*100));
-        sl.style.cssText="width:min(74vw,290px);margin-top:10px";
-        sl.oninput=function(){ br=(+sl.value)/100; apply9(); };   // ★スライドでも動かせる
-        function apply9(){ efv=(base+(br!==1?" brightness("+br+")":"")).trim(); im.style.filter=efv; }
-        var okB=document.createElement("button"); okB.textContent="完了";
-        okB.style.cssText="margin-top:16px;border:none;border-radius:99px;background:#fff;color:#111;font:600 15px/1 -apple-system,'Hiragino Sans',sans-serif;padding:12px 34px;cursor:pointer";
-        function epClose(){ sh2.style.transform="translateY(100%)"; setTimeout(function(){ try{ ep.remove(); }catch(_){} },360); }
-        okB.onclick=function(e2){ e2.stopPropagation(); haptic(); epClose(); };
-        ep.addEventListener("click", function(e2){ if(e2.target===ep) epClose(); });
-        sh2.appendChild(chips); sh2.appendChild(slb); sh2.appendChild(sl); sh2.appendChild(okB); ep.appendChild(sh2);
-        document.body.appendChild(ep); requestAnimationFrame(function(){ requestAnimationFrame(function(){ sh2.style.transform="translateY(0)"; }); }); };
-      frow2.appendChild(efB2);
-      /* ★🫨=シェイクでTikTok風の残像(マゼンタ/シアン)を焼く(motion APIのある端末のみ) */
-      if((typeof DeviceMotionEvent!=="undefined") && (("ontouchstart" in window) || (typeof DEV!=="undefined"&&DEV&&(DEV.cat==="iphone"||DEV.cat==="ipad"||DEV.cat==="ipod")))){
-        var skB2=document.createElement("button"); skB2.textContent="🫨"; skB2.title="シェイクで残像";
-        skB2.style.cssText="width:48px;height:48px;border-radius:50%;border:1.5px solid rgba(255,255,255,.5);background:none;font-size:22px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .3s var(--gc-ease)";
-        var _skArm2=false, _skMo3=null, _skDone2=false;
-        function _skGhost2(src){ return new Promise(function(res,rej){ var im2=new Image(); im2.onload=function(){ try{
-              var W2=im2.naturalWidth||im2.width, H2=im2.naturalHeight||im2.height;
-              var cv2=document.createElement("canvas"); cv2.width=W2; cv2.height=H2; var x2=cv2.getContext("2d");
-              x2.drawImage(im2,0,0);
-              x2.globalCompositeOperation="screen"; x2.globalAlpha=0.55;
-              x2.filter="saturate(2.6) hue-rotate(300deg) brightness(.92)"; x2.drawImage(im2,-Math.round(W2*0.022), Math.round(H2*0.006));
-              x2.filter="saturate(2.6) hue-rotate(150deg) brightness(.92)"; x2.drawImage(im2, Math.round(W2*0.022),-Math.round(H2*0.006));
-              x2.filter="none"; x2.globalAlpha=1; x2.globalCompositeOperation="source-over";
-              res(cv2.toDataURL("image/jpeg",0.9)); }catch(e2){ rej(e2); } };
-            im2.onerror=rej; im2.src=src; }); }
-        function _skOff2(){ _skArm2=false; skB2.style.background="none"; if(_skMo3){ try{ window.removeEventListener("devicemotion",_skMo3); }catch(_){} _skMo3=null; } }
-        skB2.onclick=function(ev){ ev.stopPropagation(); haptic();
-          if(_skDone2){ try{ dynamicIsland("もう残像がかかってるよ🫨"); }catch(_){} return; }
-          if(_skArm2){ _skOff2(); return; }
-          function _arm2(){ _skArm2=true; skB2.style.background="rgba(124,192,255,.4)"; try{ dynamicIsland("iPhoneを振って🫨"); }catch(_){}
-            _skMo3=function(e3){ var a3=e3.accelerationIncludingGravity||e3.acceleration; if(!a3)return;
-              var mag3=Math.abs(a3.x||0)+Math.abs(a3.y||0)+Math.abs(a3.z||0);
-              if(mag3>24 && !_skDone2){ _skDone2=true; _skOff2();
-                try{ frame.style.animation="gcScreenShake .42s steps(2) 2"; var _pf9=im.style.filter||""; im.style.filter=(_pf9?_pf9+" ":"")+"drop-shadow(-7px 0 rgba(255,0,212,.9)) drop-shadow(7px 0 rgba(0,229,255,.9))"; setTimeout(function(){ try{ frame.style.animation=""; im.style.filter=_pf9; }catch(_){} },840); }catch(_){}   // ★震えている間もTikTok風マゼンタ/シアンのRGB-split(ライブ)を+(ユーザ指示)。焼き込み残像は_skGhost2で別途
-                _skGhost2(curUrl).then(function(du){ curUrl=du; im.src=du;
-                  im.style.transition="none"; im.style.transform="scale(1.16)";
-                  requestAnimationFrame(function(){ requestAnimationFrame(function(){ im.style.transition="transform .5s cubic-bezier(.16,1,.3,1)"; im.style.transform="scale(1)"; }); });
-                  try{ if(haptic.confirm)haptic.confirm(); dynamicIsland("残像がついたよ=このまま送れる🫶🏻"); }catch(_){}
-                }).catch(function(){ _skDone2=false; try{ dynamicIsland("残像をかけられなかった"); }catch(_){} }); } };
-            try{ window.addEventListener("devicemotion",_skMo3); }catch(_){} }
-          try{ if(DeviceMotionEvent.requestPermission){ DeviceMotionEvent.requestPermission().then(function(p){ if(p==="granted"){ _arm2(); } else { try{ dynamicIsland("モーションが許可されなかった"); }catch(_){} } }).catch(_arm2); } else { _arm2(); } }catch(_){ _arm2(); } };
-        frow2.appendChild(skB2);
-        so.addEventListener("click", _skOff2);   // ★閉じ/別操作でリスナ残さない
-      }
-      so.appendChild(frow2);
-      /* ★左端=＋(投稿=20時間ステータス。押すと「今の場所はシェアする?👀」=位置情報も付けられる) + 友達(複数選んで→で一斉送信) */
-      var rooms=(prof.rooms||[]).filter(function(r){ return r.peer && !r.group && !r.hidden; });
-      var fr=document.createElement("div"); fr.setAttribute("data-hswipe",""); fr.style.cssText="display:flex;gap:14px;overflow-x:auto;max-width:88vw;padding:16px 8px 4px;-webkit-overflow-scrolling:touch;touch-action:pan-x";
-      /* ★スマホでも友達行を左右スワイプで確実にスクロール(子ボタン上のネイティブ横スクロールが効かないiOS対策=JSでscrollLeft) */
-      (function(){ var on=false, sx0=0, sy0=0, sl0=0, ax=0;
-        fr.addEventListener("touchstart", function(e){ var t=e.touches&&e.touches[0]; if(!t)return; on=true; sx0=t.clientX; sy0=t.clientY; sl0=fr.scrollLeft; ax=0; }, {passive:true});
-        fr.addEventListener("touchmove", function(e){ if(!on)return; var t=e.touches&&e.touches[0]; if(!t)return; var dx=t.clientX-sx0, dy=t.clientY-sy0;
-          if(!ax){ if(Math.abs(dx)>6||Math.abs(dy)>6) ax=(Math.abs(dx)>Math.abs(dy))?1:2; }
-          if(ax===1){ fr.scrollLeft=sl0-dx; if(e.cancelable) e.preventDefault(); } }, {passive:false});
-        ["touchend","touchcancel"].forEach(function(ev9){ fr.addEventListener(ev9, function(){ on=false; }, {passive:true}); });
-      })();
-      var selRooms={}, selCount=0;
-      (function(){ var c=document.createElement("button");   // ＋=投稿シェア
-        c.style.cssText="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;border:none;background:none;cursor:pointer;width:64px;-webkit-tap-highlight-color:transparent";
-        var a=document.createElement("div"); a.style.cssText="width:52px;height:52px;border-radius:50%;background:none;color:#fff;display:flex;align-items:center;justify-content:center;font:100 34px/1 -apple-system,'SF Pro Display',sans-serif"; a.textContent="＋";   /* ★＋=weight1・枠/影なし(ユーザ指示) */
-        var nm=document.createElement("div"); nm.textContent="投稿"; nm.style.cssText="color:rgba(255,255,255,.8);font:500 10.5px/1 -apple-system,'Hiragino Sans',sans-serif";
-        c.appendChild(a); c.appendChild(nm);
-        function doPost(loc9){ _outUrl(function(u9){ try{ transcodeDataURL(u9).then(function(small){ stPost({ img:small, vid:null, t:(pendEmo9||""), sg:null, loc:(loc9||null) }); }); }catch(_){}
-          so.__close(); close(); }); }
-        c.onclick=function(ev){ ev.stopPropagation(); haptic();   // ★＋=「今の場所はシェアする?👀」→位置情報シェアも一応ここから可能
-          var mo9=_stOverlay(9769);
-          var q9=document.createElement("div"); q9.textContent="今の場所はシェアする?👀"; q9.style.cssText="color:#fff;font:600 17px/1.4 -apple-system,'Hiragino Sans',sans-serif;margin-bottom:16px;text-align:center";
-          var b1=_stRowBtn("📍 今の場所をシェアして投稿"), b2=_stRowBtn("シェアせず投稿"), b3=_stRowBtn("キャンセル");
-          b3.style.textAlign="center"; b3.style.background="rgba(255,255,255,.08)";
-          b1.onclick=function(e2){ e2.stopPropagation(); haptic(); mo9.__close(); try{ dynamicIsland("現在地を取得中…"); }catch(_){}
-            if(window.__stGeoWard){ window.__stGeoWard(function(name,coord){ doPost(name?{ n:String(name).slice(0,40), la:coord&&coord.la, lo:coord&&coord.lo }:null); }); } else { doPost(null); } };
-          b2.onclick=function(e2){ e2.stopPropagation(); haptic(); mo9.__close(); doPost(null); };
-          b3.onclick=function(e2){ e2.stopPropagation(); haptic(); mo9.__close(); };
-          mo9.appendChild(q9); mo9.appendChild(b1); mo9.appendChild(b2); mo9.appendChild(b3); };
-        fr.appendChild(c); })();
-      rooms.forEach(function(r){ var c=document.createElement("button");
-        c.style.cssText="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;border:none;background:none;cursor:pointer;width:64px;-webkit-tap-highlight-color:transparent";
-        var a=document.createElement("div"); a.style.cssText="width:52px;height:52px;border-radius:50%;background:"+(r.color||"#62d8ff")+";display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden;transition:box-shadow .2s, transform .2s"; try{ applyAva(a, r.ava||"🙂"); }catch(_){}
-        var nm=document.createElement("div"); nm.textContent=r.nickname||r.name||"友達"; nm.style.cssText="color:rgba(255,255,255,.8);font:500 10.5px/1 -apple-system,'Hiragino Sans',sans-serif;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
-        c.appendChild(a); c.appendChild(nm);
-        c.onclick=function(ev){ ev.stopPropagation(); haptic();   // ★複数人選べる(トグル)
-          if(selRooms[r.room]){ delete selRooms[r.room]; selCount--; a.style.boxShadow=""; a.style.transform=""; }
-          else { selRooms[r.room]=(r.nickname||r.name||"友達"); selCount++; a.style.boxShadow="0 0 0 3px #fff"; a.style.transform="scale(1.08)"; }
-          go.style.opacity=selCount?"1":"0.35"; };
-        fr.appendChild(c); });
-      so.appendChild(fr);
-      var go=document.createElement("button"); go.textContent="→"; go.title="送る";   // ★ここでは↑の代わりに→
-      go.style.cssText="margin-top:14px;width:58px;height:58px;border:none;border-radius:50%;background:#fff;color:#111;font:300 27px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.45);opacity:0.35;transition:opacity .25s var(--gc-ease);-webkit-tap-highlight-color:transparent";
-      go.onclick=function(ev){ ev.stopPropagation(); if(!selCount){ try{ dynamicIsland("送る友達を選んでね"); }catch(_){} return; }   // ★未選択=半透明のまま送らない
-        haptic(); go.disabled=true; go.textContent="…";
-        _outUrl(function(u9){ var nms=[]; for(var rm in selRooms){ try{ sendImages([u9], rm); }catch(_){} nms.push(selRooms[rm]); }
-          try{ dynamicIsland("「"+nms.join("・")+"」に送りました 📷"); }catch(_){}
-          so.__close(); close(); }); };
-      so.appendChild(go);
-      /* ★保存=←と反対の右下に↓(枠なし・weight1) */
-      var sv=document.createElement("button"); sv.textContent="↓"; sv.title="保存";
-      sv.style.cssText="position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);border:none;background:none;color:#fff;font:100 42px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;padding:6px 14px;-webkit-tap-highlight-color:transparent;filter:drop-shadow(0 2px 10px rgba(0,0,0,.55))";
-      sv.onclick=function(ev){ ev.stopPropagation(); haptic();
-        _outUrl(function(u9){ fetch(u9).then(function(r){ return r.blob(); }).then(function(bl){
-          var f=new File([bl],"photo.jpg",{type:"image/jpeg"});
-          if(navigator.canShare && navigator.canShare({files:[f]}) && navigator.share){ return navigator.share({files:[f]}); }
-          throw 0;
-        }).catch(function(e2){ if(e2&&e2.name==="AbortError") return;
-          try{ var a=document.createElement("a"); a.href=u9; a.download="photo.jpg"; document.body.appendChild(a); a.click(); setTimeout(function(){ try{ a.remove(); }catch(_){} },500); }catch(_){} }); }); };
-      so.appendChild(sv);
-      /* ★左下=取り直し: retake.pngが反時計回りに回ってカメラへ戻る(投稿UIと同じ) */
-      var bkR=document.createElement("button"); bkR.title="取り直す"; bkR.setAttribute("data-hswipe","");
-      bkR.style.cssText="position:absolute;left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:52px;height:52px;border-radius:50%;border:none;background:none;cursor:pointer;padding:13px;-webkit-tap-highlight-color:transparent;transition:transform .5s cubic-bezier(.16,1,.3,1)";   /* ★retake=枠なし */
-      bkR.innerHTML='<img src="retake.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:brightness(0) invert(1);pointer-events:none">';
-      var _rt9=0;
-      bkR.onclick=function(ev){ ev.stopPropagation(); haptic(); _rt9-=360; bkR.style.transform="rotate("+_rt9+"deg)";   // ★反時計回り
-        setTimeout(function(){ try{ so.__close(); }catch(_){} },200); };
-      so.appendChild(bkR); }
-    /* ★長押しで撮った動画のレビュー画面(3:4)=友達に送る/投稿/保存/取り直し */
-    function afterVid(blob){ var so=_stOverlay(9766); var _url=null; try{ _url=URL.createObjectURL(blob); }catch(_){}
-      var frame=document.createElement("div"); frame.style.cssText="width:min(56vw,220px);height:calc(min(56vw,220px)*1.3334);border-radius:15px;overflow:hidden;box-shadow:0 0 0 2.5px rgba(255,255,255,.85), 0 24px 60px rgba(0,0,0,.5)";
-      var pvv=document.createElement("video"); pvv.src=_url; pvv.playsInline=true; pvv.setAttribute("playsinline",""); pvv.muted=true; pvv.autoplay=true; pvv.loop=true;
-      pvv.style.cssText="width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.2);transition:transform 1s cubic-bezier(.16,1,.3,1)";
-      frame.appendChild(pvv); so.appendChild(frame); requestAnimationFrame(function(){ requestAnimationFrame(function(){ pvv.style.transform="scale(1)"; }); });
-      var _soOld=so.__close; so.__close=function(){ try{ URL.revokeObjectURL(_url); }catch(_){} _soOld(); };
-      var rooms=(prof.rooms||[]).filter(function(r){ return r.peer && !r.group && !r.hidden; });
-      var fr=document.createElement("div"); fr.setAttribute("data-hswipe",""); fr.style.cssText="display:flex;gap:14px;overflow-x:auto;max-width:88vw;padding:16px 8px 4px;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none";
-      var selRooms={}, selCount=0;
-      (function(){ var c=document.createElement("button"); c.style.cssText="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;border:none;background:none;cursor:pointer;width:64px;-webkit-tap-highlight-color:transparent";
-        var a=document.createElement("div"); a.style.cssText="width:52px;height:52px;border-radius:50%;background:none;color:#fff;display:flex;align-items:center;justify-content:center;font:100 34px/1 -apple-system,'SF Pro Display',sans-serif"; a.textContent="＋";
-        var nm=document.createElement("div"); nm.textContent="投稿"; nm.style.cssText="color:rgba(255,255,255,.8);font:500 10.5px/1 -apple-system,'Hiragino Sans',sans-serif";
-        c.appendChild(a); c.appendChild(nm);
-        c.onclick=function(ev){ ev.stopPropagation(); haptic();
-          if(!(window.Store&&Store.uploadVideoChunks)){ try{ dynamicIsland("保存先に接続できません"); }catch(_){} return; }
-          try{ dynamicIsland("投稿を準備中…🎬"); }catch(_){}
-          Store.uploadVideoChunks(blob).then(function(r){ if(r&&r.chunks&&r.chunks.length){ try{ stPost({ vid:JSON.stringify(r.chunks), img:null, t:(pendEmo9||""), sg:null }); }catch(_){} so.__close(); close(); } else { try{ dynamicIsland("アップに失敗しました"); }catch(_){} } }).catch(function(){ try{ dynamicIsland("アップに失敗しました"); }catch(_){} }); };
-        fr.appendChild(c); })();
-      rooms.forEach(function(r){ var c=document.createElement("button"); c.style.cssText="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;border:none;background:none;cursor:pointer;width:64px;-webkit-tap-highlight-color:transparent";
-        var a=document.createElement("div"); a.style.cssText="width:52px;height:52px;border-radius:50%;background:"+(r.color||"#62d8ff")+";display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden;transition:box-shadow .2s, transform .2s"; try{ applyAva(a, r.ava||"🙂"); }catch(_){}
-        var nm=document.createElement("div"); nm.textContent=r.nickname||r.name||"友達"; nm.style.cssText="color:rgba(255,255,255,.8);font:500 10.5px/1 -apple-system,'Hiragino Sans',sans-serif;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
-        c.appendChild(a); c.appendChild(nm);
-        c.onclick=function(ev){ ev.stopPropagation(); haptic();
-          if(selRooms[r.room]){ delete selRooms[r.room]; selCount--; a.style.boxShadow=""; a.style.transform=""; }
-          else { selRooms[r.room]=(r.nickname||r.name||"友達"); selCount++; a.style.boxShadow="0 0 0 3px #fff"; a.style.transform="scale(1.08)"; }
-          go.style.opacity=selCount?"1":"0.35"; };
-        fr.appendChild(c); });
-      so.appendChild(fr);
-      var go=document.createElement("button"); go.textContent="→"; go.title="送る";
-      go.style.cssText="margin-top:14px;width:58px;height:58px;border:none;border-radius:50%;background:#fff;color:#111;font:300 27px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.45);opacity:0.35;transition:opacity .25s var(--gc-ease);-webkit-tap-highlight-color:transparent";
-      go.onclick=function(ev){ ev.stopPropagation(); if(!selCount){ try{ dynamicIsland("送る友達を選んでね"); }catch(_){} return; }
-        haptic(); go.disabled=true; go.textContent="…";
-        var nms=[]; for(var rm in selRooms){ try{ sendVideoRaw(rm, blob); }catch(_){} nms.push(selRooms[rm]); }
-        try{ dynamicIsland("「"+nms.join("・")+"」に送りました 🎬"); }catch(_){}
-        so.__close(); close(); };
-      so.appendChild(go);
-      var sv=document.createElement("button"); sv.textContent="↓"; sv.title="保存";
-      sv.style.cssText="position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);border:none;background:none;color:#fff;font:100 42px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;padding:6px 14px;-webkit-tap-highlight-color:transparent;filter:drop-shadow(0 2px 10px rgba(0,0,0,.55))";
-      sv.onclick=function(ev){ ev.stopPropagation(); haptic();
-        try{ var f=new File([blob],"video.mp4",{type:(blob.type||"video/mp4")}); if(navigator.canShare&&navigator.canShare({files:[f]})&&navigator.share){ navigator.share({files:[f]}).catch(function(){}); return; } }catch(_){}
-        try{ var a=document.createElement("a"); a.href=_url; a.download="video.mp4"; document.body.appendChild(a); a.click(); setTimeout(function(){ try{ a.remove(); }catch(_){} },500); }catch(_){} };
-      so.appendChild(sv);
-      var bkR=document.createElement("button"); bkR.title="取り直す"; bkR.setAttribute("data-hswipe","");
-      bkR.style.cssText="position:absolute;left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:52px;height:52px;border-radius:50%;border:none;background:none;cursor:pointer;padding:13px;-webkit-tap-highlight-color:transparent;transition:transform .5s cubic-bezier(.16,1,.3,1)";
-      bkR.innerHTML='<img src="retake.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:brightness(0) invert(1);pointer-events:none">';
-      var _rt8=0; bkR.onclick=function(ev){ ev.stopPropagation(); haptic(); _rt8-=360; bkR.style.transform="rotate("+_rt8+"deg)"; setTimeout(function(){ try{ so.__close(); }catch(_){} },200); };
-      so.appendChild(bkR); }
-    shot.onclick=function(e){ e.stopPropagation(); if(camJustRec){ camJustRec=false; return; } haptic();   // ★録画直後の指離しでは写真を撮らない
-      var vw=vd.videoWidth||720, vh=vd.videoHeight||1280; var cv=document.createElement("canvas");
-      var sc=Math.min(1, 900/Math.max(vw,vh)); cv.width=Math.round(vw*sc); cv.height=Math.round(vh*sc);
-      var ctx=cv.getContext("2d");
-      if(facing==="user"){ ctx.translate(cv.width,0); ctx.scale(-1,1); }
-      try{ ctx.drawImage(vd,0,0,cv.width,cv.height); }catch(_){ try{ dynamicIsland("撮影に失敗しました"); }catch(__){} return; }
-      if(pendEmo9){ try{ ctx.setTransform(1,0,0,1,0,0); ctx.font=Math.round(cv.width*0.13)+"px -apple-system,'Apple Color Emoji',sans-serif"; ctx.textAlign="center"; ctx.fillText(pendEmo9, cv.width/2, Math.round(cv.height*0.94)); }catch(_){} }   // ★選んだemojiを写真に焼き込む(中央下)
-      var durl=null; try{ durl=cv.toDataURL("image/jpeg",0.8); }catch(_){}
-      if(!durl){ try{ dynamicIsland("撮影に失敗しました"); }catch(_){} return; }
-      setTimeout(function(){ after(durl); },300); };   // ★撮ると0.3sで撮影後の画面
-    document.body.appendChild(ov); requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; }); }); haptic(); }
-  window.__openCamApp=openCamApp;
+  /* ★カメラapp(openCamApp)は完全廃止(ユーザ指示: カメラUIはタイマーリング付きの投稿カメラ=stCameraに一本化。QRもstCameraが読む)。
+     旧フックはstCameraへ委譲(互換) */
+  window.__openCamApp=function(){ try{ stCamera(); }catch(_){} };
   /* ========== P20: Aero LEAPコース共有。aero-share(iframe)→配置JSONをCloudflare(Store.putText)保存→友達選択→cxcourse送信。受信はrenderMsgでカード化→タップでaero-leapに?course=で渡す。 ========== */
   function _myFavPreview(){ try{ var f=JSON.parse(localStorage.getItem("cx_fav")||"null"); return (f&&f.preview)||""; }catch(_){ return ""; } }
   function _shareAeroCourse(items){ if(!items||!items.length){ try{ dynamicIsland("置いたものがありません"); }catch(_){} return; }
@@ -6659,7 +6363,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     $("gcDelNamePhase").style.display="none"; sp.classList.add("vis");   // まず表示 → 2フレーム後に .show で 0.7s 滑り出し
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ sp.classList.add("show"); }); }); haptic(); }
   function closeDelete(){ $("gcDelMask").classList.remove("show"); setTimeout(function(){ $("gcDelSlidePhase").classList.remove("show","vis"); $("gcDelNamePhase").style.display="flex"; },700); }   // キャンセルも0.7s
-  /* ★P16: プライバシー融合(lock→パネル)。見たよ/2FA/GitHub/規約/削除を集約。既存関数(toggleSeen/openDelete/ssoLink)＋既存ボタン(gcSet2fa/gcSetGh)を再利用=加算のみ・枠なしblur・1.2→1 0.5s ease */
+  /* ★P16: プライバシー融合(lock→パネル)。見たよ/パスキー再作成/規約/削除を集約(2FA/GitHub/LINEは廃止2026-07-18)。枠なしblur・1.2→1 0.5s ease */
   function openPrivacy(){
     var ov=document.createElement("div"); ov.id="gcPrivacy";
     ov.style.cssText="position:fixed;inset:0;z-index:9895;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:26px;box-sizing:border-box;background:rgba(8,8,12,.34);-webkit-backdrop-filter:blur(38px) saturate(1.35);backdrop-filter:blur(38px) saturate(1.35);opacity:0;transition:opacity .5s var(--gc-ease)";
@@ -6671,8 +6375,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       if(sub){ var s=document.createElement("div"); s.textContent=sub; s.style.cssText="color:rgba(255,255,255,.5);font:500 12px/1.3 -apple-system,sans-serif"; b.appendChild(s); }
       b.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} fn(); }; return b; }
     card.appendChild(row("見たよ通知 👀", (prof.seen!==false?"ON — 友達一覧を公開":"OFF — 非公開"), function(){ try{ toggleSeen(prof.seen===false); }catch(_){} close(); }));
-    card.appendChild(row("2段階認証", "GitHub連携済みで設定可", function(){ close(); setTimeout(function(){ try{ var b=$("gcSet2fa"); if(b&&b.style.display!=="none"){ b.click(); } else { dynamicIsland("先にGitHub連携が必要です"); } }catch(_){} },320); }));
-    card.appendChild(row("GitHub連携", "GitHubだけでログインできる", function(){ close(); setTimeout(function(){ try{ var b=$("gcSetGh"); if(b) b.click(); else ssoLink("gh"); }catch(_){} },320); }));
+    /* ★2段階認証・GitHub連携の行は廃止(ユーザ指示2026-07-18) */
     card.appendChild(row("パスキーを再作成", "生体認証でこの端末に再登録（復活）", function(){ close(); setTimeout(function(){ try{ if(typeof bioSupported==="function" && !bioSupported()){ dynamicIsland("この端末は生体認証に未対応"); return; } passkeyCreate().then(function(r){ if(r===true){ try{ save(); saveProfileDB(); }catch(_){} dynamicIsland("✅ パスキーを再作成しました"); } else if(r==="unsupported"){ dynamicIsland("この端末は生体認証に未対応"); } else { dynamicIsland("パスキーの再作成をキャンセル/失敗しました"); } }).catch(function(){ dynamicIsland("パスキーの再作成に失敗しました"); }); }catch(_){} },320); }));   // ★P18: パスキー再作成(復活)
     card.appendChild(row("✨ 新着情報", "アップデートの内容を見る", function(){ close(); setTimeout(function(){ try{ openWhatsNew(); }catch(_){} },320); }));
     card.appendChild(row("プライバシーポリシー", "", function(){ try{ var w=window.open("privacy.html","_blank"); if(!w) location.href="privacy.html"; }catch(_){} }));
@@ -7436,7 +7139,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var add=document.createElement("div"); add.className="gc-rail-it gc-rail-add";
     var aav=document.createElement("div"); aav.className="gc-rail-av"; aav.textContent="＋"; add.appendChild(aav);
     var anm=document.createElement("div"); anm.className="gc-rail-nm"; anm.textContent="カメラ"; add.appendChild(anm);
-    add.onclick=function(){ haptic(); try{ openCamApp(); }catch(_){} };
+    add.onclick=function(){ haptic(); try{ stCamera(); }catch(_){} };   // ★カメラapp廃止→投稿カメラ(stCamera)に一本化
     track.appendChild(add);
     if(!rooms.length){ var h=document.createElement("div"); h.className="gc-rail-hint"; h.textContent="検索→招待リンクで友達を追加してね"; track.appendChild(h); }
     /* ★長押し=編集モードv2: 震え+−バッジ+ドラッグ=並べ替え(FLIPで滑らか)/最近→区切りの右でピン留め/左Dockへ追加 */
@@ -7969,13 +7672,14 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     plus.textContent="＋";
     plus.addEventListener("pointerdown", function(){ plus.style.transform="scale(1.2)"; });
     ["pointerup","pointercancel","pointerleave"].forEach(function(ev){ plus.addEventListener(ev, function(){ plus.style.transform=""; }); });
-    plus.onclick=function(e){ e.stopPropagation(); haptic(); try{ closeSettings(); }catch(_){} setTimeout(function(){ try{ openCamApp(); }catch(_){} }, 260); };
+    plus.onclick=function(e){ e.stopPropagation(); haptic(); try{ closeSettings(); }catch(_){} setTimeout(function(){ try{ stCamera(); }catch(_){} }, 260); };   // ★カメラapp廃止→stCamera
     var pnm=document.createElement("div"); pnm.className="gc-set-fr-nm"; pnm.textContent="カメラ";
     addC.appendChild(plus); addC.appendChild(pnm); bar.appendChild(addC);
   }
   function shareMyInvite(){ var link=inviteLink();
     try{ if(navigator.share){ navigator.share({ text:(prof.name||"")+" を Shake to Shake で追加", url:link }).catch(function(){}); } else { copyMyInvite(); } }catch(_){ copyMyInvite(); } haptic(); }
   function openSettings(){ try{ window.__closeAppOv&&window.__closeAppOv(); }catch(_){}   // ★自分アイコン→設定: 開いてるiframeアプリを閉じる
+    try{ clearTimeout(_setCloseT); _setCloseT=null; }catch(_){}   // ★閉じ直後300ms内の開き直しをhideAll/gotoHomeが潰す競合の根治(設定機能直す・ユーザ指示)
     try{ var _stEl=$("gcSettings"); if(_stEl){ _stEl.style.display=""; var _stCard=_stEl.querySelector(".gc-card"); if(_stCard){ _stCard.style.transition=""; _stCard.style.transform=""; _stCard.style.opacity=""; } } }catch(_){}   // ★P17: 閉じた時に付いたinline display:none/transformを解除＝設定は閉じても必ずまた開く(再オープンbug根治)
     leaveHome(); hideAll(); refreshProfileUI(); syncAllToggles();
     try{ var _qshow=$("gcSetQRShow"), _qbox=$("gcSetQRBox"), _qtx=$("gcSetQRTx");   // ★P24: QRは「QRを表示」を押すまで隠す
@@ -8015,11 +7719,13 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
        (透明オーバーレイなのでdockは背面で見えたまま・カードは確実に操作可)。 */
     try{ gcShowDock(); gcSetActive("self"); document.body.classList.add('gc-set-open'); }catch(_){} }   // ★gcSetActiveで他(user等)の選択を解除してselfだけ選択=dockの設定アイコン2個選択バグ根治(ユーザ指示)
   /* 設定を閉じる：下へスライドダウン（0.3s 滑らか） */
+  var _setCloseT=null;   // ★設定の閉じ遅延teardownトークン(開き直しを潰さないため)
   function closeSettings(){
     try{ document.body.classList.remove("gc-set-open"); var _sf=document.querySelector('#gcDock .gcDkSelf'); if(_sf) _sf.classList.remove('on'); }catch(_){}   // ★設定選択(白リング)を解除・dockのz戻す
     var card=$("gcSettings").querySelector(".gc-card"); if(!card){ hideAll(); gotoHome(); return; }
     card.style.transition="transform .3s var(--gc-ease), opacity .3s var(--gc-ease)"; card.style.transform="translateY(110%)"; card.style.opacity="0";
-    setTimeout(function(){ card.style.transition=""; card.style.transform=""; card.style.opacity=""; hideAll(); gotoHome(); }, 300); }
+    clearTimeout(_setCloseT);
+    _setCloseT=setTimeout(function(){ _setCloseT=null; card.style.transition=""; card.style.transform=""; card.style.opacity=""; hideAll(); gotoHome(); }, 300); }
   /* ═══ 自分の設定UI(gcMyProf): アイコン/名前/お気に入り曲/hr/記念日(絵文字+日付=上下スワイプでiOSタイマー風)/
         右下✓(checkmark.png・暗背景=白)=保存 / 左下=電源(アカウント削除・従来の) / 何もない所タップ=0.7sフェードで閉じる ═══ */
   /* ★利用者もカメラ/写真で自分のアイコンを設定できる(ユーザ指示・何度も要望)。
@@ -8203,7 +7909,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       ring(ANN_EMO.slice(0,12), Rin, 120); ring(ANN_EMO.slice(12), Rout, 460);
       ov2.addEventListener("click", function(ev){ if(ev.target===ov2){ ov2.style.opacity="0"; setTimeout(function(){ try{ ov2.remove(); }catch(_){} },260); } });
       document.body.appendChild(ov2); requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov2.style.opacity="1"; }); }); }
-    row.style.transition="opacity .7s var(--gc-ease), transform .7s var(--gc-ease)";   // ★記念日(＋/エディタ)の出る/消える=0.7s ease(ユーザ指示)
+    row.style.transition="opacity .5s var(--gc-ease), transform .5s var(--gc-ease)";   // ★記念日(＋/エディタ)の出る/消える・tap to changeも=0.5s ease(ユーザ指示2026-07-17)
     function renderAnniv(){ row.innerHTML=""; row.style.opacity="0"; row.style.transform="scale(.8)"; requestAnimationFrame(function(){ requestAnimationFrame(function(){ row.style.opacity="1"; row.style.transform="scale(1)"; }); });   // ★記念日(＋/エディタ)の出る/消えるは0.5s scale
       if(!annivOn){
         var addb=document.createElement("button"); addb.textContent="＋ 記念日"; addb.style.cssText="border:1.5px solid rgba(255,255,255,.5);border-radius:99px;background:none;color:#fff;font:600 14px/1 -apple-system,'Hiragino Sans',sans-serif;padding:11px 22px;cursor:pointer;-webkit-tap-highlight-color:transparent";
@@ -8700,11 +8406,19 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
   function _injectMbtiSongs(ov){ try{ ov=ov||document.getElementById("searchOv"); if(!ov) return; var scroll=ov.querySelector(".sd-scroll"); if(!scroll) return;
     var old=ov.querySelector(".gc-mbti-songs"); if(old) old.remove();
     var mb=String(prof.mbti||"").toUpperCase().replace(/[^IENSTFPJX]/g,""); var xn=(mb.match(/X/g)||[]).length;
+    var mbOk=!!mb && xn<2;   // ★👿(😈)曲スワップは廃止済み。XX以上/未設定は曲は出さない(QRだけ出す)
     var sec=document.createElement("div"); sec.className="gc-mbti-songs"; sec.style.cssText="margin:22px 4px 10px;display:flex;flex-direction:column;gap:10px";   // ★apps↔バーの間に必ず余白(ユーザ指示)
-    if(!mb || xn>=2){ sec.style.display="none"; }   // ★👿(😈)曲スワップは廃止(ユーザ指示)=XX以上/未設定は何も出さない
-    else {
-      var lab=document.createElement("div"); lab.textContent="MBTI別のお気に入り"; lab.style.cssText="font:600 12px/1 -apple-system,sans-serif;letter-spacing:2px;color:rgba(255,255,255,.5);padding:0 4px"; sec.appendChild(lab);
-      var rows=document.createElement("div"); rows.style.cssText="display:grid;grid-template-rows:auto auto;grid-auto-flow:column;grid-auto-columns:118px;gap:10px;overflow-x:auto;padding:2px 4px 6px;scrollbar-width:none"; sec.appendChild(rows);   // ★2行(grid-template-rows:auto auto)
+    var lab=document.createElement("div"); lab.textContent=mbOk?"MBTI別のお気に入り":"あなたのコード"; lab.style.cssText="font:600 12px/1 -apple-system,sans-serif;letter-spacing:2px;color:rgba(255,255,255,.5);padding:0 4px"; sec.appendChild(lab);
+    var body=document.createElement("div"); body.style.cssText="display:flex;align-items:center;gap:10px;padding:2px 4px 6px"; sec.appendChild(body);
+    /* ★MBTI別の「左のとこ」に自分のQR(ユーザ指示): タップ=招待コードコピー。認証確定後に描画 */
+    var qrT=document.createElement("button"); qrT.type="button";
+    qrT.style.cssText="flex:0 0 auto;width:118px;height:118px;border:none;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent";
+    var qbox=document.createElement("div"); qbox.style.cssText="width:104px;height:104px;pointer-events:none"; qrT.appendChild(qbox);
+    qrT.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} try{ copyMyInvite(); }catch(_){} };
+    (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(qbox, gcQRText(), 104); }catch(_){} });
+    body.appendChild(qrT);
+    if(mbOk){
+      var rows=document.createElement("div"); rows.style.cssText="flex:1;min-width:0;display:grid;grid-template-rows:auto auto;grid-auto-flow:column;grid-auto-columns:118px;gap:10px;overflow-x:auto;scrollbar-width:none"; body.appendChild(rows);   // ★2行(grid-template-rows:auto auto)・QRの右で横スクロール
       _fillMbtiTiles(rows, mb);
     }
     scroll.appendChild(sec);   // ★scroll(apps)の下=検索バーの上=appsとバーの間
@@ -8721,23 +8435,24 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
       getFav: function(){ try{ return JSON.parse(localStorage.getItem("cx_fav")||"null"); }catch(_){ return null; } },
       setFav: function(t){ try{ if(!t){ localStorage.removeItem("cx_fav"); } else { localStorage.setItem("cx_fav", JSON.stringify({ id:(t.id||t.trackId), title:(t.title||t.trackName||""), artist:(t.artist||t.artistName||""), art:(t.art||t.artworkUrl100||""), preview:(t.preview||t.previewUrl||"") })); shareMyFavSong(); } }catch(_){} },   // ★♥=お気に入り(PM廃止後の経路)→プロフィールへ共有
       haptic: function(){ try{ haptic(); }catch(_){} },
+      hapticN: function(n,iv){ try{ _gcHapN(n,iv); }catch(_){ try{ haptic(); }catch(__){} } },   // ★3回haptic等の連打(空検索キー用)
       apps: (window.__gcApps=[
-        /* ★ミュージック=classicのみ(iPod)。それ以外は再生中だけ出す(gone=開くたび評価) */
-        {n:"ミュージック", i:"ppm.png", gone:function(){ try{ return !document.documentElement.classList.contains("classic") && !window.__gcCurSong; }catch(_){ return false; } }, run:function(){ try{ if(document.documentElement.classList.contains("classic")){ openPod(); } else if(window.__gcCurSong){ openPlayerX(); } else { setTimeout(function(){ spotOpenSearch({focus:true}); },60); } }catch(_){} }},   // ★Purple Musicアプリ廃止→内蔵プレイヤー/検索
-        {n:"🍍ppp", i:"purple-pin-icon.png", run:function(){ window.__openApp("apps/cinema-studio-final.html","🍍ppp"); }},
-        {n:"Document Studio", i:"codument.png", hidden:true, run:function(){ window.__openApp("apps/document-studio.html","Document Studio"); }},   // ★検索した時だけ出る
-        {n:"Story Magic", i:"iHax-Apps.png", gone:function(){ try{ return !(window.__ihaxOK && window.iHax && window.iHax.ready); }catch(_){ return true; } }, run:function(){ try{ _smAgent(); }catch(_){} }},   // ★iHaxモデルをinstall(ready)済みの時だけ表示=「どんなAppを作りますか？」工房
-        {n:"Aero LEAP", i:"dolpine.png", run:function(){ window.__openApp("apps/aero-leap/index.html","Aero LEAP"); }},
-        {n:"BEAST CODE", i:"apps/aero-leap/assets/arcade.png", hidden:true, run:function(){ window.__openApp("apps/beast-code.html","BEAST CODE"); }},   // ★app一覧では非表示=名前を検索した時だけ出る
-        {n:"カメラ", i:"camera.png", run:function(){ try{ openCamApp(); }catch(_){} }},   // ★カメラapp=他のappと同じ通常アイコン表示(inv白抜き廃止=新camera.pngは完成アイコン)
-        {n:"iHax", i:"iHax-AI.png", hidden:true, gone:function(){ return !window.__ihaxOK; }, run:function(){ try{ window.iHax.openApp(); }catch(_){} }},   // ★一旦非表示=「iHax」を検索した時だけ出る(WebGPU対応機のみ)
-        {n:"StS Mac", i:"burble-mac.png", run:function(){ try{ openStsMac(); }catch(_){} }},
-        {n:"思い出", i:"icon-moment.png", run:function(){ try{ openMomentsArchive(); }catch(_){} }},   // ★自分の投稿アーカイブ(15ヶ月・♥無期限)
-        {n:"Terrakoku", i:"globe.png", hidden:true, run:function(){ try{ window.__openTerrakoku(); }catch(_){} }},   // ★検索した時だけ出る
-        {n:"翻訳", i:"trans.png", gone:function(){ return document.body.classList.contains("gc-noglobe"); }, run:function(){ try{ window.__gcGlobeTranslate(); }catch(_){} }},   // ★背景が地球儀の時のみ
-        {n:"グラフ", i:"graph.png", stay:true, seed:"y=sin(x)"},
-        {n:"アクティビティ", i:"high-resorse.png", run:function(){ try{ window.__openActivity(); }catch(_){} }},
-        {n:"設定", i:_selfIcon(), run:function(){ try{ openSettings(); }catch(_){} }}   // ★P24: 設定アイコン=自分のアバター
+        /* ★ミュージック=classicのみ(iPod)。それ以外は再生中だけ出す(gone=開くたび評価)。al=検索別名(英語/ローマ字/かな) */
+        {n:"ミュージック", i:"ppm.png", al:"music おんがく 音楽 player", gone:function(){ try{ return !document.documentElement.classList.contains("classic") && !window.__gcCurSong; }catch(_){ return false; } }, run:function(){ try{ if(document.documentElement.classList.contains("classic")){ openPod(); } else if(window.__gcCurSong){ openPlayerX(); } else { setTimeout(function(){ spotOpenSearch({focus:true}); },60); } }catch(_){} }},   // ★Purple Musicアプリ廃止→内蔵プレイヤー/検索
+        {n:"🍍ppp", i:"purple-pin-icon.png", al:"ppp cinema 動画編集 えでぃた", run:function(){ window.__openApp("apps/cinema-studio-final.html","🍍ppp"); }},
+        {n:"Document Studio", i:"codument.png", al:"document docs 書類 どきゅめんと", hidden:true, run:function(){ window.__openApp("apps/document-studio.html","Document Studio"); }},   // ★検索した時だけ出る
+        {n:"Story Magic", i:"iHax-Apps.png", al:"story magic すとーりー まじっく", gone:function(){ try{ return !(window.__ihaxOK && window.iHax && window.iHax.ready); }catch(_){ return true; } }, run:function(){ try{ _smAgent(); }catch(_){} }},   // ★iHaxモデルをinstall(ready)済みの時だけ表示=「どんなAppを作りますか？」工房
+        {n:"Aero LEAP", i:"dolpine.png", al:"aero leap あえろ game げーむ ゲーム", run:function(){ window.__openApp("apps/aero-leap/index.html","Aero LEAP"); }},
+        {n:"BEAST CODE", i:"apps/aero-leap/assets/arcade.png", al:"beast code びーすと", hidden:true, run:function(){ window.__openApp("apps/beast-code.html","BEAST CODE"); }},   // ★app一覧では非表示=名前を検索した時だけ出る
+        {n:"カメラ", i:"camera.png", al:"camera かめら photo しゃしん 写真", run:function(){ try{ stCamera(); }catch(_){} }},   // ★カメラ=投稿カメラ(stCamera)に一本化(旧カメラapp=openCamAppは廃止・ユーザ指示)
+        {n:"iHax", i:"iHax-AI.png", al:"ihax ai あい", hidden:true, gone:function(){ return !window.__ihaxOK; }, run:function(){ try{ window.iHax.openApp(); }catch(_){} }},   // ★一旦非表示=「iHax」を検索した時だけ出る(WebGPU対応機のみ)
+        {n:"StS Mac", i:"burble-mac.png", al:"sts mac まっく cli", run:function(){ try{ openStsMac(); }catch(_){} }},
+        {n:"思い出", i:"icon-moment.png", al:"memories moment もーめんと おもいで", run:function(){ try{ openMomentsArchive(); }catch(_){} }},   // ★自分の投稿アーカイブ(15ヶ月・♥無期限)
+        {n:"Terrakoku", i:"globe.png", al:"terrakoku てらこく 歴史 れきし", hidden:true, run:function(){ try{ window.__openTerrakoku(); }catch(_){} }},   // ★検索した時だけ出る
+        {n:"翻訳", i:"trans.png", al:"translate ほんやく translation", gone:function(){ return document.body.classList.contains("gc-noglobe"); }, run:function(){ try{ window.__gcGlobeTranslate(); }catch(_){} }},   // ★背景が地球儀の時のみ
+        {n:"グラフ", i:"graph.png", al:"graph ぐらふ math", stay:true, seed:"y=sin(x)"},
+        {n:"アクティビティ", i:"high-resorse.png", al:"activity apps activety あくてぃびてぃ かつどう health", run:function(){ try{ window.__openActivity(); }catch(_){} }},   // ★「activity」「apps」等で検索ヒット(ユーザ指示)
+        {n:"設定", i:_selfIcon(), al:"settings せってい config せつぞく", run:function(){ try{ openMyProf(); }catch(_){} }}   // ★設定=自分のアイコンと同じ「自分の情報」(openMyProf)を開く(ユーザ指示)
       ])
     });
     try{ _renderDockApps(); }catch(_){}   // ★ドックに追加済みのカスタムアプリを復元
@@ -11258,7 +10973,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   /* ★StS最初の使い方(PWA・ログイン前・初回のみ): helloの後にフェード+スライドアップで2行→タップで拡大して消える→登録ダイヤログへ */
   function _stsUsageIntro(){
     var iv=document.createElement("div"); iv.id="gcUsageIntro";
-    iv.style.cssText="position:fixed;inset:0;z-index:9355;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:radial-gradient(120% 120% at 50% 32%, #15151e, #0a0a11 68%, #060609);opacity:0;transition:opacity .6s var(--gc-ease);cursor:pointer";
+    iv.style.cssText="position:fixed;inset:0;z-index:9355;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:transparent;-webkit-backdrop-filter:blur(30px) saturate(150%);backdrop-filter:blur(30px) saturate(150%);opacity:0;transition:opacity .6s var(--gc-ease);cursor:pointer";
     var l1=document.createElement("div"); l1.textContent="StSではシェイクを友達に送り";
     var l2=document.createElement("div"); l2.textContent="全く新しいやりとりができるよ👀";
     [l1,l2].forEach(function(l,i){ l.style.cssText="color:#fff;font:600 "+(i?20:22)+"px/1.7 -apple-system,'Hiragino Sans',sans-serif;text-align:center;max-width:84vw;opacity:0;transform:translateY(26px);transition:transform .8s cubic-bezier(.16,1,.3,1) "+(0.25+i*0.35)+"s, opacity .8s var(--gc-ease) "+(0.25+i*0.35)+"s"; iv.appendChild(l); });
@@ -11403,12 +11118,20 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         var _annEmo=(prof.anniv&&prof.anniv.e)||"💜";
         var _nowd=new Date(); var _annM=(prof.anniv&&prof.anniv.m)||(_nowd.getMonth()+1), _annDay=(prof.anniv&&prof.anniv.d)||_nowd.getDate();
         function _annSave(){ prof.anniv={ e:_annEmo, m:_annM, d:_annDay }; save(); try{ if(db&&uid) db.ref("users/"+(myAddr()||uid)).update({ anniv:prof.anniv }); }catch(_){} }
-        function showAdd(){ annWrap.innerHTML="";
+        /* ★記念日のtap to change(追加⇄スライダ)・押して出る時=0.5s ease(ユーザ指示2026-07-17): 中身をannInに入れ opacity+scale .5sで出す */
+        var annIn=document.createElement("div"); annIn.style.cssText="display:flex;align-items:center;gap:14px;transition:opacity .5s var(--gc-ease), transform .5s var(--gc-ease)";
+        annWrap.appendChild(annIn);
+        function _annSwap(build){   // ★出る/消えるの両方を0.5s ease(ユーザ指示): 中身がある時は0.5sでフェードアウト→入替→0.5sでフェードイン
+          function doBuild(){ annIn.innerHTML=""; annIn.style.opacity="0"; annIn.style.transform="scale(.85)"; build(); requestAnimationFrame(function(){ requestAnimationFrame(function(){ annIn.style.opacity="1"; annIn.style.transform="scale(1)"; }); }); }
+          if(!annIn.firstChild){ doBuild(); return; }
+          annIn.style.opacity="0"; annIn.style.transform="scale(.85)";
+          clearTimeout(annIn.__swapT); annIn.__swapT=setTimeout(doBuild, 500); }
+        function showAdd(){ _annSwap(function(){
           var addb=document.createElement("button"); addb.textContent=(prof.anniv&&prof.anniv.m)?((prof.anniv.e||"💜")+" "+prof.anniv.m+"/"+prof.anniv.d):"記念日を追加";
           addb.style.cssText="border:1.5px solid rgba(255,255,255,.5);border-radius:99px;background:"+((prof.anniv&&prof.anniv.m)?"rgba(255,255,255,.12)":"none")+";color:#fff;font:500 16px/1 -apple-system,'Hiragino Sans',sans-serif;padding:16px 34px;cursor:pointer;-webkit-tap-highlight-color:transparent";
           addb.onclick=function(e){ e.stopPropagation(); haptic(); showSlider(); };
-          annWrap.appendChild(addb); }
-        function showSlider(){ annWrap.innerHTML="";
+          annIn.appendChild(addb); }); }
+        function showSlider(){ _annSwap(function(){
           var eb=document.createElement("button"); eb.textContent=_annEmo; eb.style.cssText="border:none;background:none;font-size:40px;line-height:1;cursor:pointer;padding:4px;-webkit-tap-highlight-color:transparent";
           eb.onclick=function(e){ e.stopPropagation(); haptic(); var _r=eb.getBoundingClientRect(); try{ openEmojiRing(function(em){ _annEmo=em; eb.textContent=em; _annSave(); }, _annEmo, {x:_r.left+_r.width/2, y:_r.top}); }catch(_){} };
           var de=document.createElement("div"); de.style.cssText="position:relative;height:110px;min-width:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;touch-action:none;cursor:ns-resize;user-select:none;-webkit-user-select:none;overflow:hidden;-webkit-mask:linear-gradient(180deg,transparent 0,#000 30%,#000 70%,transparent 100%);mask:linear-gradient(180deg,transparent 0,#000 30%,#000 70%,transparent 100%)";
@@ -11420,13 +11143,13 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           _sync(); de.appendChild(dp); de.appendChild(dc); de.appendChild(dn);
           var ox=document.createElement("button"); ox.textContent="×"; ox.title="記念日を解除"; ox.style.cssText="border:none;background:none;color:rgba(255,255,255,.5);font:300 24px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;padding:6px";
           ox.onclick=function(e){ e.stopPropagation(); haptic(); prof.anniv=null; save(); try{ if(db&&uid) db.ref("users/"+(myAddr()||uid)).update({ anniv:null }); }catch(_){} showAdd(); };
-          annWrap.appendChild(eb); annWrap.appendChild(de); annWrap.appendChild(ox);
+          annIn.appendChild(eb); annIn.appendChild(de); annIn.appendChild(ox);
           (function(){ var y0=0,ls=0,on=false; function shift(days){ var dt=new Date(2024,_annM-1,_annDay); dt.setDate(dt.getDate()+days); _annM=dt.getMonth()+1; _annDay=dt.getDate(); _sync(days>0); _annSave(); haptic(); }
             de.addEventListener("pointerdown",function(e){ e.stopPropagation(); y0=e.clientY; ls=0; on=true; try{ de.setPointerCapture(e.pointerId); }catch(_){} });
             de.addEventListener("pointermove",function(e){ if(!on)return; var st=Math.trunc((y0-e.clientY)/22); if(st!==ls){ shift(st-ls); ls=st; } });
             de.addEventListener("pointerup",function(){ on=false; }); de.addEventListener("pointercancel",function(){ on=false; }); })();
           _annSave();   // ★スライダを出した時点で(今日/既存の)日付で保存=調整すれば即更新
-        }
+        }); }
         if(prof.anniv&&prof.anniv.m){ showSlider(); } else { showAdd(); }
       })();
       ov.appendChild(annWrap);
@@ -11530,7 +11253,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
      アプリ使用の度(saveProfileDB経由)に呼んで exp を更新＝使っている限り期限は前へずれ続け実質無期限。旧 180日(15552000000) は撤廃。 */
   var PK_TTL=10000*86400000;
   function savePkBlob(){ try{ if(db&&prof.passkeyId&&prof.name){ db.ref("pk/"+prof.passkeyId).set({ p:JSON.stringify(prof), u:(uid||null), exp:Date.now()+PK_TTL }); } }catch(_){}   // u=このアカウントのuid＝復元時に users/<u> が削除済みでないか確認する鍵
-    try{ if(db&&prof.name&&prof.sso){ Object.keys(prof.sso).forEach(function(_sk){ var _key=prof.sso[_sk]; if(_key){ db.ref("pk/"+_key).set({ p:JSON.stringify(prof), u:(uid||null), exp:Date.now()+PK_TTL }); } }); } }catch(_){} }   // ★LINE/GitHub連携キーのblobも常に最新に
+  }   // ★SSO(LINE/GitHub)連携キーのblob更新は廃止(SSO自体を撤去・2026-07-18)
   function bioSupported(){ try{ return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create && window.isSecureContext); }catch(_){ return false; } }
   /* ★Related Origin Requests(ROR): パスキーは rpId(ドメイン)に紐付くため、Netlify版の垢は素のままでは
      pages.dev でパスキーログイン不可。→ rpId を「shake-to-shake.netlify.app」に固定し、
@@ -11570,233 +11293,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     if(cat==="mac")    return { title:"パスキーで引き継ぐ", sub:"お使いのMacでパスキーを使用して\n以前のアカウントをアクティベートします", icon:"video" };
     return { title:"Face IDで引き継ぐ", sub:"お使いのiPhoneでFace IDを使用して\n以前のアカウントをアクティベートします", icon:"video" }; }
   var _bioBusy=false, _bioGen=0;
-  /* ═══ LINE/GitHub連携ログイン(P7): パスキーと同じ pk/ ノードに sso_<kind>_<providerUid> キーで
-     アカウントblobを置く=ルール変更ゼロ・復元はパスキーと完全に同じ経路(doPasskeyLogin)。
-     ★メインのFirebase authは匿名セッション(アカウントの本体)なので絶対に触らない:
-       SSOは別インスタンス("sso" secondary app)でポップアップし、providerUidだけ貰って即signOut。
-     ★前提: Firebaseコンソールで GitHub / OIDC(プロバイダID: oidc.line) の有効化が必要(未設定なら案内表示)。 */
-  /* ★GitHub/LINEログインは、認証コールバック/承認済みドメインを登録した正規ホストでだけ出す:
-     shake-to-shake.netlify.app と *.pages.dev のみ。shaketoshake.netlify.app / shake-toshake.netlify.app 等では非表示。 */
-  function _ssoAllowedHost(){ try{ var h=location.hostname;
-    return h==="shake-to-shake.netlify.app" || /\.pages\.dev$/.test(h) || h==="localhost" || h==="127.0.0.1"; }catch(_){ return false; } }
-  var _ssoApp=null;
-  function _ssoAuth(){ if(!_ssoApp){ _ssoApp=firebase.initializeApp(window.FIREBASE_CONFIG, "sso"); } return _ssoApp.auth(); }
-  function _ssoKey(kind, pu){ return "sso_"+kind+"_"+String(pu).replace(/[.#$\/\[\]]/g,"_"); }
-  function _ghUid(res){ return (res&&res.user&&((res.user.providerData&&res.user.providerData[0]&&res.user.providerData[0].uid)||res.user.uid))||""; }
-  function _ssoErr(e,kind){ var nm=(kind==="gh"?"GitHub":"LINE"); var c=(e&&e.code)||"";
-    if(c==="auth/operation-not-allowed"){ try{ dynamicIsland(nm+"ログインはFirebaseコンソールでプロバイダ有効化が必要"); }catch(_){} }
-    else if(c==="auth/unauthorized-domain"){ try{ dynamicIsland("このドメインはFirebaseの承認済みドメインに未登録"); }catch(_){} }
-    else if(c!=="auth/popup-closed-by-user"&&c!=="auth/cancelled-popup-request"){ try{ dynamicIsland(nm+"ログインに失敗しました"+(c?("("+c+")"):"")); }catch(_){} } }
-  /* ★連携/ログインの完了処理を一本化(GitHub popup/redirect・LINE 全部ここへ集約) */
-  var GC_AI_GRAD="linear-gradient(120deg,#3E9BFF,#A15CFF 38%,#FF5FA8 68%,#FF9F5E)";   // ★Apple Intelligence風グラデ(ペア済み表示に共用)
-  function _ssoIsJP(){ try{ var tz=(Intl&&Intl.DateTimeFormat&&Intl.DateTimeFormat().resolvedOptions().timeZone)||""; return (tz==="Asia/Tokyo") || (String(navigator.language||"").toLowerCase().indexOf("ja")===0); }catch(_){ return false; } }
-  function _isAndroid(){ try{ return /Android/i.test(navigator.userAgent||""); }catch(_){ return false; } }   // ★Androidはどの国/地域でもGitHubログインに一本化(LINEのSafari外部起動が不安定なため)
-  window.__ssoIsJP=_ssoIsJP;
-  /* ★連携解除(GitHub/LINE): prof.sso[kind]を外し、pk/<key>ブロブも消す=以後そのSSOでは復元できない */
-  function _ssoUnlink(kind){ if(!prof||!prof.sso||!prof.sso[kind]){ return; }
-    var key=prof.sso[kind]; var nm=(kind==="gh"?"GitHub":"LINE");
-    var mo=_stOverlay?_stOverlay(9767):null;
-    function doUnlink(){ try{ delete prof.sso[kind]; if(prof.sso&&!Object.keys(prof.sso).length) prof.sso=null; save(); saveProfileDB(); }catch(_){}
-      try{ if(db&&key) db.ref("pk/"+key).remove(); }catch(_){}
-      try{ haptic.confirm&&haptic.confirm(); }catch(_){} try{ dynamicIsland(nm+"の連携を解除しました"); }catch(_){} try{ window._syncSsoBtns&&window._syncSsoBtns(); }catch(_){} }
-    if(mo && _stRowBtn){ var b1=_stRowBtn(nm+"の連携を解除する"), b2=_stRowBtn("やめる"); b1.style.color="#ff8a8a"; b2.style.textAlign="center"; b2.style.background="rgba(255,255,255,.08)";
-      b1.onclick=function(e){ e.stopPropagation(); haptic(); mo.__close(); doUnlink(); };
-      b2.onclick=function(e){ e.stopPropagation(); haptic(); mo.__close(); };
-      mo.appendChild(b1); mo.appendChild(b2); }
-    else { doUnlink(); } }
-  window._ssoUnlink=_ssoUnlink;
-  /* ═══════════ 2ファクタ認証(2FA): LINE/GitHub連携済みの時だけ設定可。
-     有効化=回復コード(xxx-xxx-xxx)発行→prof.tfa{on,code}に保存+pkブロブへ。
-     パスキー復元時に2FA有効なら回復コード入力を要求(=2要素)。パスキー再発行は旧回復コードを失効。 ═══════════ */
-  function _tfaGenCode(){ var S="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", g=function(){ var r=""; for(var i=0;i<3;i++){ r+=S[Math.floor(Math.random()*S.length)]; } return r; }; return g()+"-"+g()+"-"+g(); }
-  function _tfaHasSso(){ return !!(prof && prof.sso && (prof.sso.gh||prof.sso.ln)); }
-  function _tfaSave(){ try{ save(); saveProfileDB(); }catch(_){} try{ if(prof.passkeyId) savePkBlob(); }catch(_){} }   // pkブロブにもtfaを反映=復元時に効く
-  function open2FA(){ if(!_tfaHasSso()){ try{ dynamicIsland("先にLINEかGitHubを連携してね(2要素の片方)"); }catch(_){} return; }
-    var ov=document.createElement("div"); ov.id="gc2fa";
-    ov.style.cssText="position:fixed;inset:0;z-index:9942;display:flex;align-items:center;justify-content:center;background:transparent;-webkit-backdrop-filter:blur(30px) saturate(150%);backdrop-filter:blur(30px) saturate(150%);opacity:0;transition:opacity .5s var(--gc-ease);-webkit-tap-highlight-color:transparent";
-    var card=document.createElement("div"); card.style.cssText="width:min(420px,88vw);display:flex;flex-direction:column;align-items:center;gap:16px;padding:8px 22px;text-align:center;transform:scale(.7);opacity:0;transition:transform .5s cubic-bezier(.22,1,.36,1),opacity .5s var(--gc-ease)";
-    ov.appendChild(card); document.body.appendChild(ov);
-    function _slideChildren(){ Array.prototype.forEach.call(card.children,function(c,i){ c.style.opacity="0"; c.style.transform="translateY(16px)"; c.style.transition="opacity .5s var(--gc-ease) "+(i*0.05)+"s, transform .5s cubic-bezier(.22,1,.36,1) "+(i*0.05)+"s";
-      requestAnimationFrame(function(){ requestAnimationFrame(function(){ c.style.opacity="1"; c.style.transform="none"; }); }); }); }   // ★文字スライドアップ
-    function close(){ ov.style.opacity="0"; card.style.transform="scale(.85)"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },500); }
-    ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
-    var _on=!!(prof.tfa&&prof.tfa.on);
-    function render(){ card.innerHTML="";
-      // smile.mov(上)
-      var ic=document.createElement("div"); ic.style.cssText="width:132px;height:132px;border-radius:55px;overflow:hidden;display:flex;align-items:center;justify-content:center";
-      ic.innerHTML='<video src="smile.mov" autoplay loop muted playsinline preload="auto" style="width:118%;height:118%;object-fit:cover;mix-blend-mode:screen"></video>'; card.appendChild(ic);
-      try{ var _v=ic.querySelector("video"); if(_v){ _v.muted=true; _v.play().catch(function(){}); } }catch(_){}
-      if(!_on){
-        var d=document.createElement("div"); d.style.cssText="color:#fff;font:500 15px/1.7 -apple-system,'Hiragino Sans',sans-serif;opacity:.92";
-        d.innerHTML="<b style='font-weight:700'>"+(_tfaKindName())+"とパスキーで2ファクタ認証を設定します</b><br>パスキーを復元する場合も2ファクタ認証が必要です<br>どちらかの認証方法が利用できない場合<br>回復コードを忘れずに保存する必要があります"; card.appendChild(d);
-        var b=document.createElement("button"); b.textContent="2ファクタ認証を有効にする";
-        b.style.cssText="border:none;border-radius:99px;background:#fff;color:#111;font:700 15px/1 -apple-system,'Hiragino Sans',sans-serif;padding:14px 28px;cursor:pointer;margin-top:4px;-webkit-tap-highlight-color:transparent";
-        b.onclick=function(e){ e.stopPropagation(); haptic(); var code=_tfaGenCode(); prof.tfa={ on:true, code:code, ts:Date.now() }; _tfaSave(); _on=true;
-          try{ if(haptic.confirm)haptic.confirm(); }catch(_){} render(); try{ window._syncSsoBtns&&window._syncSsoBtns(); }catch(_){} };
-        card.appendChild(b);
-      } else {
-        // 有効後: コードをscaleupで表示 + 「回復コードを表示」 + パスキー再発行(オプション=不透明)
-        var note=document.createElement("div"); note.style.cssText="color:#fff;font:500 13.5px/1.7 -apple-system,'Hiragino Sans',sans-serif;opacity:.9";
-        note.innerHTML="いずれかのログイン方法が使用できない場合<br>のために回復コードをスクショしておいて 👀"; card.appendChild(note);
-        var codeEl=document.createElement("div"); codeEl.textContent="回復コード: "+((prof.tfa&&prof.tfa.code)||"—");
-        codeEl.style.cssText="color:#fff;font:700 20px/1.3 ui-monospace,Menlo,monospace;letter-spacing:1px;padding:12px 18px;border-radius:16px;background:rgba(255,255,255,.08);transform:scale(.6);transition:transform .5s cubic-bezier(.22,1,.36,1)";
-        card.appendChild(codeEl); requestAnimationFrame(function(){ requestAnimationFrame(function(){ codeEl.style.transform="scale(1)"; }); });   // ★scaleupで出る
-        // ★パスキー再発行(オプション)=有効化後は不透明で押せる
-        var opt=document.createElement("div"); opt.style.cssText="margin-top:8px;opacity:1;display:flex;flex-direction:column;align-items:center;gap:8px";
-        var ot=document.createElement("div"); ot.style.cssText="color:rgba(255,255,255,.82);font:500 12.5px/1.6 -apple-system,'Hiragino Sans',sans-serif";
-        ot.innerHTML="<b style='font-weight:700;color:#fff'>パスキーを再発行</b><br>パスキーを無くした場合に使用可能です<br>現在このアカウント用のパスキーを正常に保存している場合は干渉する恐れがあります";
-        opt.appendChild(ot);
-        var reB=document.createElement("button"); reB.title="パスキーを再発行"; reB.setAttribute("aria-label","パスキーを再発行");
-        reB.style.cssText="width:52px;height:52px;border-radius:50%;border:none;background:rgba(255,255,255,.14);cursor:pointer;padding:13px;-webkit-tap-highlight-color:transparent;transition:transform .5s cubic-bezier(.16,1,.3,1)";
-        reB.innerHTML='<img src="retake.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:brightness(0) invert(1);pointer-events:none">';
-        var _rot=0; reB.onclick=function(e){ e.stopPropagation(); haptic(); _rot-=360; reB.style.transform="rotate("+_rot+"deg)";
-          try{ dynamicIsland("以前の回復コードは使えなくなるよ 👀"); }catch(_){}
-          setTimeout(function(){ _tfaReissuePasskey(function(){ render(); }); }, 260); };
-        opt.appendChild(reB); card.appendChild(opt);
-        // 回復コードを表示(blur背景)
-        var showB=document.createElement("button"); showB.textContent="回復コードを表示";
-        showB.style.cssText="border:none;background:none;color:rgba(255,255,255,.6);font:500 12.5px/1 -apple-system,'Hiragino Sans',sans-serif;cursor:pointer;margin-top:2px;-webkit-tap-highlight-color:transparent";
-        showB.onclick=function(e){ e.stopPropagation(); haptic(); _tfaShowCode(); };
-        card.appendChild(showB);
-        // 無効化
-        var offB=document.createElement("button"); offB.textContent="2ファクタ認証をオフにする";
-        offB.style.cssText="border:none;background:none;color:rgba(255,120,120,.85);font:500 12px/1 -apple-system,'Hiragino Sans',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent";
-        offB.onclick=function(e){ e.stopPropagation(); haptic(); prof.tfa=null; _tfaSave(); _on=false; render(); try{ window._syncSsoBtns&&window._syncSsoBtns(); }catch(_){} };
-        card.appendChild(offB);
-      }
-      _slideChildren();
-    }
-    render();
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; card.style.transform="scale(1)"; card.style.opacity="1"; }); });   // ★0.5s scaleup
-  }
-  window.__open2FA=open2FA;
-  function _tfaKindName(){ if(prof.sso&&prof.sso.ln) return "LINE"; if(prof.sso&&prof.sso.gh) return "GitHub"; return "SSO"; }
-  function _tfaShowCode(){ var ov=document.createElement("div"); ov.style.cssText="position:fixed;inset:0;z-index:9944;display:flex;align-items:center;justify-content:center;background:transparent;-webkit-backdrop-filter:blur(34px) saturate(150%);backdrop-filter:blur(34px) saturate(150%);opacity:0;transition:opacity .4s var(--gc-ease)";
-    var c=document.createElement("div"); c.textContent=((prof.tfa&&prof.tfa.code)||"—"); c.style.cssText="color:#fff;font:700 30px/1.3 ui-monospace,Menlo,monospace;letter-spacing:2px;transform:scale(.7);transition:transform .5s cubic-bezier(.22,1,.36,1)";
-    ov.appendChild(c); ov.addEventListener("click",function(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },420); });
-    document.body.appendChild(ov); requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; c.style.transform="scale(1)"; }); }); }
-  /* ★パスキー再発行: 新しいパスキーを作り、旧credの pk ブロブを消し、回復コードも更新(旧コード失効)。 */
-  function _tfaReissuePasskey(done){ if(typeof passkeyCreate!=="function"){ if(done)done(); return; }
-    var _oldPk=prof.passkeyId;
-    passkeyCreate().then(function(r){ var okv=(r===true||(r&&r.ok)||prof.passkeyId!==_oldPk);
-      if(!okv && r==="unsupported"){ try{ dynamicIsland("この端末はパスキー非対応"); }catch(_){} if(done)done(); return; }
-      try{ if(db && _oldPk && _oldPk!==prof.passkeyId) db.ref("pk/"+_oldPk).remove(); }catch(_){}   // 旧credブロブを消す
-      prof.tfa=prof.tfa||{on:true}; prof.tfa.code=_tfaGenCode(); prof.tfa.on=true; prof.tfa.ts=Date.now(); _tfaSave();   // ★旧回復コードは失効=新コード
-      try{ if(haptic.confirm)haptic.confirm(); dynamicIsland("パスキーを再発行しました(新しい回復コードを保存してね)"); }catch(_){}
-      if(done)done();
-    }).catch(function(){ try{ dynamicIsland("パスキーを再発行できませんでした"); }catch(_){} if(done)done(); }); }
-  /* ★復元時の2FAゲート: 復元アカウントのtfaがonなら回復コード入力を要求(2要素の片方)。正しければonOk。 */
-  function _tfaGate(acc, onOk, onFail){ if(!(acc&&acc.tfa&&acc.tfa.on&&acc.tfa.code)){ onOk(); return; }
-    var ov=document.createElement("div"); ov.style.cssText="position:fixed;inset:0;z-index:9946;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:transparent;-webkit-backdrop-filter:blur(32px) saturate(150%);backdrop-filter:blur(32px) saturate(150%);opacity:0;transition:opacity .5s var(--gc-ease);padding:24px;box-sizing:border-box";
-    var t=document.createElement("div"); t.innerHTML="2ファクタ認証<br><span style='font-weight:500;font-size:13px;opacity:.8'>回復コードを入力してね</span>"; t.style.cssText="color:#fff;font:700 19px/1.5 -apple-system,'Hiragino Sans',sans-serif;text-align:center";
-    var inp=document.createElement("input"); inp.type="text"; inp.placeholder="XXX-XXX-XXX"; inp.autocapitalize="characters"; inp.setAttribute("autocomplete","off"); inp.spellcheck=false;
-    inp.style.cssText="width:min(78vw,300px);border:none;border-radius:16px;background:rgba(255,255,255,.14);color:#fff;font:700 20px/1 ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;padding:14px;outline:none;text-transform:uppercase";
-    var go=document.createElement("button"); go.textContent="確認"; go.style.cssText="border:none;border-radius:99px;background:#fff;color:#111;font:700 15px/1 -apple-system,sans-serif;padding:13px 30px;cursor:pointer";
-    var cancel=document.createElement("button"); cancel.textContent="やめる"; cancel.style.cssText="border:none;background:none;color:rgba(255,255,255,.6);font:500 13px/1 -apple-system,sans-serif;cursor:pointer";
-    ov.appendChild(t); ov.appendChild(inp); ov.appendChild(go); ov.appendChild(cancel); document.body.appendChild(ov);
-    function close(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },500); }
-    function verify(){ var v=(inp.value||"").trim().toUpperCase().replace(/\s+/g,""); if(v===String(acc.tfa.code).toUpperCase()){ close(); onOk(); }
-      else { inp.style.animation="gcShake .5s"; setTimeout(function(){ inp.style.animation=""; },520); try{ if(haptic.error)haptic.error(); }catch(_){} try{ dynamicIsland("回復コードが違います"); }catch(_){} } }
-    go.onclick=function(e){ e.stopPropagation(); haptic(); verify(); };
-    inp.onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); verify(); } };
-    cancel.onclick=function(e){ e.stopPropagation(); haptic(); close(); if(onFail)onFail(); };
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; try{ inp.focus(); }catch(_){} }); }); }
-  function _ssoComplete(kind, mode, pu){ if(!pu){ _ssoErr(new Error("no-uid"), kind); return; }
-    try{ var _lho=document.getElementById("gcLineHo"); if(_lho){ _lho.style.opacity="0"; setTimeout(function(){ try{ _lho.remove(); }catch(_){} },400); } }catch(_){}   // ★引き継ぎ開始画面を閉じる(ログイン完了)
-    var key=_ssoKey(kind, pu);
-    if(mode==="link"){ if(!prof||!prof.name){ try{ dynamicIsland("先にアカウントを作ってね"); }catch(_){} return; }
-      prof.sso=prof.sso||{}; prof.sso[kind]=key; save(); try{ saveProfileDB(); }catch(_){}
-      try{ if(db) (authReady||Promise.resolve()).then(function(){ db.ref("pk/"+key).set({ p:JSON.stringify(prof), u:(uid||null), exp:Date.now()+PK_TTL }); }); }catch(_){}
-      try{ haptic.confirm&&haptic.confirm(); dynamicIsland((kind==="gh"?"GitHub":"LINE")+"を連携しました=これだけでログインできる"); window._syncSsoBtns&&window._syncSsoBtns(); }catch(_){}
-    } else { (authReady||Promise.resolve()).then(function(){ doPasskeyLogin({ ok:true, id:key }); }); } }
-  /* ★GitHub=Firebase(popup優先→モバイルはredirectフォールバック)。redirect復帰はboot時に getRedirectResult で回収 */
-  function _ghStart(mode){ var a=_ssoAuth(), pr=new firebase.auth.GithubAuthProvider();
-    try{ localStorage.setItem("gc_sso_pending", mode); localStorage.setItem("gc_sso_kind", "gh"); }catch(_){}
-    try{ dynamicIsland("GitHubに接続中…"); }catch(_){}
-    a.signInWithPopup(pr).then(function(res){ try{ localStorage.removeItem("gc_sso_pending"); localStorage.removeItem("gc_sso_kind"); }catch(_){}
-      var pu=_ghUid(res); try{ a.signOut(); }catch(_){} _ssoComplete("gh", mode, pu);
-    }).catch(function(e){ var c=(e&&e.code)||"";
-      try{ localStorage.removeItem("gc_sso_pending"); localStorage.removeItem("gc_sso_kind"); }catch(_){}
-      if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request"){ return; }   // ユーザーが閉じた=何もしない
-      _ghDevice(mode);   // ★popupが使えない環境(モバイル/PWA/Cloudflare×Safariのredirect制約)=Device Flowで確実にログイン
-    }); }
-  /* ★GitHub Device Flow(シークレット不要・どのブラウザ/PWAでも確実): コード表示→github.com/login/deviceで入力→Workerでポーリング。
-     前提: GitHubのOAuth App設定で「Enable Device Flow」にチェック(1回だけ) */
-  var GH_CLIENT_ID="Ov23liTjEL9H0w7HM2uu";
-  function _ghDevice(mode){ var W=(typeof STORAGE_URL!=="undefined"&&STORAGE_URL)||""; if(!W){ _ssoErr(new Error("no-worker"),"gh"); return; }
-    if($("gcGhDev")) return;
-    fetch(W+"/ghd/start",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({client_id:GH_CLIENT_ID})})
-      .then(function(r){ return r.json(); }).then(function(d){
-        if(!(d&&d.ok)){ if(String(d&&d.err||"").indexOf("device_flow")>=0){ try{ dynamicIsland("GitHubのOAuth Appで「Device Flow」を有効化してね"); }catch(_){} } else { _ssoErr(new Error((d&&d.err)||"start"),"gh"); } return; }
-        var ov=document.createElement("div"); ov.id="gcGhDev";
-        ov.style.cssText="position:fixed;inset:0;z-index:9935;display:flex;align-items:center;justify-content:center;background:transparent;-webkit-backdrop-filter:blur(26px) saturate(140%);backdrop-filter:blur(26px) saturate(140%);opacity:0;transition:opacity .5s var(--gc-ease)";
-        var cd=document.createElement("div"); cd.style.cssText="display:flex;flex-direction:column;align-items:center;gap:12px;transform:scale(1.15);transition:transform 1s cubic-bezier(.22,1,.36,1)";
-        var t1=document.createElement("div"); t1.textContent="GitHubでログイン"; t1.style.cssText="color:#fff;font:700 19px/1.3 -apple-system,'Hiragino Sans',sans-serif";
-        var code=document.createElement("div"); code.textContent=d.user_code; code.style.cssText="color:#fff;font:200 42px/1.1 ui-monospace,Menlo,monospace;letter-spacing:4px;text-shadow:0 2px 16px rgba(0,0,0,.5)";
-        var t2=document.createElement("div"); t2.textContent="このコードをGitHubで入力してね(コピー済み)"; t2.style.cssText="color:rgba(255,255,255,.6);font:500 12.5px/1.5 -apple-system,'Hiragino Sans',sans-serif";
-        var go=document.createElement("button"); go.type="button"; go.textContent="GitHubを開く";
-        go.style.cssText="border:none;border-radius:99px;padding:12px 26px;background:#fff;color:#111;font:700 14px/1 -apple-system,sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent";
-        var can=document.createElement("button"); can.type="button"; can.textContent="キャンセル"; can.style.cssText="border:none;background:none;color:rgba(255,255,255,.55);font:500 13px/1 -apple-system,sans-serif;cursor:pointer;padding:8px";
-        cd.appendChild(t1); cd.appendChild(code); cd.appendChild(t2); cd.appendChild(go); cd.appendChild(can); ov.appendChild(cd); document.body.appendChild(ov);
-        void ov.offsetHeight; requestAnimationFrame(function(){ ov.style.opacity="1"; cd.style.transform="scale(1)"; });
-        var alive=true;
-        function closeDev(){ if(!alive) return; alive=false; ov.style.opacity="0"; cd.style.transform="scale(1.1)"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); }
-        can.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} closeDev(); };
-        /* ★何もないところをタップ or 上→下/左→右スワイプ=すぐ閉じる */
-        ov.addEventListener("click",function(e){ if(e.target===ov){ try{ haptic(); }catch(_){} closeDev(); } });
-        (function(){ var sx=0,sy=0,sa=false;
-          ov.addEventListener("touchstart",function(e){ var t=e.touches&&e.touches[0]; if(!t||e.target!==ov){ sa=false; return; } sx=t.clientX; sy=t.clientY; sa=true; },{passive:true});
-          ov.addEventListener("touchend",function(e){ if(!sa) return; sa=false; var t=e.changedTouches&&e.changedTouches[0]; if(!t) return;
-            var dx=t.clientX-sx, dy=t.clientY-sy;
-            if((dx>=55&&dx>Math.abs(dy))||(dy>=70&&dy>Math.abs(dx))){ try{ haptic(); }catch(_){} closeDev(); } },{passive:true});
-        })();
-        go.onclick=function(e){ e.stopPropagation(); try{ haptic(); if(navigator.clipboard) navigator.clipboard.writeText(d.user_code); }catch(_){}
-          try{ var w2=window.open(d.verification_uri||"https://github.com/login/device","_blank"); if(!w2) location.href=(d.verification_uri||"https://github.com/login/device"); }catch(_){ location.href="https://github.com/login/device"; } };
-        var iv=Math.max(5,(d.interval||5))*1000, deadline=Date.now()+Math.min(600,(d.expires_in||900))*1000;
-        (function poll(){ if(!alive) return; if(Date.now()>deadline){ closeDev(); try{ dynamicIsland("時間切れ…もう一度どうぞ"); }catch(_){} return; }
-          fetch(W+"/ghd/poll",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({client_id:GH_CLIENT_ID, device_code:d.device_code})})
-            .then(function(r){ return r.json(); }).then(function(p){
-              if(!alive) return;
-              if(p&&p.ok&&p.sub){ try{ if(haptic.confirm)haptic.confirm(); }catch(_){} closeDev(); _ssoComplete("gh", mode, p.sub); return; }
-              if(p&&p.err==="slow_down"){ iv+=5000; }
-              if(p&&(p.err==="expired_token"||p.err==="access_denied")){ closeDev(); try{ dynamicIsland("GitHubログインを中止しました"); }catch(_){} return; }
-              setTimeout(poll, iv);
-            }).catch(function(){ if(alive) setTimeout(poll, iv); });
-        })();
-      }).catch(function(){ _ssoErr(new Error("network"),"gh"); }); }
-  function _ghResume(){ try{ var pend=localStorage.getItem("gc_sso_pending"), kind=localStorage.getItem("gc_sso_kind");
-    if(!pend||kind!=="gh") return;
-    _ssoAuth().getRedirectResult().then(function(res){ try{ localStorage.removeItem("gc_sso_pending"); localStorage.removeItem("gc_sso_kind"); }catch(_){}
-      if(res&&res.user){ var pu=_ghUid(res); try{ _ssoAuth().signOut(); }catch(_){} _ssoComplete("gh", pend, pu); }
-    }).catch(function(e){ try{ localStorage.removeItem("gc_sso_pending"); localStorage.removeItem("gc_sso_kind"); }catch(_){} _ssoErr(e,"gh"); });
-  }catch(_){} }
-  window.addEventListener("load", function(){ setTimeout(_ghResume, 700); });
-  function ssoLink(kind){   // ★今のアカウントにGitHubを紐付け(以後それだけでログイン可能)。LINEは廃止(2026-07)
-    if(!prof||!prof.name){ try{ dynamicIsland("先にアカウントを作ってね"); }catch(_){} return; }
-    _ghStart("link"); }
-  function ssoLogin(kind){   // ★ログインUIから: GitHubだけでログイン(連携済みアカウントを復元)。LINEは廃止(2026-07)
-    _ghStart("login"); }
-  window.ssoLink=ssoLink; window.ssoLogin=ssoLogin;
-  /* ★引き継ぎ開始画面(画像の「LINEで引き継ぎを始めます」): 暗いグラデ+lookDown.mov(黒はscreenで透過)+文言。
-     タップした瞬間(このgesture内)にSafari(実ブラウザ)を開く=PWA/iframe不可。ログイン後はStSを開き直す。 */
-  function _lineHandoffStartScreen(kind){ var nm=(kind==="ln")?"LINE":"GitHub";
-    try{ var _old=document.getElementById("gcLineHo"); if(_old) _old.remove(); }catch(_){}
-    var ov=document.createElement("div"); ov.id="gcLineHo";
-    ov.style.cssText="position:fixed;inset:0;z-index:9992;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:linear-gradient(135deg,#0a1120 0%,#0b1730 52%,#181019 100%);opacity:0;transition:opacity .5s var(--gc-ease);-webkit-tap-highlight-color:transparent";
-    var glow=document.createElement("div"); glow.style.cssText="position:absolute;right:-8%;top:-12%;width:50%;height:48%;border-radius:50%;background:radial-gradient(circle,rgba(255,150,60,.5),rgba(255,120,40,0) 62%);filter:blur(18px);pointer-events:none"; ov.appendChild(glow);
-    try{ var vid=document.createElement("video"); vid.src="lookDown.mov"; vid.autoplay=true; vid.loop=true; vid.muted=true; vid.setAttribute("muted",""); vid.setAttribute("playsinline",""); vid.playsInline=true; vid.preload="auto";
-      vid.style.cssText="position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);width:min(52vw,240px);opacity:.85;mix-blend-mode:screen;border-radius:50px;pointer-events:none"; ov.appendChild(vid);
-      var _p=vid.play(); if(_p&&_p.catch) _p.catch(function(){}); }catch(_){}
-    var tx=document.createElement("div"); tx.textContent=nm+"で引き継ぎを始めます";
-    tx.style.cssText="position:relative;color:#fff;font:300 26px/1.4 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;letter-spacing:.5px;text-shadow:0 2px 16px rgba(0,0,0,.55);margin-top:130px;text-align:center;padding:0 24px"; ov.appendChild(tx);
-    var sub=document.createElement("div"); sub.textContent=(kind==="ln")?"Safariが開きます。ログインしたら StS を開き直してね 👀":"ログイン画面が開きます。完了したら戻ってね 👀";
-    sub.style.cssText="position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 42px);text-align:center;color:rgba(255,255,255,.72);font:400 13px/1.7 -apple-system,'Hiragino Sans',sans-serif;padding:0 34px"; ov.appendChild(sub);
-    ov.addEventListener("click", function(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); });
-    document.body.appendChild(ov);
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; }); });
-    setTimeout(function(){ try{ if(ov.parentNode) ov.remove(); }catch(_){} }, 120000);   // 保険で2分後に自動で消す
-    try{ ssoLogin(kind); }catch(_){}   // ★このgesture内でGitHubのpopup/Device Flowを開く
-  }
+  /* ★SSO(GitHub/LINE)ログインと2ファクタ認証は完全廃止(ユーザ指示2026-07-18)=パスキーのみ。関連UI/関数/CSSを全て排除 */
   function showBioGate(mode, onOk, onCancel){ var ov=$("gcBio"); if(!ov){ if(onOk)onOk(); return; }
     var _g=++_bioGen;   // ★世代トークン: キャンセル/閉じた後に遅れて解決したパスキー約束を無視＝誤動作/固まり防止
     var sp=bioSpec(mode), stack=(DEV.cat==="iphone"||DEV.cat==="ipad"||DEV.cat==="ipod");
@@ -11818,26 +11315,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       bi.addEventListener("pointerdown",function(){ _lpClear(); _lpT=setTimeout(function(){ _lpT=null; if(_bioBusy)return; haptic(); close(); setTimeout(function(){ try{ openAdminEntry(); }catch(_){} },240); },1200); });
       bi.addEventListener("pointerup",_lpClear); bi.addEventListener("pointerleave",_lpClear); bi.addEventListener("pointercancel",_lpClear);
     } }
-    /* ★「＜LINE/GitHub＞でログイン」は"アクティベートの下"に配置(movの中には入れない・ユーザ指示)。
-       日本=LINE/海外=GitHub、Androidは地域問わずGitHub。LINEはSafari(実ブラウザ)で開く=PWA/iframe不可。正規ホストのみ。 */
-    if(mode==="handoff" && _ssoAllowedHost() && (!_ssoIsJP() || !!prof.admin)){ try{   // ★日本ではGitHub非表示=パスキーのみ・管理者は常に表示(2026-07-15)
-      var _jp=false;   // ★LINE廃止(2026-07)=常にGitHub
-      var _kind="gh", _nm2="GitHub";
-      var _acts=ov.querySelector(".bio-acts");
-      var _bw=document.createElement("button"); _bw.type="button"; _bw.id="gcBioSso";
-      _bw.innerHTML=(_jp
-          ? '<span style="font:800 13px/1 -apple-system,sans-serif;letter-spacing:.3px">LINE</span>'
-          : '<svg viewBox="0 0 16 16" width="20" height="20" fill="#fff" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>')
-        +'<span style="margin-left:9px;font:700 15px/1 -apple-system,\'Hiragino Sans\',sans-serif">'+_nm2+'でログイン</span>';
-      _bw.style.cssText="display:flex;align-items:center;justify-content:center;width:100%;margin-top:14px;padding:14px 16px;border:none;border-radius:16px;cursor:pointer;-webkit-tap-highlight-color:transparent;color:#fff;"
-        +"background:"+(_jp?"#06C755":"#24292f")+";box-shadow:0 6px 18px rgba(0,0,0,.35);"
-        +"opacity:0; transform:translateY(12px); transition:transform .6s cubic-bezier(.22,1,.36,1), opacity .5s var(--gc-ease), filter .3s var(--gc-ease)";
-      if(_acts && _acts.parentNode){ _acts.parentNode.insertBefore(_bw, _acts.nextSibling); }   // ★アクティベート(bio-acts)の直下
-      else { (ov.querySelector(".bio-card")||ov).appendChild(_bw); }
-      requestAnimationFrame(function(){ requestAnimationFrame(function(){ _bw.style.opacity="1"; _bw.style.transform="translateY(0)"; }); });
-      _bw.addEventListener("click", function(e){ e.stopPropagation(); if(_bioBusy) return; try{ haptic(); }catch(_){} _bw.style.filter="brightness(1.2)";
-        var _k=_kind; close(); _lineHandoffStartScreen(_k); });   // ★引き継ぎ画面を出しつつgesture内でSafariを開く
-    }catch(_){} }
+    /* ★GitHub/LINEログインボタンは廃止(パスキーのみ・ユーザ指示2026-07-18) */
     canB.onclick=function(ev){ ev.stopPropagation(); haptic(); close();
       try{ var _nc=document.querySelector("#gcOnb .nob-card"); if(_nc){ _nc.style.transition="none"; _nc.style.transform="translateY(-50%) scale(1.2)"; void _nc.offsetHeight;
         _nc.style.transition="transform 1s cubic-bezier(.22,1,.36,1)"; _nc.style.transform="translateY(-50%) scale(1)"; } }catch(_){}   // ★戻る=後ろの登録カードが1.2→1(1s)で戻ってくる
@@ -11909,7 +11387,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         if(acc){ var _finRestore0=function(){ prof=acc; prof.passkeyId=credId; prof.onboarded=true; save(); refreshProfileUI(); syncAllToggles(); closeOnboardSilently();
             if(prof.admin){ _endRestore(); becomeAdminNow(); } else { try{ saveProfileDB(); }catch(_){} _endRestore(); showHandoffComplete(function(){ gotoHome(); }); } };   // 復元成功→チャット画面(home)へ
           // ★2FA有効なら回復コードを要求(=パスキー+回復コードの2要素)。片方でも欠ければ復元しない
-          var _finRestore=function(){ try{ if(acc.tfa && acc.tfa.on){ _endRestore(); _tfaGate(acc, function(){ showRestoring("復元中"); _restoreProg(0.85); _finRestore0(); }, function(){ try{ dynamicIsland("2ファクタ認証がキャンセルされました"); }catch(_){} }); return; } }catch(_){} _finRestore0(); };
+          var _finRestore=function(){ _finRestore0(); };   // ★2ファクタ認証ゲートは廃止(ユーザ指示2026-07-18)=パスキーだけで復元
           // ★削除済みアカウント(管理者が削除した利用者など)は復元させない＝元の users/<u> が存在する利用者だけ復元可。確認失敗時はfail-open(正規利用者を巻き込まない)。
           if(!acc.admin && v.u && db){ db.ref("users/"+v.u).once("value").then(function(us){ if(us.exists()){ _finRestore(); } else { _endRestore(); try{ dynamicIsland("すでに削除した垢などは復元できません"); }catch(_){} } }).catch(function(){ _finRestore(); }); }
           else { _finRestore(); } return; } }
@@ -11995,29 +11473,8 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     // 設定シート（縦トグル・アイコンのみ）
     $("gcSetNotif").onclick=function(){ var on=!this.classList.contains("on"); ctPulse(this); haptic(); toggleNotif(on); if(on)ctSound(true,false); else ctSound(false,false); };
     $("gcSetSeen").onclick=function(){ var on=!this.classList.contains("on"); ctPulse(this); haptic(); toggleSeen(on); ctSound(on,false); };
-    /* ★GitHub連携(設定・🔔👀の隣)。連携済み=Apple Intelligenceグラデ色。押すと連携済みなら解除・未連携なら連携。(LINEは廃止2026-07) */
-    try{ var _sgh=$("gcSetGh"); var _ssoOk=_ssoAllowedHost();
-      var _showGh=_ssoOk && (!_ssoIsJP() || !!prof.admin);   // ★日本ではGitHub非表示(パスキーのみ)=TZ/言語で無料ゼロリクエスト判定・管理者は常に表示(ユーザ指示2026-07-15)
-      if(_sgh) _sgh.style.display=_showGh?"":"none";
-      window._syncSsoBtns=function(){ try{
-        [[_sgh,"gh"]].forEach(function(p){ var b=p[0]; if(!b)return; var on=!!(prof.sso&&prof.sso[p[1]]); b.classList.toggle("on", on);
-          if(on){ b.style.background=GC_AI_GRAD; b.style.color="#fff"; b.style.borderColor="transparent"; b.style.boxShadow="0 0 14px rgba(161,92,255,.5)"; }   // ★ペア済み=Intelligence色
-          else { b.style.background=""; b.style.color=""; b.style.borderColor=""; b.style.boxShadow=""; } }); }catch(_){} };
-      function _ssoTap(kind){ var on=!!(prof.sso&&prof.sso[kind]);
-        if(on){ _ssoUnlink(kind); } else { ssoLink(kind); } setTimeout(window._syncSsoBtns,1200); }
-      if(_showGh && _sgh) _sgh.onclick=function(){ ctPulse(this); haptic(); _ssoTap("gh"); };
-      /* ★2FA(doublelock)ボタン: SSO連携済みの時だけ隣に出す。2FA有効=locked-2fa.png(ピンク) */
-      try{ var _row=(_sgh&&_sgh.parentNode); if(_ssoOk && _row){ var _2b=$("gcSet2fa");
-        if(!_2b){ _2b=document.createElement("button"); _2b.id="gcSet2fa"; _2b.className="gc-ctoggle"; _2b.title="2ファクタ認証";
-          _2b.style.cssText="display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden";
-          _2b.innerHTML='<img id="gcSet2faIc" src="doublelock.png" alt="2FA" style="width:26px;height:26px;object-fit:contain">'; _row.appendChild(_2b); }
-        _2b.onclick=function(){ ctPulse(this); haptic(); open2FA(); setTimeout(window._syncSsoBtns,600); };
-        var _prevSync=window._syncSsoBtns;
-        window._syncSsoBtns=function(){ try{ _prevSync&&_prevSync(); }catch(_){}
-          try{ var b=$("gcSet2fa"); if(b){ var linked=_tfaHasSso(); b.style.display=linked?"":"none";
-            var ic=$("gcSet2faIc"); if(ic) ic.src=(prof.tfa&&prof.tfa.on)?"locked-2fa.png":"doublelock.png"; } }catch(_){} }; }
-      }catch(_){}
-      window._syncSsoBtns(); }catch(_){}
+    /* ★GitHub連携/2FAの設定ボタンは廃止(ユーザ指示2026-07-18) */
+    window._syncSsoBtns=function(){};
     // アカウント変更ピル / 保存・復活 / 電源スライド削除 / 管理者一覧
     $("gcProfPill").onclick=function(){ haptic(); try{ closeSettings(); }catch(_){} setTimeout(function(){ try{ openMyProf(); }catch(_){} },200); };   // ★旧・編集ダイヤログ(gcProfEdit=コピー&貼る入り)は廃止→新プロフィールUIに一本化
     $("gcDelPower").onclick=function(){ try{ haptic(); }catch(_){} if(prof.admin){ openDelete(); return; } openPrivacy(); };   // ★P16: lock→プライバシー融合パネル
@@ -12451,9 +11908,9 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
 
   /* 画像背景(processBgImage/addBgImage/gcPickBgImage)は廃止(P2)。背景は globe / dark / 色パレット の3択。 */
   /* ★アストロノミー環境: 地球儀以外の天体(太陽/月/惑星+系外惑星)を1グループに。スワイプで星が0.5s easeで切替(地球へも戻れる) */
-  var ASTRO_RING=["earth","sun","moon","mars","venus","pluto","proxima","trappist","kepler","hd189","cancri"];
+  var ASTRO_RING=["earth","sun","moon","mars","venus","pluto"];   // ★解像度の低い系外惑星5種(プロキシマ/TRAPPIST/ケプラー/HD189733/55Cancri)は廃止(ユーザ指示)
   var ASTRO_BODIES=ASTRO_RING.slice(1);   // 地球儀を除いた「星」たち
-  var ASTRO_NAMES={ earth:"地球", sun:"太陽", moon:"月", mars:"火星", venus:"金星", pluto:"冥王星", proxima:"プロキシマb", trappist:"TRAPPIST-1e", kepler:"ケプラー452b", hd189:"HD 189733 b", cancri:"55 Cancri e" };
+  var ASTRO_NAMES={ earth:"地球", sun:"太陽", moon:"月", mars:"火星", venus:"金星", pluto:"冥王星" };
   function _astroLastBody(){ var b=null; try{ b=localStorage.getItem("gc_astro_body"); }catch(_){} return (ASTRO_BODIES.indexOf(b)>=0)?b:"sun"; }
   var _astroPillEl=null, _astroPillT=null;
   function _astroNamePill(key){ try{
@@ -12471,7 +11928,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     if(solar[key]) return "#0d0d12 url('https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/"+solar[key]+"') center/cover no-repeat";
     var u=""; try{ u=(window.__astroTexURL&&window.__astroTexURL(key))||""; }catch(_){}
     if(u) return "#0d0d12 url('"+u+"') center/cover no-repeat";
-    return ({sun:"radial-gradient(circle at 38% 30%, #ffe9a3, #ff9f1c 62%, #ff5e00)", proxima:"#8a4a33", trappist:"#41706c", kepler:"#3b6ea8", hd189:"#1f3fae", cancri:"#3a2320"})[key]||"#222";
+    return ({sun:"radial-gradient(circle at 38% 30%, #ffe9a3, #ff9f1c 62%, #ff5e00)"})[key]||"#222";   // ★系外惑星は廃止
   }
   /* 現在の星から dir(±1)方向の次の天体へ(地球に当たったら地球儀へ戻る) */
   function astroStep(dir){
@@ -12899,6 +12356,9 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
      Signaling rides the presence node (chats/<cid>/typing/<uid>.vm) = zero extra listeners/writes.
      SkyWay connects only while the button is held, so data usage stays tiny. ═══ */
   var _cbOn=false;
+  function _micAllowed(){ return new Promise(function(res){ try{   // ★マイク権限オフだと🤙ボタン自体を出さない(ユーザ指示)。判定できない環境は従来どおり出す
+    if(!(navigator.permissions&&navigator.permissions.query)){ res(true); return; }
+    navigator.permissions.query({name:"microphone"}).then(function(st){ res(st.state!=="denied"); }).catch(function(){ res(true); }); }catch(_){ res(true); } }); }
   function _cbEl(){ var b=$("gcCallBar"); if(b) return b;
     b=document.createElement("div"); b.id="gcCallBar";
     var tel=document.createElement("button"); tel.className="cb-tel"; tel.textContent="📞"; tel.title="通話";
@@ -12909,7 +12369,8 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   function _peerOnline(on){ on=!!on && document.body.classList.contains("gc-inchat");
     if(on===_cbOn) return; _cbOn=on;
     var b=_cbEl();
-    if(on){ document.body.classList.add("gc-peeron"); requestAnimationFrame(function(){ b.classList.add("show"); }); try{ haptic(); }catch(_){} }
+    if(on){ _micAllowed().then(function(ok){ if(!ok||!_cbOn) return;   // ★マイク権限オフ=バーを出さない
+      document.body.classList.add("gc-peeron"); requestAnimationFrame(function(){ b.classList.add("show"); }); try{ haptic(); }catch(_){} }); }
     else { document.body.classList.remove("gc-peeron"); b.classList.remove("show"); } }
   /* shared ring/countdown overlay. numbers: font-weight 1, thin and big */
   function _vmOv(mode, secs){ var ov=$("gcVmOv");
@@ -12919,7 +12380,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       document.body.appendChild(ov); requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.classList.add("show"); }); }); }
     var num=ov.querySelector(".vm-num"), lbl=ov.querySelector(".vm-lbl"), ring=ov.querySelector(".vm-ring");
     if(ring) ring.style.display=(mode==="ring")?"":"none";
-    if(num) num.textContent=(secs!=null?String(secs):"");
+    if(num){ var _v=(secs!=null?String(secs):"");
+      if(num.textContent!==_v){ num.textContent=_v;   // ★秒が減る時=slideup+scale0.8→1+blur→クリア(ユーザ指示)
+        if(_v){ num.style.transition="none"; num.style.transform="translateY(14px) scale(.8)"; num.style.opacity=".25"; num.style.filter="blur(6px)";
+          requestAnimationFrame(function(){ requestAnimationFrame(function(){ num.style.transition="transform .3s var(--gc-spring), opacity .3s var(--gc-ease), filter .3s var(--gc-ease)"; num.style.transform="none"; num.style.opacity="1"; num.style.filter="none"; }); }); } } }
     if(lbl) lbl.textContent=(mode==="ring")?"":(mode==="rec"?"はなして送信中・指を離すと終了":""); }
   /* ── sender: hold 🤙 ── */
   var _vm=null, _vmIn=null, _vmSeen={};
@@ -12959,7 +12423,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     try{ if(c.mic&&c.mic.release) c.mic.release(); }catch(_){}
     try{ if(c.me&&c.me.leave) c.me.leave(); }catch(_){}
     try{ if(c.ctx&&c.ctx.dispose) c.ctx.dispose(); }catch(_){}
-    try{ haptic(); }catch(_){} }
+    try{ _gcHapN(3,110); var _bb=$("gcCallBar"); if(_bb){ _bb.style.animation="none"; void _bb.offsetWidth; _bb.style.animation="gcShake .55s"; setTimeout(function(){ try{ _bb.style.animation=""; }catch(_){} },580); } }catch(_){} }   // ★指を離すと3回haptic+バーが左右に震える(ユーザ指示)
   /* ── receiver: banner slides up, 3s ring, then listen ── */
   function _vmOnSignal(vm, room){
     if(vm && vm.r){
@@ -13147,10 +12611,12 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     _ecEl=buildEnvChoose(); document.body.appendChild(_ecEl);
     try{ var _r=_ecEl.querySelector(".ecRow"); if(_r) _dragScrollX(_r); }catch(_){}   // ★environmentタブも左右スワイプ/ドラッグで動く
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ if(_ecEl) _ecEl.classList.add("show"); }); }); }
-  function closeEnvChoose(){ if(!_ecEl) return; var el=_ecEl; _ecEl=null; try{ if(el.__pinRAF) cancelAnimationFrame(el.__pinRAF); }catch(_){} el.classList.remove("show"); setTimeout(function(){ try{ el.remove(); }catch(_){} },520); }
+  function closeEnvChoose(){ window.__pinModeOn=false; if(!_ecEl) return; var el=_ecEl; _ecEl=null; try{ if(el.__pinRAF) cancelAnimationFrame(el.__pinRAF); }catch(_){} el.classList.remove("show"); setTimeout(function(){ try{ el.remove(); }catch(_){} },520); }
   /* ★P19b: 地球儀選択後=国旗を国の上に(project()で回転追従)→タップでpin(現在地=prof.loc)→ドット縮小 */
   function _ccFlag(cc){ try{ return String.fromCodePoint(0x1F1E6+(cc.charCodeAt(0)-65), 0x1F1E6+(cc.charCodeAt(1)-65)); }catch(_){ return "📍"; } }
   function _enterPinMode(){ if(!_ecEl) return; var ov=_ecEl;
+    window.__pinModeOn=true;   // ★ピンするまでdockバーを出さない(ユーザ指示)。gcShowDock/switchAppが3回haptic+左右シェイクで拒否
+    try{ var _dkp=$("gcDock"); if(_dkp){ _dkp.classList.remove("show"); _dkp.classList.remove("open"); _dkp.__deck=false; _dockPlace(); } }catch(_){}
     var ti=ov.querySelector(".ecTitle"); if(ti) ti.textContent="どこに国にピン👀";
     var row=ov.querySelector(".ecRow"); if(row) row.style.display="none";
     var pins=document.createElement("div"); pins.className="ecPins"; ov.appendChild(pins);
@@ -13218,7 +12684,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       _dockPlace();
       if(same<3 && ++n<45){ requestAnimationFrame(loop); } })(); }
   window.__dockPlace=_dockPlace;
-  function gcShowDock(){ var dk=$("gcDock"); if(dk){ dk.classList.add("show");
+  function _pinModeReject(el){ try{ _gcHapN(3,110); }catch(_){}   // ★国ピン中の操作拒否=3回haptic+左右に震える(ユーザ指示)
+    try{ var t=el||(_ecEl&&_ecEl.querySelector(".ecTitle")); if(t){ t.style.animation="none"; void t.offsetWidth; t.style.animation="gcShake .55s"; setTimeout(function(){ try{ t.style.animation=""; }catch(_){} },580); } }catch(_){} }
+  function gcShowDock(){ if(window.__pinModeOn){ _pinModeReject(); return; }   // ★ピンするまでバーは出ない
+    var dk=$("gcDock"); if(dk){ dk.classList.add("show");
     try{ if(document.body.classList.contains("gc-searching")) dk.classList.add("open"); }catch(_){}   // ★apps中は必ず「開いた横並び」で出す
     try{ _dockPlaceSettle(); }catch(_){}   // ★left/topで所定位置へ
     try{ window.__tintDockIcons(dk); }catch(_){} } }   // ★固定チップ含め=暗背景で白/明るい背景だけ黒(灰色にしない)
@@ -13238,6 +12707,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   function gcOpenApps(){ spotOpenSearch({focus:false}); window.__gcHidePre1=true; }   /* ★ドックの既定ランチャー＝Pre1 Notch を隠す（spotOpenSearch で一旦false→ここでtrue） */
   /* アプリ切替: user=チャット / apps=検索 / environment=背景 */
   function switchApp(name){
+    if(window.__pinModeOn){ _pinModeReject($("gcDock")); return; }   // ★国を選ぶまでバーのボタンは3回haptic+シェイクで拒否(ユーザ指示)
     try{ if((name==="user"||name==="apps") && window.closeMomentApp && document.getElementById("gcMoment")) closeMomentApp(); }catch(_){}   // ★左バーのuser/apps押下でモーメントを閉じる
     var ov=$("searchOv"); var searching=ov&&ov.classList.contains("show");
     if(name==="user"){
@@ -13256,7 +12726,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       if(searching){ ov.classList.remove("show"); document.body.classList.remove("gc-searching"); }   // 検索だけ閉じてホームには戻さない
       openEnvironment();   /* ★出現アニメは#gcEnvPanel自身のtransitionのみ(gc-appzoom併用=transform重複を廃止) */
     } else if(name==="self"){
-      closeEnvironment(); openSettings();   // 自分アイコン(environmentの下)→設定/プロフィール
+      closeEnvironment(); openMyProf();   // ★自分アイコン(environmentの下)→自分の情報(openMyProf)に統一(ユーザ指示: 設定=自分の情報)
     }
     var _dk=$("gcDock"); if(_dk){ if(name==="apps"){ _dk.classList.remove("open"); } else { _dk.classList.add("open"); } }   // apps(検索)では一覧に被らないよう畳む／他は展開維持
   }
@@ -13467,7 +12937,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     (function(){ var gw=$("globeWrap"); if(!gw) return; var sx=0,sy=0,st=0,act=false;
       gw.addEventListener("touchstart", function(e){ if(e.touches.length!==1){ act=false; return; } var b=document.body.getAttribute("data-globebody"); act=(ASTRO_BODIES.indexOf(b)>=0); sx=e.touches[0].clientX; sy=e.touches[0].clientY; st=Date.now(); }, {passive:true});
       gw.addEventListener("touchend", function(e){ if(!act) return; act=false; var t=e.changedTouches&&e.changedTouches[0]; if(!t) return; var dx=t.clientX-sx, dy=t.clientY-sy;
-        if(Math.abs(dx)>70 && Math.abs(dx)>Math.abs(dy)*1.8 && (Date.now()-st)<520){ astroStep(dx<0?1:-1); } }, {passive:true});
+        if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)*1.25 && (Date.now()-st)<700){ astroStep(dx<0?1:-1); } }, {passive:true});   // ★閾値を緩めてスワイプが確実に効く(70px/1.8x/520ms→48px/1.25x/700ms・ユーザ指示: 左右スワイプ直す)
     })();
     try{ document.documentElement.style.setProperty("--gc-user",(prof&&prof.color)||"#62d8ff"); }catch(_){}   // ★起動時にユーザ色変数を先に反映(Classic背景/自分バブル用)
     try{ applyClassicState(); }catch(_){}   // 起動時にClassic(LINE風)モードを反映

@@ -18,3 +18,4 @@ apps/PHASES.md
 
 # build/merge artifacts
 *.orig
+.orig-mov/

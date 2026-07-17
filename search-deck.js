@@ -17,6 +17,9 @@
 
   function el(tag, cls, text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
 
+  /* ★検索の正規化: 小文字化+ひらがな→カタカナ(「あくてぃびてぃ」でもアクティビティが出る) */
+  function _norm(s){ s=String(s||'').toLowerCase(); var out=''; for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); if(c>=0x3041&&c<=0x3096) c+=0x60; out+=String.fromCharCode(c); } return out; }
+
   function build(){
     if(built) return; built=true;
     var host=document.getElementById('searchHost'); if(!host) return;
@@ -44,6 +47,7 @@
       if(ord.length){ appsArr.sort(function(a,b){ var ia=ord.indexOf(a.n), ib=ord.indexOf(b.n); if(ia<0)ia=999; if(ib<0)ib=999; return ia-ib; }); } }catch(_){}
     appsArr.forEach(function(a,i){
       var b=el('button','sd-app'); b.type='button'; b.setAttribute('data-nm',(a.n||'').toLowerCase()); b.setAttribute('data-nm-raw',a.n||'');
+      if(a.al) b.setAttribute('data-al', String(a.al));   /* ★別名(エイリアス): "activity"/"apps"等の英語・ローマ字・かなでもヒット(ユーザ指示) */
       if(a.gone) b.__gone=a.gone;          /* ★gone()=trueの間は完全非表示(開くたび評価: ミュージック/翻訳) */
       if(a.hidden) b.__searchOnly=true;    /* ★hidden=名前を検索した時だけ出る(Story Magic/Document Studio/Terrakoku) */
       b.style.animationDelay=(i*35)+'ms';
@@ -92,7 +96,12 @@
 
     // 入力
     input.addEventListener('input', onInput);
-    input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); var first=res.querySelector('.sd-row'); if(first) first.click(); } });
+    input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault();
+      /* ★何も入力せず(空のまま)キーボードの検索を押した=3回haptic+バーが左右に震える(見た目はそれ以外変えない・ユーザ指示) */
+      if(!(input.value||'').trim()){ try{ (cb.hapticN||function(){})(3,110); }catch(_){}
+        try{ bar.classList.remove('sd-shake'); void bar.offsetWidth; bar.classList.add('sd-shake'); setTimeout(function(){ bar.classList.remove('sd-shake'); },560); }catch(_){}
+        return; }
+      var first=res.querySelector('.sd-row'); if(first) first.click(); } });
     xb.addEventListener('click', function(ev){ ev.stopPropagation(); input.value=''; onInput(); input.focus(); });
 
     // 何も無い所タップ=閉じる(バー/行/タイル以外)。★編集モード(ジグル)中/直後は閉じずに編集終了だけ
@@ -146,6 +155,19 @@
         setTimeout(function(){ t.style.transition=''; },330); }); }); });
   }
 
+  /* ★検索の下が画面外に見切れる問題の根治: 結果リスト(.sd-res)の高さを「見えている画面(visualViewport=キーボードの上)」に
+     実測で収める。54vh固定だとキーボード/ホームバーの分だけ下がはみ出ていた */
+  function syncResHeight(){ try{
+    if(!els.res) return; var ov=document.getElementById('searchOv');
+    if(!ov || !ov.classList.contains('sd-searching')){ els.res.style.maxHeight=''; return; }
+    var vv=window.visualViewport;
+    var vh=(vv? (vv.height+vv.offsetTop) : window.innerHeight);
+    var top=els.res.getBoundingClientRect().top;
+    els.res.style.maxHeight=Math.max(120, vh-top-14)+'px';
+  }catch(_){} }
+  (function(){ try{ var vv=window.visualViewport; if(vv){ vv.addEventListener('resize', syncResHeight); vv.addEventListener('scroll', syncResHeight); }
+    window.addEventListener('resize', syncResHeight); }catch(_){} })();
+
   function onInput(){
     setBarHas();
     var q=(els.input&&els.input.value||'').trim();
@@ -153,6 +175,7 @@
       var is=!!q, was=ov.classList.contains('sd-searching');
       if(is!==was){ flipPush(function(){ ov.classList.toggle('sd-searching', is); }); }   // ★切替の瞬間だけFLIPで0.3s補間=カクカクしない
     } }catch(_){}   // ★文字があれば input+apps を下げ、結果を上に出す
+    setTimeout(syncResHeight,60); setTimeout(syncResHeight,640);   // ★FLIP/バーmargin遷移後に結果高さを実測し直す(下見切れ根治)
     filterApps(q);
     /* ★1行に畳まれる瞬間だけ「右から1個ずつ0.3sスライドイン」を再生。文字を消して4列に戻る時はグリッド用アニメへ戻す */
     if(q){ if(!_wasSearching) playRowSlide(); }
@@ -340,19 +363,20 @@
   }
 
   function filterApps(q){
-    var ql=q.toLowerCase();
-    var hits=0;
-    Array.prototype.forEach.call(els.apps.children, function(b){
-      if(b.classList.contains('sd-gone')) return;   /* gone=検索にも出ない */
-      if(!ql || (b.getAttribute('data-nm')||'').indexOf(ql)>=0) hits++;
-    });
-    /* ★app一覧は常に(結果の下に)出す: 名前が合えば絞り込み・1件も合わなければ全部表示。
-       __searchOnly(隠しapp)は「名前が検索に合った時」だけ出る=何もなければ出ない */
-    var showAll=(!ql || hits===0);
+    var ql=_norm(q);
+    /* ★「apps」「アプリ」等=app一覧そのものを呼び出す語(全appを表示) */
+    var allApps=!!ql && /^(app|apps|アプリ|アプリ一覧)$/.test(ql);
+    /* ★app一覧は最初の画面(未入力)では非表示(ユーザ指示)。名前/別名が合った時・「apps」と打った時だけ出る。
+       友達タイルは今まで通り最初から出て、入力で絞り込む */
     Array.prototype.forEach.call(els.apps.children, function(b){
       if(b.classList.contains('sd-gone')){ b.classList.add('hide'); return; }
-      var match=!!ql && (b.getAttribute('data-nm')||'').indexOf(ql)>=0;
-      var hit=b.__searchOnly ? match : (showAll || match);
+      var isFr=!!b.getAttribute('data-fr');
+      var nm=_norm(b.getAttribute('data-nm')||''), al=_norm(b.getAttribute('data-al')||'');
+      var match=!!ql && (nm.indexOf(ql)>=0 || (!!al && al.indexOf(ql)>=0));
+      var hit;
+      if(isFr){ hit=(!ql || match); }
+      else if(b.__searchOnly){ hit=match; }               /* 隠しapp=名前/別名が合った時だけ(「apps」では出ない) */
+      else { hit=!!ql && (match || allApps); }
       b.classList.toggle('hide', !hit);
     });
     /* ★displayはCSSに任せる(通常=grid / 検索中=横1行flex)。ここでinline指定するとレイアウト切替アニメが効かない */
@@ -616,6 +640,7 @@
       try{ var _ov=document.getElementById('searchOv'); if(_ov) _ov.classList.remove('sd-searching'); }catch(_){}
       _wasSearching=false; try{ clearRowSlide(); }catch(_){}
       filterApps(''); renderFriends(''); renderMusic([]); renderGraph('',null); renderCalc('',null);
+      try{ syncResHeight(); }catch(_){}
       trSeq++; vocSeq++; var oldTr=els.res&&els.res.querySelector('[data-sec="tr"]'); if(oldTr) oldTr.remove();
       var oldVx=els.res&&els.res.querySelector('[data-sec="vx"]'); if(oldVx) oldVx.remove();
       var oldSp=els.res&&els.res.querySelector('[data-sec="mu-spin"]'); if(oldSp) oldSp.remove();

@@ -6,6 +6,12 @@
 name = "shake-toshake"
 main = "telegram-storage.js"
 compatibility_date = "2024-11-01"
+# ★重大対策(2026-07-13): keep_vars=true。これが無いと `wrangler deploy`(フル)実行時に、
+#   ダッシュボードで設定した平文の環境変数(TG_TOKEN等)が「wrangler.tomlに書いてない=消す」で
+#   一掃され、/up が「worker not configured」→ 画像/動画アップロード全滅(index.htmlの10339)を招く。
+#   ※TG_CHAT等の「シークレット」は元々deployで消えない。TG_TOKENは平文varだったため巻き添えで消えた。
+#   恒久対策としては TG_TOKEN も `wrangler secret put TG_TOKEN` でシークレット化するのが最善。
+keep_vars = true
 
 # 10分ごとに起動して期限切れ会話を掃除。
 #  ・1日144回＝Cloudflare無料枠(10万/日)の約0.14%。実質ゼロ負荷。
@@ -41,3 +47,7 @@ crons = ["0 * * * *"]   # 毎時1回（10時間TTLに対し十分・リクエス
 # バックアップ用 env（ダッシュボード or secret）:
 #   FB_URL, FB_SECRET … RTDB読取(REST)。BACKUP_HOUR(UTC,既定18=JST3時) / BACKUP_OFF=1 で停止。
 # ★Firebase本体のpurge(古いデータ削除)は、R2への往復(バックアップ→復元)が検証で通るまで有効化しない。
+
+# ★通話(SkyWay): APP_IDは平文var(トークンpayloadに載る公開値)。SKYWAY_SECRETは必ず `npx wrangler secret put SKYWAY_SECRET`
+[vars]
+SKYWAY_APP_ID = "1406ba13-49d0-42a2-9ed0-af223f203e5f"
