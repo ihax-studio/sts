@@ -10515,9 +10515,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       row.appendChild(td.w);
       var md=attImg("media","photos.png","画像&動画", function(){ haptic(); var rm=chatRoom; closeAttach(); setTimeout(function(){ try{ _pickMediaForChat(rm); }catch(_){} },160); });
       row.appendChild(md.w);
-      var m3=attImg("model3d","","3D", function(){ haptic(); closeAttach(); setTimeout(function(){ try{ _attach3D(); }catch(_){} },160); });   // ★STL添付=回転プレビュー+印刷サイズ指定
-      m3.b.textContent="🧊"; m3.b.style.cssText+="display:flex;align-items:center;justify-content:center;font-size:24px;background:linear-gradient(180deg,#7c9bff,#4169e6)";
-      row.appendChild(m3.w);
+      /* ★3Dタブ(🧊)は撤去(ユーザ指示)。3Dモデルの受信カード/ビューア(_open3DViewer)と cx3d 描画は残置=既存の受信は表示可 */
       /* ★通話(📞)は非表示(ユーザ指示)=ボイメ🤙(相手オンライン時のバー)のみ。添付メニューには出さない */
       if((((typeof DEV!=="undefined"&&DEV&&DEV.cat)||"other")!=="vision") && !_chShakeHideEmo){
         var sk=attImg("shake","burble.png","シェイク", function(){ haptic(); closeAttach(); setTimeout(function(){ try{ window.__chatShakeAction(); }catch(_){} },160); });
