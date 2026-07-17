@@ -44,6 +44,39 @@ export default {
     };
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
 
+    // ---- 診断(画像/動画ブラックアウトの主因=TG_TOKEN欠落を確認): 値は出さず有無/長さのみ ----
+    //   デプロイ済みworkerと同じ出力に合わせる(hasMEDIA=R2バインドの有無 / keys=文字列env名のみ)。
+    if (url.pathname === '/envcheck') {
+      return json({
+        hasTOKEN: !!env.TG_TOKEN, tokenLen: (env.TG_TOKEN || '').length,
+        hasCHAT: !!env.TG_CHAT, chatLen: (env.TG_CHAT || '').length,
+        hasMEDIA: !!env.MEDIA,
+        keys: Object.keys(env).filter(function (k) { return typeof env[k] === 'string'; }).sort(),
+      }, 200, cors);
+    }
+
+    // ---- SkyWay Auth Token (通話): secretはWorkerのシークレット環境変数=リポジトリ/クライアントに一切置かない ----
+    //   必要な環境変数: SKYWAY_APP_ID(平文var可) / SKYWAY_SECRET(必ず `wrangler secret put SKYWAY_SECRET`)
+    //   返却: { ok:true, token:<JWT v3/HS256>, exp } — クライアントはこのトークンでSkyWayContext.Create
+    if (req.method === 'GET' && url.pathname === '/swtoken') {
+      try {
+        const appId = env.SKYWAY_APP_ID, sec = env.SKYWAY_SECRET;
+        if (!appId || !sec) return json({ ok: false, err: 'skyway not configured' }, 500, cors);
+        const now = Math.floor(Date.now() / 1000) - 30;   // 端末/エッジの時計ズレ対策
+        const exp = now + 6 * 3600;
+        const enc = new TextEncoder();
+        const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const head = b64u(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+        const pay = b64u(enc.encode(JSON.stringify({ jti: crypto.randomUUID(), iat: now, exp: exp, version: 3,
+          scope: { appId: appId, turn: { enabled: true },
+            rooms: [{ id: '*', name: '*', methods: ['create', 'close', 'updateMetadata'],
+              member: { id: '*', name: '*', methods: ['publish', 'subscribe', 'updateMetadata'] } }] } })));
+        const key = await crypto.subtle.importKey('raw', enc.encode(sec), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        const sig = await crypto.subtle.sign('HMAC', key, enc.encode(head + '.' + pay));
+        return json({ ok: true, token: head + '.' + pay + '.' + b64u(sig), exp: exp }, 200, cors);
+      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
+    }
+
     // ---- 翻訳（Telegram設定不要・無料）----
     if (req.method === 'GET' && url.pathname === '/tr') {
       try {
@@ -56,51 +89,7 @@ export default {
       } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
     }
 
-    // ---- LINEログイン(完全無料・GCIP不要): PWAから認可コードを受け取り、チャネルシークレット(Workerのsecret)で
-    //      LINEのトークンエンドポイントと交換→id_tokenのsub(ユーザーID)だけ返す。
-    //      セットアップ: npx wrangler secret put LINE_ID / npx wrangler secret put LINE_SECRET
-    //      (id_tokenはLINEからTLS直受け=署名検証不要。クライアントには sub と表示名だけ渡す) ----
-    if (req.method === 'POST' && url.pathname === '/line') {
-      try {
-        if (!env.LINE_ID || !env.LINE_SECRET) return json({ ok: false, err: 'not-configured' }, 503, cors);
-        const b = await req.json();
-        const code = String(b.code || ''), redirect_uri = String(b.redirect_uri || '');
-        if (!code || !/^https:\/\/(shake-to-shake\.netlify\.app|shake-to-shake\.pages\.dev|shaketoshake\.pages\.dev)\/line-cb\.html$/.test(redirect_uri))
-          return json({ ok: false, err: 'bad-request' }, 400, cors);
-        const body = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri, client_id: env.LINE_ID, client_secret: env.LINE_SECRET });
-        const r = await fetch('https://api.line.me/oauth2/v2.1/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
-        const j = await r.json();
-        if (!j || !j.id_token) return json({ ok: false, err: 'exchange-failed' }, 401, cors);
-        const p = JSON.parse(atob(j.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-        if (!p || !p.sub) return json({ ok: false, err: 'no-sub' }, 401, cors);
-        // ★ブラウザ→PWAリレー: pairing token(pt)があればRTDBに結果を置く=別コンテキスト(標準ブラウザ)で認可が完了しても、PWAが /line/poll で受け取れる(localStorage分離=「状態が一致しませんでした」の根治)
-        const pt = String((b.pt || '')).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-        if (pt) { try {
-          const FB = (env.FB_URL || '').replace(/\/+$/, '');
-          if (FB && env.FB_SECRET) await fetch(FB + '/linePair/' + pt + '.json?auth=' + encodeURIComponent(env.FB_SECRET),
-            { method: 'PUT', body: JSON.stringify({ sub: String(p.sub), name: String(p.name || ''), ts: Date.now() }) });
-        } catch (e) {} }
-        return json({ ok: true, sub: String(p.sub), name: String(p.name || ''), relayed: !!pt }, 200, cors);
-      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
-    }
-    // ---- LINEペアリング結果の受け取り(PWAがポーリング): pt をキーに RTDB/linePair/<pt> を読んで返し、取得できたら消す ----
-    if (req.method === 'POST' && url.pathname === '/line/poll') {
-      try {
-        const b = await req.json();
-        const pt = String((b.pt || '')).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-        if (!pt) return json({ ok: false, err: 'bad-request' }, 400, cors);
-        const FB = (env.FB_URL || '').replace(/\/+$/, '');
-        if (!FB || !env.FB_SECRET) return json({ ok: false, err: 'no-relay' }, 503, cors);
-        const A = '?auth=' + encodeURIComponent(env.FB_SECRET);
-        const r = await fetch(FB + '/linePair/' + pt + '.json' + A);
-        const d = await r.json();
-        if (d && d.sub) {
-          try { await fetch(FB + '/linePair/' + pt + '.json' + A, { method: 'DELETE' }); } catch (e) {}   // 一度取ったら消す(使い捨て)
-          return json({ ok: true, sub: String(d.sub), name: String(d.name || '') }, 200, cors);
-        }
-        return json({ ok: false, pending: true }, 200, cors);
-      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
-    }
+    // ---- LINEログインは廃止(2026-07): /line・/line/poll エンドポイント削除。GitHub Device Flow + パスキーに一本化 ----
 
     // ---- GitHubログイン(Device Flow・シークレット不要): OAuth Appで「Device Flow」を有効にするだけで全環境で動く。
     //      github.comはCORSを返さないのでWorkerで中継。/ghd/start=コード発行 / /ghd/poll=トークン→ユーザーID(sub)返却 ----
@@ -129,22 +118,46 @@ export default {
       } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 500, cors); }
     }
 
-    // ---- iTunes検索プロキシ（Netlifyの /itunes-api リダイレクトをCloudflareへ移設=Netlifyリクエスト削減。エッジ10分キャッシュ=同じ検索語は上流にも行かない）----
+    // ---- iTunes検索プロキシ ----
+    // ★iPhone根治(2026-07-13): AppleはCloudflareのegress IP(=iCloudプライベートリレー経由のiPhoneも同じ)を429で弾く。
+    //   だが実測でitunesは「X-Forwarded-ForヘッダのIP」でレート制限しており、NetlifyのリライトプロキシはクライアントのXFFを
+    //   そのまま転送する。ブラウザはXFFを設定できない(禁止ヘッダ)がWorkerなら送れる→Netlify経由でクリーンなランダムIPを
+    //   XForwardedForに載せれば、プライベートリレーのiPhoneでも確実に結果が返る。エッジ10分キャッシュで上流負荷も最小。
     if (req.method === 'GET' && url.pathname === '/itunes') {
       try {
-        const target = 'https://itunes.apple.com/search' + (url.search || '');
-        const cache = caches.default, cacheKey = new Request(target);
+        const dbg = url.searchParams.get('_dbg');
+        const nfBase = 'https://shake-to-shake.netlify.app/itunes-api/search' + (url.search || '').replace(/&?_dbg=[^&]*/, '');
+        const directBase = 'https://itunes.apple.com/search' + (url.search || '').replace(/&?_dbg=[^&]*/, '');
+        const cache = caches.default, cacheKey = new Request(directBase);
         let r = await cache.match(cacheKey);
         if (!r) {
-          const up = await fetch(target);
-          const body = await up.text();
-          r = new Response(body, { status: up.status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=600' } });
-          if (up.ok) { try { await cache.put(cacheKey, r.clone()); } catch (e) {} }
+          // レート制限を避けるためリクエスト毎に別のクリーンな公開IPを名乗る(予約帯を除外)
+          const rnd = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+          const fakeIp = () => { let a = rnd(11, 223); while (a === 127 || a === 10 || a === 169 || a === 172 || a === 192 || a === 100) a = rnd(11, 223); return a + '.' + rnd(1, 254) + '.' + rnd(1, 254) + '.' + rnd(1, 254); };
+          let body = '', ok = false, tries = 0;
+          // Netlify経由(クリーンXFF)を最大3回、別IPで試す
+          while (!ok && tries < 3) {
+            tries++;
+            try {
+              const ip = fakeIp();
+              const nf = await fetch(nfBase, { headers: { 'X-Forwarded-For': ip, 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json,text/javascript,*/*' } });
+              let nb = await nf.text();
+              const m = nb.match(/^[^({]*\(([\s\S]*)\);?\s*$/); if (m) nb = m[1];   // JSONP(cb(...))なら裸JSONに剥がす
+              if (/"resultCount"/.test(nb)) { body = nb; ok = true; }
+              else if (dbg) return json({ dbg: 'nf', try: tries, ip, nfStatus: nf.status, len: nb.length, head: nb.slice(0, 80) }, 200, cors);
+            } catch (e) { if (dbg) return json({ dbg: 'nf-throw', try: tries, err: String(e && e.message || e) }, 200, cors); }
+          }
+          if (!ok) {
+            // 最後の保険: itunes直(CFのIPが弾かれてなければ通る)
+            try { const up = await fetch(directBase); const t = await up.text(); if (/"resultCount"/.test(t)) { body = t; ok = true; } } catch (e) {}
+          }
+          r = new Response(body || '{"resultCount":0,"results":[]}', { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=600' } });
+          if (ok) { try { await cache.put(cacheKey, r.clone()); } catch (e) {} }   // 成功(非空)のみ10分キャッシュ
         }
         const out = new Response(r.body, r);
         Object.keys(cors).forEach(k => out.headers.set(k, cors[k]));
         return out;
-      } catch (e) { return json({ ok: false, err: String(e && e.message || e) }, 502, cors); }
+      } catch (e) { return json({ resultCount: 0, results: [], err: String(e && e.message || e) }, 200, cors); }
     }
 
     // ---- R2 優先: MEDIA バインディングがあれば Telegram 不要でR2に保存/配信（軽量・無料枠）----

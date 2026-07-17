@@ -229,23 +229,38 @@
     try{ var f=new Function('x','"use strict";return ('+js+');'); var t0=f(1); if(typeof t0!=='number') return null;
       f.__axis=axis; f.__const=isConst; return f; }catch(err){ return null; }
   }
-  /* ── 計算機: 数字と演算子だけの式(1+2, 12*4, (3+4)/2 など)を安全に評価して結果を出す ── */
+  /* ── 小数→約分した分数(連分数法)。整数/分母が大きすぎる時はnull ── */
+  function _toFrac(x){ if(!isFinite(x)||x===Math.floor(x)) return null;
+    var neg=x<0; x=Math.abs(x); var h1=1,h0=0,k1=0,k0=1,b=x,i=0;
+    do{ var a=Math.floor(b); var h2=a*h1+h0, k2=a*k1+k0; h0=h1;h1=h2;k0=k1;k1=k2;
+      if(Math.abs(x-h1/k1)<1e-9) break; var db=b-a; if(db<1e-12) break; b=1/db; }while(k1<100000 && ++i<40);
+    if(k1<2||k1>10000||Math.abs(x-h1/k1)>1e-6) return null;
+    return (neg?'-':'')+h1+'/'+k1;
+  }
+  /* ── 計算機: 数字と演算子の式(1+2 / 12x4 / (3+4)/2 / 10%3 など)を安全に評価して結果を出す
+     ・x,X,✕は×として掛け算 / 末尾の「=」は有無どちらでも / %は「あまり(剰余)」 / ÷は分数としても表示 ── */
   function calcEval(src){ var s=String(src||'').trim(); if(s.length<2||s.length>60) return null;
-    s=s.replace(/×/g,'*').replace(/÷/g,'/').replace(/－/g,'-').replace(/＋/g,'+').replace(/[０-９]/g,function(d){ return String('０１２３４５６７８９'.indexOf(d)); }).replace(/，|,/g,'');
-    if(!/[+\-*/]/.test(s)) return null;                 // 演算子が無ければ計算ではない
-    if(!/^[0-9+\-*/.()%\s]+$/.test(s)) return null;     // 数字と演算子・括弧のみ許可(letters不可)
-    if(/[+\-*/.]{3,}/.test(s)) return null;             // 記号連発は無効
-    try{ var r=Function('"use strict";return ('+s.replace(/%/g,'/100')+');')();
+    s=s.replace(/[=＝\s]+$/,'');                        // 末尾の「=」やスペースは無視(1+2= でも計算)
+    s=s.replace(/×|✕|╳|✖|ｘ|Ｘ|x|X/g,'*').replace(/÷|／/g,'/').replace(/－|−/g,'-').replace(/＋/g,'+')
+       .replace(/[０-９]/g,function(d){ return String('０１２３４５６７８９'.indexOf(d)); }).replace(/，|,/g,'');
+    if(!/[+\-*/%]/.test(s)) return null;                // 演算子(＋−×÷%)が無ければ計算ではない
+    if(!/^[0-9+\-*/.()%\s]+$/.test(s)) return null;     // 数字と演算子・括弧・%のみ(letters不可)
+    if(/[+\-*/%.]{3,}/.test(s)) return null;            // 記号連発は無効
+    try{ var r=Function('"use strict";return ('+s+');')();   // %はJS標準の剰余(あまり)としてそのまま評価
       if(typeof r!=='number'||!isFinite(r)) return null;
-      var out=Math.round(r*1e10)/1e10; return { expr:s, val:out }; }catch(e){ return null; }
+      var out=Math.round(r*1e10)/1e10;
+      var frac=null; try{ if(/\//.test(s)&&!/%/.test(s)) frac=_toFrac(out); }catch(_){}   // ÷を含む式は分数としても併記
+      return { expr:s, val:out, frac:frac }; }catch(e){ return null; }
   }
   function renderCalc(q, calc){
     var old=els.res.querySelector('[data-sec="ca"]'); if(old) old.remove();
     if(!calc) return;
     var s=section('計算'); s.c.setAttribute('data-sec','ca');
     var row=el('button','sd-tr'); row.type='button';
-    row.appendChild(el('div','trt', String(calc.val)));
-    row.appendChild(el('div','trs', calc.expr.replace(/\*/g,'×').replace(/\//g,'÷')+' ='));
+    var trt=el('div','trt', String(calc.val));
+    if(calc.frac){ var fr=el('span','', calc.frac); fr.style.cssText='margin-left:10px;font-size:.7em;opacity:.6;font-weight:500;vertical-align:middle'; trt.appendChild(fr); }   // ÷は分数としても
+    row.appendChild(trt);
+    row.appendChild(el('div','trs', calc.expr.replace(/\*/g,'×').replace(/\//g,'÷').replace(/%/g,' mod ')+' ='));
     row.addEventListener('click', function(ev){ ev.stopPropagation(); try{ navigator.clipboard.writeText(String(calc.val)); }catch(_){} try{ cb.haptic&&cb.haptic(); }catch(_){} });
     s.rows.appendChild(row);
     els.res.insertBefore(s.c, els.res.firstChild);
@@ -424,6 +439,7 @@
     function start(t, e){
       dragging=true; try{ cb.haptic&&cb.haptic(); }catch(_){}
       grid.classList.add('sd-editing');
+      try{ document.body.classList.add('sd-dragging'); }catch(_){}   /* ★app移動(ドラッグ)開始=検索中でもdock(apps user)をドロップ先として復活させる目印 */
       if(els.scroll) els.scroll.style.overflowY='hidden';
       var r=t.getBoundingClientRect(); sx=e.clientX; sy=e.clientY; lastX=e.clientX; lastY=e.clientY;
       ghost=t.cloneNode(true); ghost.className='sd-app sd-ghost';
@@ -432,6 +448,7 @@
       document.body.appendChild(ghost);
       ph=t; ph.classList.add('sd-ph');
       railShow();   /* ★友達もアプリもドラッグ中に下の友達レール(ドロップ先)がslideup(appもここに置ける) */
+      try{ window.__dockShowSide&&window.__dockShowSide(true); }catch(_){}   /* ★app移動中=dockを左右端に縦で出す+appsを少し縮小(干渉しない) */
     }
     function move(e){ if(!dragging||!ghost) return;
       lastX=e.clientX; lastY=e.clientY;
@@ -455,7 +472,7 @@
           try{ cb.haptic&&cb.haptic(); }catch(_){}
           break; } }
     }
-    function end(){ if(!dragging) return; dragging=false; supUntil=Date.now()+350;
+    function end(){ if(!dragging) return; dragging=false; supUntil=Date.now()+350; try{ document.body.classList.remove('sd-dragging'); }catch(_){}
       var _onDock=dockOver(lastX,lastY), didDrop=false;
       /* ★ドック(中央下/左端)へドロップ=追加 */
       try{ var _dk=document.getElementById('gcDock');
@@ -471,6 +488,7 @@
         if(_fr2){ window.__gcAddDockApp({ f:_fr2, n:ph.getAttribute('data-nm-raw')||'友達', av:ph.getAttribute('data-av')||'🙂', c:ph.getAttribute('data-c')||'#62d8ff' }); }
         else { var _nm3=ph.getAttribute('data-nm-raw')||''; var _ie3=ph.querySelector('img.ic'); var _is3=_ie3?(_ie3.getAttribute('src')||''):''; if(_nm3){ window.__gcAddDockApp({ n:_nm3, i:_is3 }); } } } }catch(_){}
       railHide();
+      try{ window.__dockShowSide&&window.__dockShowSide(false); }catch(_){}   /* ★離したらappsの縮小を戻し、dockは0.5sで非表示 */
       if(!editing) grid.classList.remove('sd-editing');   /* ★編集モード継続中はジグルを維持(iOS風) */
       if(els.scroll) els.scroll.style.overflowY='';
       if(ghost&&ph){ var pr=ph.getBoundingClientRect(), gr=ghost.getBoundingClientRect();

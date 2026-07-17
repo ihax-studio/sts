@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0b0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="タイマー">
+<title>タイマー</title>
+<style>
+  :root{
+    --bg:#0b0b0c; --face:#111113; --ink:#fff; --sub:rgba(255,255,255,.5);
+    --track:rgba(255,255,255,.07);
+    --o1:#ff8a00; --o2:#ff6a1f; --o3:#ff5a2c;   /* 外→内 オレンジ3段 */
+    --glow:rgba(255,138,0,.55);
+    --ease:cubic-bezier(.22,1,.36,1);
+    --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background:radial-gradient(120% 90% at 50% 8%, #17171a 0%, var(--bg) 60%) fixed;
+    color:var(--ink); font:400 16px/1.3 -apple-system,"SF Pro Display","SF Pro Text",system-ui,"Hiragino Sans",sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    padding:calc(20px + var(--sat)) 16px calc(24px + var(--sab)); overflow:hidden;
+    -webkit-user-select:none; user-select:none; touch-action:manipulation;
+  }
+  .top{ text-align:center; letter-spacing:.02em; }
+  .top .t{ font-weight:600; font-size:17px; opacity:.9; }
+  .top .s{ font-size:13px; color:var(--sub); margin-top:2px; }
+
+  /* ── 時計フェース ── */
+  .stage{ position:relative; width:min(78vw, 60vh, 360px); aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; }
+  svg.face{ width:100%; height:100%; display:block; overflow:visible; touch-action:none; }
+  .track{ fill:none; stroke:var(--track); }
+  .prog{ fill:none; stroke-linecap:round; transform:rotate(-90deg); transform-origin:150px 150px;
+    transition:stroke-dashoffset .18s linear; filter:drop-shadow(0 0 5px var(--glow)); }
+  .prog.p0{ stroke:var(--o1); } .prog.p1{ stroke:var(--o2); } .prog.p2{ stroke:var(--o3); }
+  .notch{ stroke:rgba(255,255,255,.28); stroke-width:2.4; stroke-linecap:round; }
+  #hand{ transition:transform .18s var(--ease); }
+  #hand .needle{ fill:var(--o1); filter:drop-shadow(0 2px 5px rgba(0,0,0,.5)) drop-shadow(0 0 6px var(--glow)); }
+  #hand .hub{ fill:#fff; }
+  #hand .hubc{ fill:var(--o1); }
+  .stage.setting #hand{ transition:none; }
+  .stage.setting .prog{ transition:none; }
+  .stage.running #hand, .stage.running .prog{ transition:none; }   /* 稼働中はrAFで直接追従=遅延なし */
+
+  /* ── 中央の読み ── */
+  .center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+  .read{ font-weight:300; font-size:clamp(46px,15vw,74px); letter-spacing:.01em; font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum" 1; line-height:1; }
+  .clabel{ font-size:13px; color:var(--sub); margin-top:8px; min-height:16px; letter-spacing:.06em; }
+  .stage.done .read{ animation:pulse 1s var(--ease) infinite; color:var(--o1); }
+  @keyframes pulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.45; transform:scale(.97); } }
+
+  /* ── プリセット ── */
+  .presets{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:420px; }
+  .chip{ appearance:none; border:0; color:#fff; background:rgba(255,255,255,.08); font:600 14px/1 -apple-system,system-ui;
+    padding:9px 13px; border-radius:100px; transition:transform .15s var(--ease), background .15s; }
+  .chip:active{ transform:scale(.92); background:rgba(255,255,255,.16); }
+  .chip.on{ background:rgba(255,138,0,.22); color:var(--o1); box-shadow:inset 0 0 0 1.5px rgba(255,138,0,.55); }
+
+  /* ── ボタン ── */
+  .ctrls{ display:flex; align-items:center; justify-content:center; gap:56px; }
+  .btn{ appearance:none; border:0; width:80px; height:80px; border-radius:50%; font:600 16px/1 -apple-system,system-ui;
+    display:flex; align-items:center; justify-content:center; transition:transform .15s var(--ease), filter .15s, opacity .2s;
+    position:relative; }
+  .btn:active{ transform:scale(.9); }
+  .btn::before{ content:""; position:absolute; inset:5px; border-radius:50%; border:1.5px solid rgba(255,255,255,.14); }
+  .btn.aux{ background:rgba(120,120,128,.18); color:#fff; }
+  .btn:disabled{ opacity:.35; }
+  .btn.main{ background:rgba(255,138,0,.20); color:var(--o1); }
+  .btn.main::before{ border-color:rgba(255,138,0,.32); }
+  .btn.main.run{ background:rgba(255,214,10,.18); color:#ffd60a; }
+  .btn.main.run::before{ border-color:rgba(255,214,10,.32); }
+
+  @media (max-height:680px){ .read{ font-size:clamp(40px,13vw,60px); } .btn{ width:70px; height:70px; } .ctrls{ gap:44px; } }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="t">タイマー</div>
+    <div class="s" id="hint">針をドラッグ・回して時間を決める</div>
+  </div>
+
+  <div class="stage" id="stage">
+    <svg class="face" viewBox="0 0 300 300" id="face" aria-label="タイマー文字盤">
+      <!-- トラック(3同心) -->
+      <circle class="track" cx="150" cy="150" r="128" stroke-width="16"></circle>
+      <circle class="track" cx="150" cy="150" r="100" stroke-width="16"></circle>
+      <circle class="track" cx="150" cy="150" r="72"  stroke-width="16"></circle>
+      <!-- 12時ノッチ(アイコン準拠) -->
+      <line class="notch" x1="150" y1="8" x2="150" y2="20"></line>
+      <!-- 進捗アーク(3同心・外→内=ラップ) -->
+      <circle class="prog p0" id="pr0" cx="150" cy="150" r="128" stroke-width="16"></circle>
+      <circle class="prog p1" id="pr1" cx="150" cy="150" r="100" stroke-width="16"></circle>
+      <circle class="prog p2" id="pr2" cx="150" cy="150" r="72"  stroke-width="16"></circle>
+      <!-- 分針 -->
+      <g id="hand">
+        <path class="needle" id="needle" d=""></path>
+        <circle class="hub"  cx="150" cy="150" r="9"></circle>
+        <circle class="hubc" cx="150" cy="150" r="4"></circle>
+      </g>
+    </svg>
+    <div class="center">
+      <div class="read" id="read">5:00</div>
+      <div class="clabel" id="clabel"></div>
+    </div>
+  </div>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="ctrls">
+    <button class="btn aux"  id="btnAux"  disabled>リセット</button>
+    <button class="btn main" id="btnMain">開始</button>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var CX=150, CY=150, LAP=3600, MAXSEC=100*60;         // 60分=一周・上限100分
+  var R=[128,100,72], RW=16;                            // リング半径(外→内)と線幅
+  var C=R.map(function(r){ return 2*Math.PI*r; });      // 各リングの円周
+
+  var pr=[document.getElementById("pr0"),document.getElementById("pr1"),document.getElementById("pr2")];
+  pr.forEach(function(el,i){ el.style.strokeDasharray=C[i].toFixed(2); });
+  var hand=document.getElementById("hand"), needle=document.getElementById("needle");
+  var readEl=document.getElementById("read"), clabel=document.getElementById("clabel");
+  var hint=document.getElementById("hint");
+  var btnMain=document.getElementById("btnMain"), btnAux=document.getElementById("btnAux");
+  var stage=document.getElementById("stage"), face=document.getElementById("face");
+
+  var setSec=5*60;            // 設定値
+  var remainingSec=setSec;    // 残り
+  var state="idle";           // idle | running | paused | done
+  var endAt=0, rafId=0;
+
+  /* ---- 時間→表示 ---- */
+  function fmt(sec){
+    sec=Math.max(0, Math.ceil(sec-1e-6));
+    var m=Math.floor(sec/60), s=sec%60;
+    return m+":"+(s<10?"0":"")+s;
+  }
+  // 分針の三角ニードル(先端=len, 中心付近が基部)
+  function handPath(len){
+    var w=6.5, tipY=CY-len, baseY=CY+16;
+    return "M"+CX+" "+tipY.toFixed(1)+
+           " L"+(CX+w)+" "+(CY-len*0.14).toFixed(1)+
+           " L"+(CX+w*0.5)+" "+baseY+
+           " L"+(CX-w*0.5)+" "+baseY+
+           " L"+(CX-w)+" "+(CY-len*0.14).toFixed(1)+" Z";
+  }
+
+  function render(){
+    var d = (state==="running"||state==="paused") ? remainingSec : setSec;
+    d=Math.max(0, Math.min(MAXSEC, d));
+    // 3リングの充填率: リングi = ラップi (i=0=外=0–60分, 1=60–120, 2=120–180)
+    for(var i=0;i<3;i++){
+      var lapStart=i*LAP;
+      var frac=(d-lapStart)/LAP;
+      frac=frac<0?0:(frac>1?1:frac);
+      pr[i].style.strokeDashoffset=(C[i]*(1-frac)).toFixed(2);
+    }
+    // 分針: 現在ラップ内の位置(60分=360°)。針の先は現在アクティブなリングの半径へ。
+    var activeRing = d<=0 ? 0 : Math.max(0, Math.min(2, Math.floor((d-1e-6)/LAP)));
+    var handFrac=(d - activeRing*LAP)/LAP; handFrac=handFrac<0?0:(handFrac>1?1:handFrac);
+    var ang=handFrac*360;
+    needle.setAttribute("d", handPath(R[activeRing]));
+    hand.setAttribute("transform","rotate("+ang.toFixed(2)+" "+CX+" "+CY+")");
+    // 中央
+    readEl.textContent=fmt(d);
+    if(state==="done"){ clabel.textContent="完了"; }
+    else if(state==="running"){ clabel.textContent="残り"; }
+    else if(state==="paused"){ clabel.textContent="一時停止"; }
+    else { clabel.textContent = setSec>0 ? (Math.round(setSec/60)+"分") : "0分"; }
+    syncPresets();
+  }
+
+  /* ---- ボタン表示 ---- */
+  function updateButtons(){
+    stage.classList.toggle("running", state==="running");
+    btnMain.classList.toggle("run", state==="running");
+    btnMain.textContent = state==="running" ? "一時停止"
+                        : state==="paused"  ? "再開"
+                        : state==="done"    ? "もう一度" : "開始";
+    var canReset = (state!=="idle") || (remainingSec!==setSec);
+    btnAux.disabled = !canReset;
+    btnMain.disabled = (state==="idle" && setSec<=0);   // 0分では開始不可(空押し防止)
+    btnAux.textContent = (state==="running"||state==="paused") ? "キャンセル" : "リセット";
+    hint.style.opacity = (state==="idle") ? "1" : "0";
+    stage.classList.toggle("done", state==="done");
+  }
+
+  /* ---- カウントダウン(タイムスタンプ基準=ドリフト無) ---- */
+  function loop(){
+    if(state!=="running") return;
+    remainingSec=(endAt-performance.now())/1000;
+    if(remainingSec<=0){ remainingSec=0; render(); finish(); return; }
+    render();
+    rafId=requestAnimationFrame(loop);
+  }
+  function startRun(){
+    if(state==="idle"||state==="done"){ remainingSec=setSec; }
+    if(remainingSec<=0) return;
+    endAt=performance.now()+remainingSec*1000;
+    state="running"; updateButtons(); cancelAnimationFrame(rafId); loop();
+  }
+  function pauseRun(){ if(state!=="running")return; cancelAnimationFrame(rafId); state="paused"; render(); updateButtons(); }
+  function resetAll(){ cancelAnimationFrame(rafId); state="idle"; remainingSec=setSec; render(); updateButtons(); }
+  function finish(){ cancelAnimationFrame(rafId); state="done"; updateButtons(); render(); buzz(); beep(); }
+
+  function ensureAudio(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume(); }catch(_){}}
+  btnMain.addEventListener("click", function(){
+    haptic(10); ensureAudio();   // ユーザー操作で音を解錠(完了音がPCでも鳴る)
+    if(state==="running") pauseRun();
+    else startRun();
+  });
+  btnAux.addEventListener("click", function(){ haptic(10); resetAll(); });
+
+  /* ---- プリセット ---- */
+  var PRESETS=[1,3,5,10,15,25,60,100];
+  var presetsWrap=document.getElementById("presets");
+  PRESETS.forEach(function(m){
+    var b=document.createElement("button");
+    b.className="chip"; b.dataset.min=m; b.textContent=m+"分";
+    b.addEventListener("click", function(){ haptic(8); setTime(m*60); });
+    presetsWrap.appendChild(b);
+  });
+  function syncPresets(){
+    var mn=Math.round(setSec/60);
+    presetsWrap.querySelectorAll(".chip").forEach(function(c){
+      c.classList.toggle("on", state==="idle" && parseInt(c.dataset.min,10)===mn);
+    });
+  }
+  function setTime(sec){
+    sec=Math.max(0, Math.min(MAXSEC, sec));
+    cancelAnimationFrame(rafId);   // 稼働中にプリセット押下→ループを止めて設定へ
+    setSec=sec; state="idle"; remainingSec=setSec; render(); updateButtons();
+  }
+
+  /* ---- 針ドラッグで設定(分針式・複数周) ---- */
+  var dragging=false, lastAng=0, setMinAtDown=0;
+  function ptAngle(clientX, clientY){
+    var rect=face.getBoundingClientRect();
+    // viewBox 300 の中心 = rect の中心
+    var dx=clientX-(rect.left+rect.width/2);
+    var dy=clientY-(rect.top+rect.height/2);
+    return Math.atan2(dx, -dy)*180/Math.PI;   // 0=真上, 時計回り正, -180..180
+  }
+  function onDown(e){
+    if(state==="running"||state==="paused") return;   // 稼働中は設定不可
+    var p=(e.touches?e.touches[0]:e);
+    dragging=true; state="idle"; stage.classList.add("setting");
+    lastAng=ptAngle(p.clientX,p.clientY); setMinAtDown=setSec/60;
+    render(); updateButtons();   // done/pausedの表示をその場で解除
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!dragging) return;
+    var p=(e.touches?e.touches[0]:e);
+    var a=ptAngle(p.clientX,p.clientY);
+    var delta=a-lastAng; if(delta>180)delta-=360; if(delta<-180)delta+=360; lastAng=a;
+    setMinAtDown += delta/360*60;                     // 一周=60分
+    var m=setMinAtDown; if(m<0)m=0; if(m>100)m=100;
+    var mr=Math.round(m); if(Math.abs(mr-60)<=1) mr=60;    // 60分で「ぴた」スナップ
+    if(mr*60!==setSec){ setSec=mr*60; remainingSec=setSec; haptic(4); }
+    render(); updateButtons(); e.preventDefault();
+  }
+  function onUp(){ if(!dragging)return; dragging=false; stage.classList.remove("setting"); setMinAtDown=Math.round(setMinAtDown); }
+  face.addEventListener("mousedown",onDown); window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
+  face.addEventListener("touchstart",onDown,{passive:false}); window.addEventListener("touchmove",onMove,{passive:false}); window.addEventListener("touchend",onUp);
+
+  /* ---- 触覚 & 音 ---- */
+  function haptic(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(_){}}
+  function buzz(){ try{ if(navigator.vibrate) navigator.vibrate([120,80,120,80,220]); }catch(_){}}
+  var actx=null;
+  function beep(){
+    try{
+      actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==="suspended") actx.resume();
+      [0,0.5,1.0].forEach(function(t){
+        var o=actx.createOscillator(), g=actx.createGain(), t0=actx.currentTime+t;
+        o.type="sine"; o.frequency.setValueAtTime(880,t0); o.frequency.setValueAtTime(1180,t0+0.14);
+        g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.5,t0+0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001,t0+0.42);
+        o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0+0.45);
+      });
+    }catch(_){}
+  }
+  // iOSはユーザー操作で音を解錠
+  document.addEventListener("touchend", function unlock(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended")actx.resume(); }catch(_){} document.removeEventListener("touchend",unlock); }, {once:true});
+
+  // 復帰時に残りを補正(バックグラウンドでrAF停止しても正確)
+  document.addEventListener("visibilitychange", function(){
+    if(!document.hidden && state==="running"){ cancelAnimationFrame(rafId); loop(); }
+  });
+  // タップで完了を解除
+  stage.addEventListener("click", function(){ if(state==="done"){ resetAll(); } });
+
+  render(); updateButtons();
+})();
+</script>
+</body>
+</html>

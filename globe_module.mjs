@@ -1410,7 +1410,13 @@ window.addEventListener('keydown', e => { if(!document.body.classList.contains('
    Resize
 ===================================================== */
 function fitViewport(){
-  const w = window.innerWidth, h = window.innerHeight;
+  // ★実際に表示されるキャンバスのボックス(#globeWrap の client)を測る。
+  //   innerWidth/innerHeight や 100vw/100lvh は iOS 横向き回転直後に食い違い、
+  //   描画バッファ比率 ≠ 表示比率 になって地球が楕円に潰れる → 実ボックス計測で常に真円。
+  const wrap = renderer.domElement.parentElement || document.getElementById('globeWrap');
+  const w = (wrap && wrap.clientWidth)  || window.innerWidth;
+  const h = (wrap && wrap.clientHeight) || window.innerHeight;
+  if(!w || !h) return;   // レイアウト未確定(0)なら次のイベントに委ねる
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);   // false: インライン style を書かない → CSS の 100%×100% を尊重
@@ -1422,6 +1428,10 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', fitV
 // 起動直後は innerHeight が全画面化前の値のことがあるため、複数回 再フィット
 window.addEventListener('load', ()=>{ fitViewport(); [120,360,800].forEach(t=>setTimeout(fitViewport,t)); });
 fitViewport();
+// ★ResizeObserver: #globeWrap の実ボックスが変わった“確定レイアウト”の瞬間に必ず再フィット。
+//   iOS は orientationchange 時に innerWidth/Height が一瞬古い値を返すが、ResizeObserver はリフロー後に発火するので
+//   描画バッファ比率＝表示ボックス比率が常に一致＝横向きでも地球が 1:1(真円) を保つ。
+try{ const _gw=document.getElementById('globeWrap'); if(_gw && 'ResizeObserver' in window){ const _ro=new ResizeObserver(()=>fitViewport()); _ro.observe(_gw); } }catch(_){}
 
 /* =====================================================
    Render loop

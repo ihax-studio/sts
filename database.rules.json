@@ -10,6 +10,16 @@
       ".read": "auth != null",
       ".write": "auth != null && (root.child('admin/uid').val() === auth.uid || root.child('admin/uids/' + auth.uid).val() === true)"
     },
+    "mbtiSongs": {
+      "$mb": {
+        ".read": "auth != null",
+        ".indexOn": ["ts"],
+        "$id": {
+          ".write": "auth != null && (!data.exists() || (root.child('admin/uid').val() === auth.uid || root.child('admin/uids/' + auth.uid).val() === true))",
+          ".validate": "newData.hasChild('t') && newData.child('t').isString() && newData.child('t').val().length >= 1 && newData.child('t').val().length <= 200 && newData.child('ts').isNumber()"
+        }
+      }
+    },
     "admin": {
       "uid": { ".read": "auth != null", ".write": "auth != null && (!data.exists() || newData.parent().child('secretTry').val() === 'h2so4+naoh->na2so4+h2o' || (root.child('admin/secret').exists() && newData.parent().child('secretTry').val() === root.child('admin/secret').val()))" },
       "uids": { ".read": "auth != null", "$uid": { ".write": "auth != null && $uid === auth.uid && (root.child('admin/secretTry').val() === 'h2so4+naoh->na2so4+h2o' || (root.child('admin/secret').exists() && root.child('admin/secretTry').val() === root.child('admin/secret').val()))" } },

@@ -11,8 +11,14 @@
    ========================================================================== */
 (function () {
   'use strict';
-  const MAX_BYTES = 77 * 1024;          // 77KB
-  const COLOR_MASK = 0xF8;              // 上位5bit → 32(=2^5)階調/ch → 32^3 = 32768色
+  const MAX_BYTES = 77 * 1024;          // 77KB（互換のため export は維持。※画質はもう落とさない）
+  // ★2026-07-14 画質方針転換: TGは実質無制限(getFile DL 20MB圏)なので減色/77KB圧縮を廃止。
+  //   長辺2048(スマホ実寸=ほぼ原寸)・15bit減色なし・JPEG q0.95(実質100%)・若干ハイコントラスト。
+  //   巨大画像(パノラマ等)だけ安全上限6MBに収まるよう段階フォールバック=確実に動く&送信は失敗しない。
+  const HQ_CEIL = 6 * 1024 * 1024;      // 6MB 安全上限（TG DL 20MB制限の十分内・視聴もエッジキャッシュで軽い）
+  const HQ_DIM = 2048;                  // 長辺
+  const HQ_CONTRAST = 1.06;             // 若干ハイコントラスト（中心128基準）
+  function _cl(v){ return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
   function base() { return (window.STORAGE_URL || '').replace(/\/+$/, ''); }
   function ready() { return !!base(); }
@@ -28,35 +34,36 @@
   }
   function toBlob(canvas, q) { return new Promise(r => canvas.toBlob(r, 'image/jpeg', q)); }
 
-  // 画像を 77KB 以内・32768色以内に収める（77KB以下の元画像はそのまま返す）
+  // 画像を「高画質のまま・若干ハイコントラスト」でエンコード（減色なし=フル画質）。
   async function compressImage(file) {
     if (!/^image\//.test(file.type)) return { blob: file, type: file.type, name: file.name || 'file' };
-    if (file.size <= MAX_BYTES) return { blob: file, type: file.type, name: file.name || 'img' };
-
-    const img = await loadImage(file);
+    let img;
+    try { img = await loadImage(file); } catch (e) { return { blob: file, type: file.type, name: file.name || 'img' }; }  // デコード不可=原本そのまま
     let w = img.width, h = img.height;
-    const MAXDIM = 888;   // 送信画像は長辺888pに統一（比率保持・77KB上限内でより低圧縮=クリーン・軽量。index/meettomeet共通）
-    if (Math.max(w, h) > MAXDIM) { const r = MAXDIM / Math.max(w, h); w = Math.round(w * r); h = Math.round(h * r); }
+    if (Math.max(w, h) > HQ_DIM) { const r = HQ_DIM / Math.max(w, h); w = Math.round(w * r); h = Math.round(h * r); }
 
     let scale = 1;
-    for (let dim = 0; dim < 14; dim++) {
+    for (let dim = 0; dim < 8; dim++) {
       const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
       const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
       const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, cw, ch);
-      // 15bit 減色（各チャンネル上位5bit）
-      try { const id = cx.getImageData(0, 0, cw, ch); const d = id.data; for (let i = 0; i < d.length; i += 4) { d[i] &= COLOR_MASK; d[i + 1] &= COLOR_MASK; d[i + 2] &= COLOR_MASK; } cx.putImageData(id, 0, 0); } catch (e) {}
-      let q = 0.82;
-      for (let qi = 0; qi < 6; qi++) {
+      // 若干ハイコントラスト（減色は一切しない=フル画質）
+      try { const id = cx.getImageData(0, 0, cw, ch); const d = id.data; const C = HQ_CONTRAST;
+        for (let i = 0; i < d.length; i += 4) { d[i] = _cl((d[i] - 128) * C + 128); d[i + 1] = _cl((d[i + 1] - 128) * C + 128); d[i + 2] = _cl((d[i + 2] - 128) * C + 128); }
+        cx.putImageData(id, 0, 0); } catch (e) {}
+      let q = 0.95;
+      for (let qi = 0; qi < 5; qi++) {
         const blob = await toBlob(cv, q);
-        if (blob && blob.size <= MAX_BYTES) return { blob, type: 'image/jpeg', name: (file.name || 'img').replace(/\.\w+$/, '') + '.jpg' };
-        q -= 0.12;
+        if (blob && blob.size <= HQ_CEIL) return { blob, type: 'image/jpeg', name: (file.name || 'img').replace(/\.\w+$/, '') + '.jpg' };
+        q -= 0.06;   // 0.95→0.89…（実質100%圏を維持。巨大画像でしか発火しない）
       }
-      scale *= 0.82;                    // まだ大きい → 寸法を縮める
+      scale *= 0.85;                    // それでも6MB超（巨大パノラマ等）=寸法を少し縮める
     }
-    // 最終手段：極小で返す
-    const cv = document.createElement('canvas'); cv.width = 240; cv.height = Math.max(1, Math.round(240 * h / w));
-    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-    const blob = await toBlob(cv, 0.5);
+    // 最終手段：長辺1280で返す（それでも実用画質）
+    const fw = Math.min(1280, w), fh = Math.max(1, Math.round(fw * h / w));
+    const cv = document.createElement('canvas'); cv.width = fw; cv.height = fh;
+    cv.getContext('2d').drawImage(img, 0, 0, fw, fh);
+    const blob = await toBlob(cv, 0.8);
     return { blob, type: 'image/jpeg', name: 'img.jpg' };
   }
 
@@ -97,7 +104,13 @@
   }
 
   // file_id → 表示用URL（<img src> にそのまま使える）
-  function fileUrl(id) { return ready() ? base() + '/dl?id=' + encodeURIComponent(id) : ''; }
+  // ★2026-07-17: 既に完全URL(http/blob/data)ならそのまま返す=ppp(cinema-studio)経由の動画が
+  //   cxvidのチャンク欄に「URL」を入れてくる仕様と整合(/dl?id=<URL>を叩いて再生失敗していたのを根治)。
+  function fileUrl(id) {
+    const s = String(id == null ? '' : id);
+    if (/^(https?:|blob:|data:)/i.test(s)) return s;
+    return ready() ? base() + '/dl?id=' + encodeURIComponent(s) : '';
+  }
 
   // 画像ファイルを「圧縮→アップロード」して { id: file_id, mid: message_id } を返す高水準関数
   async function putImage(file) { const { blob, name, type } = await compressImage(file); return upload(blob, name, type); }
@@ -124,9 +137,25 @@
     return { chunks: ids, mids: mids };
   }
   // チャンクidの配列 → /dl で順に取得して結合 → 再生用 blob URL（再視聴はエッジキャッシュ=0リクエスト）
+  // ★各チャンクは r.ok を確認して最大4回リトライ=一時的な /dl 失敗(Worker/TG_TOKEN欠落の500やモバイル回線)の
+  //   エラーJSONをblobに詰めて「黒い/壊れた動画」になるのを防ぐ(ブラックアウト根絶)。
   async function videoBlobUrl(chunkIds, type) {
     const parts = [];
-    for (const id of (chunkIds || [])) { const r = await fetch(fileUrl(id)); parts.push(await r.arrayBuffer()); }
+    for (const id of (chunkIds || [])) {
+      let buf = null, lastErr = null;
+      for (let attempt = 0; attempt < 4 && buf == null; attempt++) {
+        try {
+          const u0 = fileUrl(id);
+          const r = await fetch(u0 + (attempt ? ((u0.indexOf('?') >= 0 ? '&' : '?') + 'r=' + attempt) : ''));   // ★完全URL(クエリ無し)でも壊れないリトライ用キャッシュバスタ
+          if (!r.ok) throw new Error('dl ' + r.status);           // 500(worker未設定/TG_TOKEN欠落)のJSON本文を動画に混ぜない
+          const ab = await r.arrayBuffer();
+          if (!ab || ab.byteLength < 8) throw new Error('empty chunk');
+          buf = ab;
+        } catch (e) { lastErr = e; if (attempt < 3) await new Promise(function (res) { setTimeout(res, 700 * (attempt + 1)); }); }
+      }
+      if (buf == null) throw (lastErr || new Error('chunk failed'));
+      parts.push(buf);
+    }
     return URL.createObjectURL(new Blob(parts, { type: type || 'video/mp4' }));
   }
 
