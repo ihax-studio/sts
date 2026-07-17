@@ -114,7 +114,10 @@
 
   /* ★Cloudflare Pages 限定: リンクに "pages" を含むホストのみ利用可(Netlifyでは一切モデルを読み込まない)。
      = Netlifyの帯域/リクエストをiHaxモデルで消費しない・モデルはCloudflareで確実に配信/実行する設計。 */
-  function _pagesHost() { try { return /pages\.dev$/.test(location.hostname) || location.hostname.indexOf("pages") >= 0; } catch (_) { return false; } }
+  /* ★以前は pages.dev 限定だったが解禁: iHaxの重みは HuggingFace/CDN 直配信で
+     アプリのホスト(Netlify等)の帯域を一切使わない。どのホストでもPWA(Mac/iPhone/iPad)で
+     動くようにし、実際に動くかは下の WebGPU 判定(supported)に委ねる。 */
+  function _pagesHost() { return true; }
 
   /* ---------- iHax.supported() ---------- */
   async function supported() {
