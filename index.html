@@ -41,8 +41,8 @@
 })();
 </script>
 <link rel="stylesheet" href="globe.css">
-<link rel="stylesheet" href="search-deck.css?v=16">
-<script src="search-deck.js?v=16"></script>
+<link rel="stylesheet" href="search-deck.css?v=17">
+<script src="search-deck.js?v=17"></script>
 <script>window.IHAX_MODEL_BASE="";/* ★iHaxモデル=HuggingFace直配信(完全無料)で確定。R2を使う時だけ公開URLを入れる */
 /* ★LINEログインは廃止(2026-07)。二次ログイン/引き継ぎはGitHub連携+パスキーに一本化 */</script>
 <script src="ihax.js?v=5" defer></script>
@@ -2154,9 +2154,12 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   // hello は1セッション1回だけ（PWAの自動更新リロードで二度出さない）
   var _helloLangKey=((navigator.languages&&navigator.languages[0])||navigator.language||"en").toLowerCase().split(/[-_]/)[0];
   var _helloSeen=false; try{ _helloSeen=(sessionStorage.getItem("gc_hello_lang")===_helloLangKey); }catch(_){}   // ★同じ端末言語なら1セッション1回。端末の言語を変えて開くと別言語で再表示=リアルタイム追従
-  // ★色/黒背景(非globe)はhello(約3.2s)→地球儀への遷移が無い=helloを省略して即boot(色背景の起動遅延を根治)
-  if(_helloSeen || _envMode!=="globe"){
-    if(globeWrap) globeWrap.classList.add("reveal");
+  /* ★挨拶はどの背景(色/ダーク/惑星)でも必ず出す(ユーザ指示2026-07-18: 起動時は確実に国別挨拶)。
+     旧「非globeはhello省略」ゲートが“挨拶が壊れてる”の正体だった=classic廃止で色背景に移行した人は一度も出なかった。
+     二重表示だけは防ぐ(同一セッション+同言語なら1回)。地球儀の露出はglobe/惑星背景の時だけ(色背景で地球が一瞬見える事故を防ぐ) */
+  var _isGlobeEnv=(_envMode==="globe" || String(_envMode).indexOf("planet:")===0);
+  if(_helloSeen){
+    if(globeWrap && _isGlobeEnv) globeWrap.classList.add("reveal");
     if(intro&&intro.parentNode) intro.parentNode.removeChild(intro);
     setTimeout(function(){ window.dispatchEvent(new Event("hello-done")); }, 0);
     return;
@@ -2240,7 +2243,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
     else { var ff=Math.min(1,el/FADE); ctx.globalAlpha=1-ff; PP(1); if(ff>=1){ if(!done){done=true;onHelloDone();} return; } }
     raf=requestAnimationFrame(frame); }
   function onHelloDone(){ cancelAnimationFrame(raf); ctx.clearRect(0,0,cv.width,cv.height);
-    if(globeWrap) globeWrap.classList.add("reveal");     // 実地球儀を scale .77 で出現
+    if(globeWrap && _isGlobeEnv) globeWrap.classList.add("reveal");     // 実地球儀=globe/惑星背景の時だけ出現(色背景で地球が一瞬見えない)
     intro.classList.add("out");
     // hello 完了 → オンボーディング開始（globe 出現に少し遅らせて Broadway 風に展開）
     setTimeout(function(){ window.dispatchEvent(new Event("hello-done")); }, 0);   // ★hello後のdelayを撤去(ユーザ指示)=すぐ会話UIへ
@@ -2261,7 +2264,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
       .then(function(d){ clearTimeout(_hto); if(!cur){ if(d&&d.strokes&&d.strokes.length) _beginHello(d); else _beginHello(HELLO_JA); } })
       .catch(function(){ clearTimeout(_hto); if(!cur) _beginHello(HELLO_JA); }); }
   // hello 出て 0.4s：背景をブラーへフェード、globe を裏で出現させ透けさせる(★地球儀ぐるっは0.1s遅らす)
-  setTimeout(function(){ try{ if(!lightBg) intro.classList.add("bgfade"); if(globeWrap) globeWrap.classList.add("reveal"); }catch(_){} }, 0);   // ★背景の透明blur化を即時=起動時の色フラッシュを残さず地球儀が即透ける(delay撤去)
+  setTimeout(function(){ try{ if(!lightBg) intro.classList.add("bgfade"); if(globeWrap && _isGlobeEnv) globeWrap.classList.add("reveal"); }catch(_){} }, 0);   // ★背景の透明blur化を即時。地球儀の露出はglobe/惑星背景のみ(delay撤去)
 })();
 </script>
 
@@ -8130,6 +8133,9 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
   /* ── 通知エンジン: 自分の全部屋を監視し、開いていない部屋に新着が来たら
      OSデフォルト通知(Notification)＋アプリ内音＋未読赤バッジ。利用者・管理者の両方に効く（管理者の部屋＝連絡してきた利用者全員）。 ── */
   var _unread={}, _roomNotif={}, _wAttached={};   // _wAttached: 各リスナの多重登録ガード（登録/引き継ぎ後に rewatch しても重複しない＝再起動不要）
+  /* ★通知件数(中央下identityカードの件数円)が起動をまたいで確実に出る(ユーザ指示2026-07-18): 未読マップを永続化して起動時に復元 */
+  try{ var _ur0=JSON.parse(localStorage.getItem("gc_unread")||"{}"); if(_ur0&&typeof _ur0==="object"){ for(var _uk in _ur0){ if(_ur0[_uk]>0) _unread[_uk]=_ur0[_uk]; } } }catch(_){}
+  try{ setTimeout(function(){ try{ updateHomeBadge(); }catch(_){} }, 400); }catch(_){}
   /* ★件数円タップ=複数の送り主をblur背景で展開(scale1.1→1 0.7s)。名前+会話内容(暗号lastを復号)+件数。タップで開く。設定は開かない。 */
   function _openNotifPanel(){ try{
     var _rooms=[]; for(var _k in _unread){ if(_unread[_k]>0) _rooms.push(_k); }
@@ -8163,6 +8169,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
         ac.setAttribute("data-n",_cs); }
       else { ac.classList.remove("on"); ac._room=null; ac.removeAttribute("data-n"); } }
     setOSBadge(total);   // OS標準のアプリアイコン・バッジ（端末ホームのアイコンに未読数）を未読合計へ同期
+    try{ localStorage.setItem("gc_unread", JSON.stringify(_unread)); }catch(_){}   // ★起動をまたいで件数円を復元(ユーザ指示)
     if(cur==="gcFriends") buildFriends();
   }catch(_){} }
   /* OS標準のアプリアイコン・バッジ（Badging API）。インストール済みPWA(iOS16.4+/Android/デスクトップ)で動作・非対応は no-op。
@@ -8432,15 +8439,74 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
     qcap.style.cssText="font-family:-apple-system,'SF Pro Display',sans-serif;font-stretch:expanded;font-weight:200;font-size:12px;line-height:1;letter-spacing:.24em;color:rgba(255,255,255,.75)";   // ★expanded light(ユーザ指示)
     qrW.appendChild(qrT); qrW.appendChild(qcap); body.appendChild(qrW);
     if(mbOk){
-      /* ★MBTI(INFP等)=曲の左にexpanded lightで出す(おすすめ曲=他タイプの💜は廃止・ユーザ指示) */
+      /* ★自分のMBTI(INFP等)=曲の左にexpanded light(ユーザ指示) */
       var mbLab=document.createElement("div"); mbLab.textContent=mb;
       mbLab.style.cssText="flex:0 0 auto;font-family:-apple-system,'SF Pro Display',sans-serif;font-stretch:expanded;font-weight:200;font-size:28px;line-height:1;letter-spacing:.14em;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45)";
       body.appendChild(mbLab);
+      /* ★曲=友達のいいね(お気に入り)した曲がMBTI別に並ぶ。各ジャケットの左にその友達のMBTI(ユーザ指示2026-07-18) */
       var rows=document.createElement("div"); rows.style.cssText="flex:1;min-width:0;display:flex;gap:10px;overflow-x:auto;scrollbar-width:none"; body.appendChild(rows);
-      try{ var hh=JSON.parse(localStorage.getItem("cx_hearts")||"[]"); hh.slice(0,3).forEach(function(s){ rows.appendChild(_mbSongTile(s, "")); }); }catch(_){}   // ★自分の最近💜だけ(ラベルはタイルに重ねない)
+      try{ var _frs=(prof.rooms||[]).filter(function(r){ return r.peer && !r.group && !r.pending; }).slice(0,10);
+        _frs.forEach(function(r){ try{ friendSong(r.peer, function(sg){ if(!(sg&&sg.t)) return;
+          var _put=function(mt){ try{ rows.appendChild(_mbSongTile({t:sg.t,a:sg.a||"",art:sg.art||"",p:sg.p||""}, mt||"")); }catch(_){} };
+          try{ if(db){ db.ref("users/"+r.peer+"/mbti").once("value").then(function(s9){ _put(String(s9.val()||"")); }).catch(function(){ _put(""); }); } else _put(""); }catch(_){ _put(""); }
+        }); }catch(_){} }); }catch(_){}
+      if(!((prof.rooms||[]).some(function(r){ return r.peer&&!r.group&&!r.pending; }))){
+        try{ var hh=JSON.parse(localStorage.getItem("cx_hearts")||"[]"); hh.slice(0,3).forEach(function(s){ rows.appendChild(_mbSongTile(s, mb)); }); }catch(_){} }   // 友達0人=自分の最近💜で代用
+    } else {
+      /* ★MBTIがXXXX(未設定)=「MBTIを知る。」ボタン(ユーザ指示2026-07-18): 押すと左右に震え+3回haptic→簡易診断(8問)へ */
+      var knowB=document.createElement("button"); knowB.type="button"; knowB.textContent="MBTIを知る。";
+      knowB.style.cssText="flex:0 0 auto;border:none;border-radius:99px;background:rgba(255,255,255,.13);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);color:#fff;font:300 16px/1 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;letter-spacing:.1em;padding:14px 22px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22)";
+      knowB.onclick=function(e){ e.stopPropagation(); try{ _gcHapN(3,110); }catch(_){ try{ haptic(); }catch(__){} }
+        try{ knowB.style.animation="sdBarShake .55s ease both"; setTimeout(function(){ knowB.style.animation=""; },560); }catch(_){}
+        setTimeout(function(){ try{ _mbtiQuiz(); }catch(_){} }, 340); };
+      body.appendChild(knowB);
     }
     scroll.appendChild(sec);   // ★scroll(apps)の下=検索バーの上=appsとバーの間
   }catch(_){} }
+  /* ★MBTI簡易診断(ユーザ指示2026-07-18): 本家より少ない8問(各軸2問)・簡潔で的確。結果はprof.mbti+DBへ保存 */
+  function _mbtiQuiz(){
+    var Q=[
+      { a:"友達とワイワイして回復する", b:"ひとりの時間で回復する",           k:["E","I"] },
+      { a:"初対面でも自分から話す",     b:"話しかけられるのを待つ",           k:["E","I"] },
+      { a:"具体的な事実・経験を話す",   b:"アイデアや可能性を話す",           k:["S","N"] },
+      { a:"手順どおりに進めたい",       b:"ざっくり感覚で進めたい",           k:["S","N"] },
+      { a:"まず解決策を考える",         b:"まず気持ちに寄り添う",             k:["T","F"] },
+      { a:"筋が通っているかで決める",   b:"みんなが納得するかで決める",       k:["T","F"] },
+      { a:"予定はきっちり決めたい",     b:"その場のノリで動きたい",           k:["J","P"] },
+      { a:"早めに終わらせて安心したい", b:"ギリギリの集中力に賭ける",         k:["J","P"] }];
+    var tally={E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0}, qi=0;
+    var ov=document.createElement("div");
+    ov.style.cssText="position:fixed;inset:0;z-index:9882;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:0 8vw;box-sizing:border-box;background:transparent;-webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);opacity:0;transition:opacity .5s ease, -webkit-backdrop-filter .5s ease, backdrop-filter .5s ease";
+    function close(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); }
+    ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
+    var prog=document.createElement("div"); prog.style.cssText="color:rgba(255,255,255,.5);font:500 13px/1 -apple-system,'SF Pro Text',sans-serif;letter-spacing:.2em";
+    var qt=document.createElement("div"); qt.textContent="どっちが近い？";
+    qt.style.cssText="color:#fff;font:200 30px/1.4 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;text-align:center;text-shadow:0 2px 16px rgba(0,0,0,.5)";
+    var wrapB=document.createElement("div"); wrapB.style.cssText="display:flex;flex-direction:column;gap:12px;width:min(84vw,360px)";
+    function pill(){ var b=document.createElement("button"); b.type="button";
+      b.style.cssText="border:none;border-radius:22px;background:rgba(255,255,255,.13);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);color:#fff;font:500 16.5px/1.5 -apple-system,'Hiragino Sans',sans-serif;padding:17px 20px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22);text-align:center";
+      return b; }
+    var bA=pill(), bB=pill(); wrapB.appendChild(bA); wrapB.appendChild(bB);
+    function show(){ var q=Q[qi]; prog.textContent=(qi+1)+" / "+Q.length; bA.textContent=q.a; bB.textContent=q.b;
+      [qt,bA,bB].forEach(function(el,i){ el.style.transition="none"; el.style.opacity="0"; el.style.transform="translateY(14px)";
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.style.transition="opacity .4s ease "+(i*0.05)+"s, transform .4s cubic-bezier(.22,1,.36,1) "+(i*0.05)+"s"; el.style.opacity="1"; el.style.transform="none"; }); }); }); }
+    function pick(side){ try{ haptic(); }catch(_){} tally[Q[qi].k[side]]++; qi++;
+      if(qi<Q.length){ show(); return; }
+      var res=(tally.E>=tally.I?"E":"I")+(tally.S>=tally.N?"S":"N")+(tally.T>=tally.F?"T":"F")+(tally.J>=tally.P?"J":"P");
+      prof.mbti=res; save(); try{ if(db&&uid) db.ref("users/"+(myAddr()||uid)).update({ mbti:res }); }catch(_){}
+      prog.textContent=""; wrapB.style.display="none";
+      qt.style.transition="none"; qt.style.opacity="0"; qt.style.transform="scale(.6)";
+      qt.textContent=res; qt.style.font="200 64px/1.2 -apple-system,'SF Pro Display',sans-serif"; qt.style.letterSpacing=".18em";
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ qt.style.transition="opacity .5s ease, transform .7s cubic-bezier(.22,1,.36,1)"; qt.style.opacity="1"; qt.style.transform="scale(1)"; }); });
+      try{ if(haptic.confirm)haptic.confirm(); else haptic(); }catch(_){}
+      try{ dynamicIsland("MBTIを保存したよ · "+res); }catch(_){}
+      setTimeout(function(){ close(); try{ _injectMbtiSongs(); }catch(_){} }, 1600); }
+    bA.onclick=function(e){ e.stopPropagation(); pick(0); };
+    bB.onclick=function(e){ e.stopPropagation(); pick(1); };
+    ov.appendChild(prog); ov.appendChild(qt); ov.appendChild(wrapB);
+    document.body.appendChild(ov);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; ov.style.webkitBackdropFilter="blur(30px) saturate(150%)"; ov.style.backdropFilter="blur(30px) saturate(150%)"; }); });
+    show(); }
   /* ★設定(自分の情報)の「QRを表示」ボタン→検索のQRのところを開いて見せる(ユーザ指示) */
   window.__gcShowMyQR=function(){ try{ spotOpenSearch({focus:false}); }catch(_){ return; }
     setTimeout(function(){ try{ var s=document.querySelector("#searchOv .gc-mbti-songs"); if(s&&s.scrollIntoView){ s.scrollIntoView({block:"center",behavior:"smooth"}); } }catch(_){} },420); };
@@ -11341,8 +11407,18 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         aw.appendChild(b); return b; }
       inner.forEach(function(it,i){ var b=place(it, Rin, inC, i, inner.length);
         setTimeout(function(){ b.style.opacity="1"; b.style.transform="translate(-50%,-50%) scale(1)"; }, 160+i*30); });   // ★内周からぽぽぽっ
-      (function(){ var b=place({t:"pick"}, Rin, inC, 0, 1);   // ★OSパレット=下中央(円周の枠外)に別置き
-        setTimeout(function(){ b.style.opacity="1"; b.style.transform="translate(-50%,-50%) scale(1)"; }, 160+inner.length*30); })();
+      /* ★グラデborder=アイコン自体の周り(ユーザ指示2026-07-18): 5pxのconic-gradientリングをavaに重ねる。
+         パレット本体は非表示のinput=アイコンタップで開く(独立スウォッチは廃止) */
+      (function(){ var grad=document.createElement("div");
+        grad.style.cssText="position:absolute;left:50%;top:50%;width:118px;height:118px;transform:translate(-50%,-50%) scale(.2);opacity:0;border-radius:50%;background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);-webkit-mask:radial-gradient(closest-side,transparent calc(100% - 5.5px),#000 calc(100% - 5px));mask:radial-gradient(closest-side,transparent calc(100% - 5.5px),#000 calc(100% - 5px));pointer-events:none;transition:transform .5s var(--gc-spring), opacity .4s var(--gc-ease);z-index:0";
+        aw.appendChild(grad);
+        setTimeout(function(){ grad.style.opacity="1"; grad.style.transform="translate(-50%,-50%) scale(1)"; }, 140);
+        var ci=document.createElement("input"); ci.type="color"; ci.value=(prof.color&&/^#/.test(prof.color))?prof.color:"#62d8ff";
+        ci.style.cssText="position:absolute;left:50%;top:50%;width:1px;height:1px;opacity:0;border:none;padding:0";
+        ci.oninput=function(){ try{ markColor(ci.value); }catch(_){ prof.color=ci.value; save(); }
+          ava.style.background=ci.value; go.style.background=ci.value; go.style.color=_gcInkFor(ci.value); inp.style.caretColor=ci.value; };
+        ci.onclick=function(e2){ e2.stopPropagation(); };
+        aw.appendChild(ci); try{ window.__nobPalInput=ci; }catch(_){} })();
       GC_RING_OUT.forEach(function(e,i){ var b=place({t:"emo", v:e}, Rout, outC, i, GC_RING_OUT.length);
         setTimeout(function(){ b.style.opacity="1"; b.style.transform="translate(-50%,-50%) scale(1)"; }, 160+inner.length*30+i*28); });
     })();
