@@ -41,8 +41,8 @@
 })();
 </script>
 <link rel="stylesheet" href="globe.css">
-<link rel="stylesheet" href="search-deck.css?v=17">
-<script src="search-deck.js?v=17"></script>
+<link rel="stylesheet" href="search-deck.css?v=18">
+<script src="search-deck.js?v=18"></script>
 <script>window.IHAX_MODEL_BASE="";/* ★iHaxモデル=HuggingFace直配信(完全無料)で確定。R2を使う時だけ公開URLを入れる */
 /* ★LINEログインは廃止(2026-07)。二次ログイン/引き継ぎはGitHub連携+パスキーに一本化 */</script>
 <script src="ihax.js?v=5" defer></script>
@@ -2274,6 +2274,8 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
     fetch("hello/"+_pick.file+".json").then(function(r){ if(!r.ok) throw 0; return r.json(); })
       .then(function(d){ clearTimeout(_hto); if(!cur){ if(d&&d.strokes&&d.strokes.length) _beginHello(d); else _beginHello(HELLO_JA); } })
       .catch(function(){ clearTimeout(_hto); if(!cur) _beginHello(HELLO_JA); }); }
+  /* ★最終保険(ユーザ指示2026-07-18: helloバグりすぎ→確実に): どの経路が死んでも2.5s以内に必ず国別(ja=こんにちは/en=hello)を描く */
+  setTimeout(function(){ try{ if(!cur && !done){ _beginHello((_pick.mode==="en")?HELLO_EN:HELLO_JA); } }catch(_){} }, 2500);
   // hello 出て 0.4s：背景をブラーへフェード、globe を裏で出現させ透けさせる(★地球儀ぐるっは0.1s遅らす)
   setTimeout(function(){ try{ if(!lightBg) intro.classList.add("bgfade"); if(globeWrap && _isGlobeEnv) globeWrap.classList.add("reveal"); }catch(_){} }, 0);   // ★背景の透明blur化を即時。地球儀の露出はglobe/惑星背景のみ(delay撤去)
 })();
@@ -2445,7 +2447,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   .gc-ava-col{ display:flex; flex-direction:column; justify-content:center; align-items:center; min-width:0; line-height:1.12; text-align:center; }   /* ★名前とMBTIを互いに中央揃え(flex-startのガタつき廃止・ユーザ指示) */
   #gcAvaSub{ font:600 11px/1.3 -apple-system,'SF Pro Text',sans-serif; letter-spacing:2px; color:rgba(255,255,255,.62); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:42vw; text-shadow:0 1px 5px rgba(0,0,0,.5); }
   body.gc-bgwhite #gcAvaSub{ color:rgba(0,0,0,.5); text-shadow:none; }
-  #gcAvaCount{ display:none; min-width:40px; height:40px; align-items:center; justify-content:center; background:none; color:var(--gc-user,#62d8ff); font:100 21px/1 -apple-system,'SF Pro Display','SF Pro Text',sans-serif; flex:0 0 auto; padding:0 4px; margin-left:2px; cursor:pointer; -webkit-tap-highlight-color:transparent; text-shadow:0 1px 7px rgba(0,0,0,.5); }   /* ★件数=枠(丸)撤去・数字はSF Pro weight1・少し大きく・押しやすい40pxヒット(ユーザ指示) */
+  #gcAvaCount{ display:none; min-width:40px; height:40px; align-items:center; justify-content:center; background:none; color:var(--gc-user,#62d8ff); font:400 22px/1 -apple-system,'SF Pro Display','SF Pro Text',sans-serif; flex:0 0 auto; padding:0 4px; margin-left:2px; cursor:pointer; -webkit-tap-highlight-color:transparent; text-shadow:0 1px 4px rgba(0,0,0,.65), 0 0 12px rgba(0,0,0,.35); }   /* ★件数(最初のやつ)=weight1が薄すぎたのを修正: weight400+22px+影強化=くっきり見える(ユーザ指示2026-07-18) */
   #gcAvaCount.on{ display:flex; }
   @keyframes gcCountPop{ 0%{ transform:scale(.8); } 100%{ transform:scale(1); } }
   #gcSearchFab .ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; filter:none; }
@@ -2875,6 +2877,14 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   .gc-msg{ font-weight:100; }
   /* ★チャットの上下スワイプ死守(デバッグ2026-07-18): メッセージ領域は常に縦パン可・慣性は領域内で完結 */
   #gcMsgs{ touch-action:pan-y !important; overscroll-behavior:contain; }
+  /* ★メッセージ一覧=iOSストップウォッチのラップ一覧のように独立した区画にセパレート(ユーザ指示2026-07-18):
+     上下に極細ヘアライン+テキストメッセージ間にもラップ風の極細区切り(画像/カード系には引かない) */
+  #gcMsgs{ border-top:.5px solid rgba(255,255,255,.13); border-bottom:.5px solid rgba(255,255,255,.13); }
+  #gcMsgs .gc-msg:not(.img){ position:relative; }
+  #gcMsgs .gc-msg:not(.img)::after{ content:""; position:absolute; left:2px; right:2px; bottom:-5px; height:.5px; background:rgba(255,255,255,.09); pointer-events:none; }
+  #gcMsgs .gc-msg:last-child::after{ display:none; }
+  body.gc-bgwhite #gcMsgs{ border-color:rgba(0,0,0,.12); }
+  body.gc-bgwhite #gcMsgs .gc-msg:not(.img)::after{ background:rgba(0,0,0,.08); }
   .gc-msg.me{touch-action:pan-y!important;overscroll-behavior-x:none!important; align-self:flex-end; text-align:right; }
   .gc-msg.armed{touch-action:pan-y!important;overscroll-behavior-x:none!important; }
   .gc-msg .mn{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; font-size:14px; font-weight:400; opacity:.55; margin-bottom:2px; text-shadow:none; }
@@ -2891,8 +2901,9 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* 相手のメッセージ=左から右へ0.7sスライドイン / 自分=右からフェード＋スライドイン(チャットを開いた時も同様) */
   .gc-msg.anim-peer{ animation:gcMsgInL .7s var(--gc-ease) both; }
   .gc-msg.anim-me{ animation:gcMsgInR .7s var(--gc-ease) both; }
-  @keyframes gcMsgInL{ from{ transform:translateX(-52px); } to{ transform:translateX(0); } }
-  @keyframes gcMsgInR{ from{ opacity:0; transform:translateX(44px); } to{ opacity:1; transform:translateX(0); } }
+  /* ★最新のメッセージは上から「降りてくる」(ユーザ指示2026-07-18): 横スライドに-16pxの縦降下を合成 */
+  @keyframes gcMsgInL{ from{ transform:translate(-52px,-16px); } to{ transform:translate(0,0); } }
+  @keyframes gcMsgInR{ from{ opacity:0; transform:translate(44px,-16px); } to{ opacity:1; transform:translate(0,0); } }
   /* メニュー背景: ダブルタップで開くと 0.7s でblurがかかる */
   .gc-mm-blur{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9300; opacity:0; background:rgba(0,0,0,0);
     -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
@@ -4692,6 +4703,15 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
           setTimeout(function(){ try{ card.remove(); }catch(_){} },300);
           try{ dynamicIsland("モーメントから削除しました"); }catch(_){} };
         card.appendChild(delB);
+        /* ★ハイライト(Insta風・ユーザ指示2026-07-18): ✨で思い出からハイライトを作成/解除→友達のチャット下の行に出る(users/<me>/hl) */
+        if(m.im || (m.sg&&m.sg.art)){ (function(){ var hlB=document.createElement("button"); hlB.textContent="✨";
+          hlB.style.cssText="position:absolute;left:8px;bottom:7px;border:none;background:none;font-size:22px;cursor:pointer;padding:4px;filter:drop-shadow(0 1px 5px rgba(0,0,0,.6));opacity:"+(m.hl?"1":".45")+";transition:opacity .3s, transform .3s var(--gc-spring);-webkit-tap-highlight-color:transparent;z-index:4";
+          hlB.onclick=function(e){ e.stopPropagation(); haptic(); _selfT=Date.now(); m.hl=!m.hl;
+            hlB.style.opacity=m.hl?"1":"0.45"; hlB.style.transform="scale(.6)"; requestAnimationFrame(function(){ requestAnimationFrame(function(){ hlB.style.transform="scale(1)"; }); });
+            try{ db.ref("gallery/"+addr+"/"+x.key+"/id").set(JSON.stringify(m)); }catch(_){}
+            try{ if(m.hl){ db.ref("users/"+addr+"/hl/"+x.key).set({ im:(m.im||""), sg:((m.sg&&m.sg.art)||""), e:(m.e||""), ts:(x.ts||0) }); } else { db.ref("users/"+addr+"/hl/"+x.key).remove(); } }catch(_){}
+            try{ dynamicIsland(m.hl?"✨ ハイライトに追加したよ":"ハイライトから外しました"); }catch(_){} };
+          card.appendChild(hlB); })(); }
         /* ★思い出はちゃんと日付ごとに分かれて見える=グループ先頭に日付見出し(ユーザ指示2026-07-18) */
         if(x.__tlFirst){ var _hd=document.createElement("div"); _hd.textContent=x.__lb||"";
           _hd.style.cssText="grid-column:1/-1;color:rgba(255,255,255,.85);font:600 14px/1 -apple-system,'SF Pro Text','Hiragino Sans',sans-serif;letter-spacing:.06em;padding:12px 2px 0;text-shadow:0 1px 6px rgba(0,0,0,.5)";
@@ -6230,8 +6250,9 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       _tl.textContent=_gcMsgTimeLabel(_mts); mm.appendChild(_tl); } }catch(_){}   // ★「に送信」廃止=時刻(xx:xx)だけ・5px大きく(ユーザ指示)
     var rx=document.createElement("div"); rx.className="gc-mm-react";
     var plus=document.createElement("button"); plus.className="gc-mm-plus"; plus.textContent="+"; rx.appendChild(plus);
+    plus.addEventListener("pointerdown", function(){ try{ _gcHapN(5,90); }catch(_){ try{ haptic(); }catch(__){} } }, {passive:true});   /* ★リアクションの+=haptic5回(ユーザ指示2026-07-18) */
     var _myHeart=(function(){ try{ return (prof&&prof.ava&&_isHeart(prof.ava))?prof.ava:"❤️"; }catch(_){ return "❤️"; } })();   // ★リアクションのハートは「自分が選んだハートアイコン」と同期=そのハートが出る(ハートを選んだ時のみ・ユーザ指示)
-    var base=[_myHeart,"👍"], more=["😂","🥺","🙏","🔥"];   // ★😢😮🥹を廃止・🥺を追加(ユーザ指示)
+    var base=[_myHeart,"👍"], more=["😂","🥺","🔥"];   // ★😢😮🥹を廃止・🥺を追加・🙏も廃止(ユーザ指示2026-07-18)。保存index(REACT_EMOJI)は不変
     function addRe(em){ var b=document.createElement("button"); b.className="gc-mm-re"; b.textContent=em;
       if(_isHeart(em)){ b.style.fontSize="41px"; }   // ★ハート(選んだハート含む)はさらに3px大きく(ユーザ指示)
       if(m.r&&reactEmoji(m.r[uid])===em) b.classList.add("active");
@@ -7915,6 +7936,11 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
           /* ★ハートを選ぶとアイコンの枠色もハートに合う色に自動変更(後から自分で色変更は可・ユーザ指示) */
           try{ var _hc={"💜":"#B024D8","❤️":"#FF3B30","💙":"#007AFF","🖤":"#3a3a3f","🩷":"#FF2D92","💚":"#34C759","🧡":"#FF9500","💛":"#FFCC00","🤍":"#E9E9EE"}[em];   /* ★💜=明るくて濃い赤寄りパープル(ユーザ指示) */
             if(_hc&&!prof.admin){ try{ markColor(_hc); }catch(__){ prof.color=_hc; save(); } try{ if(!avaIsImg(prof.ava)) avIn.style.background=_hc; }catch(__){} } }catch(_){}
+          /* ★✨/💫を選ぶと冥王星背景がscaleupで出る(お楽しみ・ユーザ指示2026-07-18) */
+          try{ if(em==="✨"||em==="💫"){ setEnvMode("planet:pluto");
+            var _gw9=$("globeWrap"); if(_gw9){ _gw9.style.transition="none"; _gw9.style.transform="scale(.55)";
+              requestAnimationFrame(function(){ requestAnimationFrame(function(){ _gw9.style.transition="transform .8s cubic-bezier(.22,1,.36,1)"; _gw9.style.transform="scale(1)";
+                setTimeout(function(){ try{ _gw9.style.transition=""; _gw9.style.transform=""; }catch(__){} },850); }); }); } } }catch(_){}
           ov2.style.opacity="0"; setTimeout(function(){ try{ ov2.remove(); }catch(_){} renderAnniv(); },260); };
         host.appendChild(b); setTimeout(function(){ b.style.opacity="1"; b.style.transform="translate(-50%,-50%) scale(1)"; }, base+i*30); }); }
       ring(ANN_EMO.slice(0,12), Rin, 120); ring(ANN_EMO.slice(12), Rout, 460);
@@ -8536,7 +8562,7 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
       camera: function(){ try{ stCamera(); }catch(_){} },   // ★友達1行の左端「＋」=投稿カメラ(カメラappの代替・ユーザ指示)
       apps: (window.__gcApps=[
         /* ★ミュージック=classicのみ(iPod)。それ以外は再生中だけ出す(gone=開くたび評価)。al=検索別名(英語/ローマ字/かな) */
-        {n:"ミュージック", i:"ppm.png", al:"music おんがく 音楽 player", gone:function(){ try{ return !window.__gcCurSong; }catch(_){ return false; } }, run:function(){ try{ if(window.__gcCurSong){ openPlayerX(); } else { setTimeout(function(){ spotOpenSearch({focus:true}); },60); } }catch(_){} }},   // ★Purple Musicアプリ廃止→内蔵プレイヤー/検索(classic分岐も廃止)
+        {n:"ミュージック", i:((window.__gcCurSong&&(window.__gcCurSong.art||String(window.__gcCurSong.artworkUrl100||"").replace("100x100","300x300")))||"ppm.png"), al:"music おんがく 音楽 player", gone:function(){ try{ return !window.__gcCurSong; }catch(_){ return false; } }, run:function(){ try{ if(window.__gcCurSong){ openPlayerX(); } else { setTimeout(function(){ spotOpenSearch({focus:true}); },60); } }catch(_){} }},   // ★再生中=タイルのアイコンが曲のジャケットになる(ユーザ指示2026-07-18)
         {n:"🍍ppp", i:"purple-pin-icon.png", al:"ppp cinema 動画編集 えでぃた", run:function(){ window.__openApp("apps/cinema-studio-final.html","🍍ppp"); }},
         {n:"Document Studio", i:"codument.png", al:"document docs 書類 どきゅめんと", hidden:true, run:function(){ window.__openApp("apps/document-studio.html","Document Studio"); }},   // ★検索した時だけ出る
         {n:"Story Magic", i:"iHax-Apps.png", al:"story magic すとーりー まじっく", gone:function(){ try{ return !(window.__ihaxOK && window.iHax && window.iHax.ready); }catch(_){ return true; } }, run:function(){ try{ _smAgent(); }catch(_){} }},   // ★iHaxモデルをinstall(ready)済みの時だけ表示=「どんなAppを作りますか？」工房
@@ -8736,7 +8762,7 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
       ov.style.cssText="position:fixed;inset:0;z-index:9820;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.45);-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);opacity:0;visibility:hidden;transform:scale(.96);transition:opacity .4s var(--gc-ease),transform .5s var(--gc-spring),visibility .4s";
       var card=document.createElement("div"); card.style.cssText="width:min(92vw,420px);background:rgba(28,28,32,.92);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.55);color:#fff";
       var ttl=document.createElement("div"); ttl.textContent="アクティビティ"; ttl.style.cssText="font-size:23px;font-weight:800;text-align:center";
-      var sub=document.createElement("div"); sub.textContent="反応しないアプリは選んで終了"; sub.style.cssText="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin:6px 0 16px";
+      var sub=document.createElement("div"); sub.textContent="Appについて"; sub.style.cssText="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin:6px 0 16px";   /* ★メニューバー的な項目は廃止=Appについてのみ(ユーザ指示2026-07-18) */
       var list=document.createElement("div"); list.id="gcActList"; list.style.cssText="display:flex;flex-direction:column;gap:6px";
       var cl=document.createElement("button"); cl.textContent="✕"; cl.style.cssText="position:absolute;top:max(env(safe-area-inset-top),14px);left:14px;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:16px;cursor:pointer";
       ov._close=function(){ haptic(); ov.style.opacity="0"; ov.style.transform="scale(.96)"; setTimeout(function(){ ov.style.visibility="hidden"; },420); };
@@ -8752,11 +8778,8 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
       if(btnLabel){ var b=document.createElement("button"); b.textContent=btnLabel;
         b.style.cssText="border:none;color:#fff;font-size:13px;font-weight:700;padding:7px 16px;border-radius:99px;cursor:pointer;background:"+(danger?"#ff3b30":"rgba(255,255,255,.18)"); b.onclick=onBtn; r.appendChild(b); }
       list.appendChild(r); }
-    row("会話", null, null, false);
-    row("検索", null, null, false);
-    if(window.__appState && window.__appState.name){ row(window.__appState.name+"（アプリ）","終了",function(){ haptic();
-      if(confirm("作業中の内容は失われます")){ try{ var ao=document.getElementById("gcAppOv"); if(ao&&ao._closeApp) ao._closeApp(); }catch(_){}
-        try{ var fr=document.getElementById("gcAppFrame"); if(fr) fr.src="about:blank"; }catch(_){} window.__appState=null; ov._close(); } }, true); }
+    /* ★メニューバーの概念(会話/検索の固定行)は廃止・アプリの「終了」ボタンも廃止=Appについての情報だけ(ユーザ指示2026-07-18) */
+    if(window.__appState && window.__appState.name){ row(window.__appState.name+"（アプリ）", null, null, false); }
     row("Shake to Shake","再起動",function(){ haptic(); restartToHello(); }, true, "gcActHealth");   // 確認なしで即ページ再読み込み
     try{ Health.applyTo(document.getElementById("gcActHealth"), Health.state()); }catch(_){}   // ★サーバー状態を色＋⚠️で反映（白=正常／黄=一部問題・混雑／赤=全障害）。アクティビティ内に表示＝ホームには出さない
     ov.style.visibility="visible"; void ov.offsetWidth; ov.style.opacity="1"; ov.style.transform="scale(1)"; haptic();
@@ -9163,7 +9186,54 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     document.body.appendChild(b);
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ b.style.transform="translateY(0)"; b.style.opacity="1"; }); });
   }catch(_){} }
-  function gcLeaveChat(){ leaveChatListeners(); chatRoom=null; try{ document.body.classList.remove("gc-inchat"); }catch(_){} try{ var _sb=$("gcSuggBar"); if(_sb) _sb.remove(); }catch(_){} hideAll(); if(prof.onboarded){ gotoHome(); } else { startReg(); } }
+  /* ★Insta風ハイライト(ユーザ指示2026-07-18): 友達のチャット画面の下(入力の上)に丸カバーの行。
+     左右スワイプで端まで見れて、タップ=ビューア(左右snap)、♥=いいね(1アイテム1回・❤️を送って知らせる) */
+  function _chatHlClear(){ try{ var r=$("gcHlRow"); if(r) r.remove(); }catch(_){} }
+  function _chatHighlights(room){ try{
+    _chatHlClear(); if(!db||!room) return;
+    var ro=(prof.rooms||[]).filter(function(x){ return x.room===room; })[0]||{}; var peer=ro.peer; if(!peer||ro.group) return;
+    db.ref("users/"+peer+"/hl").limitToLast(24).once("value").then(function(s){ if(chatRoom!==room) return;
+      var v=s.val()||{}; var items=Object.keys(v).map(function(k){ var e=v[k]||{}; return {k:k, im:e.im||"", sg:e.sg||"", e:e.e||"", ts:e.ts||0}; })
+        .filter(function(x){ return x.im||x.sg; }).sort(function(a,b){ return b.ts-a.ts; });
+      if(!items.length) return;
+      var row=document.createElement("div"); row.id="gcHlRow"; row.setAttribute("data-hswipe","");
+      row.style.cssText="position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);z-index:9130;display:flex;gap:12px;align-items:center;padding:6px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x;opacity:0;transform:translateY(16px);transition:opacity .5s var(--gc-ease), transform .5s cubic-bezier(.22,1,.36,1)";
+      items.forEach(function(it, ix){ var b=document.createElement("button"); b.type="button";
+        var u=it.im?(/^https?:/.test(it.im)?it.im:(window.Store?Store.fileUrl(it.im):"")):it.sg; if(!u) return;
+        b.style.cssText="flex:0 0 auto;width:48px;height:48px;border-radius:50%;border:none;padding:0;cursor:pointer;background:#111 url('"+String(u).replace(/'/g,"%27")+"') center/cover no-repeat;box-shadow:0 0 0 2px rgba(255,255,255,.75), 0 4px 14px rgba(0,0,0,.4);-webkit-tap-highlight-color:transparent";
+        b.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} _hlView(items, ix, room, peer); };
+        row.appendChild(b); });
+      document.body.appendChild(row);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ row.style.opacity="1"; row.style.transform="translateY(0)"; }); });
+    }).catch(function(){});
+  }catch(_){} }
+  function _hlView(items, idx, room, peer){ try{
+    var ov=document.createElement("div"); ov.setAttribute("data-hswipe","");
+    ov.style.cssText="position:fixed;inset:0;z-index:9868;background:transparent;-webkit-backdrop-filter:blur(30px) saturate(140%);backdrop-filter:blur(30px) saturate(140%);opacity:0;transition:opacity .3s var(--gc-ease);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px";
+    function close(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },320); }
+    ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
+    var tr=document.createElement("div"); tr.setAttribute("data-hswipe","");
+    tr.style.cssText="display:flex;align-items:center;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:0 14vw;scrollbar-width:none;touch-action:pan-x;width:100vw";
+    var cards=[];
+    items.forEach(function(it){ var sl=document.createElement("div");
+      var u=it.im?(/^https?:/.test(it.im)?it.im:(window.Store?Store.fileUrl(it.im):"")):it.sg;
+      sl.style.cssText="flex:0 0 auto;width:min(74vw,400px);aspect-ratio:1/1;margin:0 4vw;scroll-snap-align:center;border-radius:20px;background:#101018 url('"+String(u||"").replace(/'/g,"%27")+"') center/cover no-repeat;box-shadow:0 18px 50px rgba(0,0,0,.5);position:relative";
+      if(it.e){ var eb=document.createElement("div"); eb.textContent=it.e; eb.style.cssText="position:absolute;right:10px;bottom:8px;font-size:26px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6))"; sl.appendChild(eb); }
+      tr.appendChild(sl); cards.push(sl); });
+    ov.appendChild(tr);
+    var hb=document.createElement("button"); hb.type="button"; hb.textContent="♥";
+    hb.style.cssText="border:none;background:none;color:rgba(255,255,255,.9);font:400 42px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;filter:drop-shadow(0 2px 10px rgba(0,0,0,.5));-webkit-tap-highlight-color:transparent;transition:transform .3s var(--gc-spring), color .2s";
+    hb.onclick=function(e){ e.stopPropagation(); try{ if(haptic.confirm)haptic.confirm(); else haptic(); }catch(_){}
+      hb.style.color="#ff375f"; hb.style.transform="scale(1.25)"; setTimeout(function(){ hb.style.transform="scale(1)"; },300);
+      var mid=tr.scrollLeft+tr.clientWidth/2, ci=0, cd=1e9; cards.forEach(function(sl,i){ var c=sl.offsetLeft+sl.offsetWidth/2; if(Math.abs(c-mid)<cd){ cd=Math.abs(c-mid); ci=i; } });
+      var key="cx_hl_like_"+peer+"_"+((items[ci]&&items[ci].k)||ci);
+      try{ if(!localStorage.getItem(key)){ localStorage.setItem(key,"1"); pushMessage(room, "❤️"); dynamicIsland("ハイライトにいいねしたよ ❤️"); } }catch(_){} };
+    ov.appendChild(hb);
+    document.body.appendChild(ov);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1";
+      var t=cards[Math.max(0,Math.min(cards.length-1, idx||0))]; if(t){ tr.scrollLeft=t.offsetLeft-(tr.clientWidth-t.offsetWidth)/2; } }); });
+  }catch(_){} }
+  function gcLeaveChat(){ leaveChatListeners(); chatRoom=null; try{ document.body.classList.remove("gc-inchat"); }catch(_){} try{ var _sb=$("gcSuggBar"); if(_sb) _sb.remove(); }catch(_){} try{ _chatHlClear(); }catch(_){} hideAll(); if(prof.onboarded){ gotoHome(); } else { startReg(); } }
   /* ★独自機能: チャットを左スワイプ（中央域）で最初の画面へ戻る。戻るボタン不要。
      ・右スワイプ=返信／端24px起点=ドック召喚 とは競合しない（中央域・左方向のみ・横優先で判定）。 */
   (function(){ var sc=$("gcChat"); if(!sc) return; var x0=0,y0=0,act=false;
@@ -9354,7 +9424,8 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           if(_cacheShown){ _cacheShown=false; try{ $("gcMsgs").innerHTML=""; }catch(_){} msgEls={}; _gcLastTs[room]=0; }   // キャッシュ表示を実データで置換(時刻区切りもリセット)
           _chatRenderN++;
           if(_chatRenderN===1){ try{ Health.report('fb', true, Date.now()-_loadT0); }catch(_){} _chatReadRetry[room]=0; _chatReadErr[room]=false; try{ _chatSuggDismiss(); }catch(_){} }   // 初回到達＝Firebase健全・★初メッセージ=提案バーは0.5s縮小で消える
-          m=m||{}; m._key=key; m._room=room; renderMsg(m, room); cacheMsg(room, m); try{ _talkStamp(room, m.ts); }catch(_){}   // 描画＋ローカルキャッシュ（追加リクエスト0）＋★最近話した記録
+          m=m||{}; m._key=key; m._room=room; try{ window.__gcMsgAt=Date.now(); }catch(_){}   /* ★受信時刻をマーク=直後のキーボードblurは奪還する(勝手に閉じるバグ根治・ユーザ指示2026-07-18) */
+          renderMsg(m, room); cacheMsg(room, m); try{ _talkStamp(room, m.ts); }catch(_){}   // 描画＋ローカルキャッシュ（追加リクエスト0）＋★最近話した記録
           if(!firstLoad && m && m.f!==uid){ markSeen(); markActive();
             if(document.visibilityState!=="visible"){ notifyMessage({room:room, name:($("gcChatTitle").textContent||title)}, m); }   // 開いてるがバックグラウンド→OS通知
             else { if(prof.notif) playNotifSound(); haptic(); } }
@@ -9424,6 +9495,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     setTimeout(function(){ if(chatRoom===room && _chatRenderN===0 && !_cacheShown){ if(renderCachedRoom(room)){ _cacheShown=true; try{ dynamicIsland("キャッシュから会話を表示中"); }catch(_){} } } }, 2600);   // !_cacheShown＝既にキャッシュ描画済みなら2本目のタイマーは描画しない（二重防止の二段構え）
     setTimeout(function(){ if(chatRoom===room && _chatRenderN===0 && !_cacheShown){ var ld=$("gcMsgs")&&$("gcMsgs").querySelector(".gc-msgs-loading"); if(ld) ld.remove(); } }, 6000);   // 6秒で何も来なければ空チャットとしてスピナー停止（無限回転防止）
     setTimeout(function(){ if(chatRoom===room && _chatRenderN===0){ try{ _chatSuggBar(room); }catch(_){} } }, 3200);   // ★初めて繋がった相手(空チャット)=挨拶の提案がスライドアップ(ユーザ指示)
+    try{ _chatHighlights(room); }catch(_){}   // ★友達のハイライト(Insta風)を画面下に(ユーザ指示2026-07-18)
     // 履歴に部屋を記録
     prof.rooms=prof.rooms||[]; if(!prof.rooms.some(function(r){return r.room===room;})){ prof.rooms.unshift({room:room,name:title}); prof.rooms=prof.rooms.slice(0,20); save(); }
   }
@@ -9922,6 +9994,8 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           var _pw=document.createElement("button"); _pw.type="button";
           _pw.style.cssText="position:relative;display:block;width:min(62vw,240px);aspect-ratio:1/1;border:none;border-radius:15px;overflow:hidden;background:#0c101a;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0";
           if(_pd.id&&window.Store){ var _pim=document.createElement("img"); _pim.loading="lazy"; _pim.src=Store.fileUrl(_pd.id); _pim.style.cssText="width:100%;height:100%;object-fit:cover;display:block"; _pw.appendChild(_pim); }
+          else if(m.f===uid){ try{ stMine(function(st){ if(st&&st.img&&!_pw.querySelector("img")){   /* ★送った側=アップ失敗でも自分の撮った画像を枠に出す(自分のstatusから・ユーザ指示2026-07-18) */
+            var _pim2=document.createElement("img"); _pim2.src=st.img; _pim2.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"; _pw.insertBefore(_pim2, _pw.firstChild); } }); }catch(_){} }
           /* ドットが内側へ縮小していくアニメ(募集中の合図) */
           try{ _pairDots(_pw); }catch(_){}
           var _pcap=document.createElement("div"); _pcap.textContent=(m.f===uid)?"一緒にいまを撮ろう 🤝":((_pd.n||"友達")+"と一緒にいまを取ろう");
@@ -11756,7 +11830,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     if(sessionStorage.getItem("sts_webapp_hint")) return; sessionStorage.setItem("sts_webapp_hint","1");
     setTimeout(function(){ try{
       var h=document.createElement("div"); h.textContent="“Webアプリとして開く”をONにしてね";
-      h.style.cssText="position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translate(-50%,26px);z-index:9895;padding:8px 15px;border-radius:99px;background:rgba(20,24,40,.32);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);color:rgba(255,255,255,.58);font:400 12px/1.3 -apple-system,'Hiragino Sans',sans-serif;opacity:0;transition:opacity .5s ease, transform .5s cubic-bezier(.22,1,.36,1);pointer-events:none;white-space:nowrap";
+      h.style.cssText="position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 40px);transform:translate(-50%,26px);z-index:9895;padding:8px 15px;border-radius:99px;background:rgba(20,24,40,.32);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);color:rgba(255,255,255,.58);font:400 12px/1.3 -apple-system,'Hiragino Sans',sans-serif;opacity:0;transition:opacity .5s ease, transform .5s cubic-bezier(.22,1,.36,1);pointer-events:none;white-space:nowrap";   /* ★若干上へ(14→40px・ユーザ指示2026-07-18) */
       document.body.appendChild(h);
       requestAnimationFrame(function(){ requestAnimationFrame(function(){ h.style.opacity="1"; h.style.transform="translate(-50%,0)"; }); });
       setTimeout(function(){ h.style.opacity="0"; h.style.transform="translate(-50%,16px)"; setTimeout(function(){ try{ h.remove(); }catch(_){} },520); }, 4200);
@@ -11784,6 +11858,22 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     try{ var bx=$("gcMsgs"); if(bx) bx.addEventListener("scroll", _onScroll, {passive:true});
       window.addEventListener("resize", _q, {passive:true}); setInterval(_q, 900); }catch(_){}
     window.__gcSendZoneDim=_q; })();
+  /* ★スクリーンキーボードが入力中に勝手に閉じるバグ根治(早急・ユーザ指示2026-07-18):
+     メッセージ受信の直後(0.9s以内)にチャット入力のfocusが外れたら即奪還=メッセが来てもキーボードは常時ついたまま。
+     自分でキーボードを閉じる操作(受信直後以外のblur)は今までどおり通す */
+  (function(){ function wireKb(){ var inp=$("gcChatInput"); if(!inp||inp.__kbGuard) return; inp.__kbGuard=1;
+      inp.addEventListener("blur", function(){ try{
+        if(!document.body.classList.contains("gc-inchat")) return;
+        if(Date.now()-(window.__gcMsgAt||0)<900){ setTimeout(function(){ try{ inp.focus({preventScroll:true}); }catch(_){ try{ inp.focus(); }catch(__){} } },0); }
+      }catch(_){} }); }
+    try{ wireKb(); }catch(_){} try{ setTimeout(wireKb, 1200); }catch(_){}
+    /* ★キーボード開閉(visualViewport縮小)でも最新のチャットが見えるよう追従=一番下に居たら下へ降りてくる */
+    try{ if(window.visualViewport){ window.visualViewport.addEventListener("resize", function(){ try{
+      var b=$("gcMsgs"); if(!b||!document.body.classList.contains("gc-inchat")) return;
+      var nearBottom=(b.scrollTop+b.clientHeight>=b.scrollHeight-120);
+      if(nearBottom){ requestAnimationFrame(function(){ b.scrollTop=b.scrollHeight; }); }
+    }catch(_){} }); } }catch(_){}
+  })();
   function hideRestoring(){ var ov=document.getElementById("gcRestore"); if(!ov) return;
     _restoreProg(1);   // 完了=リング一周
     setTimeout(function(){ try{ _restoreBurst(); ov.classList.add("rs-done"); }catch(_){} setTimeout(function(){ ov.classList.remove("show"); setTimeout(function(){ try{ if(ov.parentNode && !ov.classList.contains("show")) ov.parentNode.removeChild(ov); }catch(_){} },700); },120); }, 300); }   // ★一周してから完了バースト+UI scaleup
@@ -12296,6 +12386,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   })();
 
   /* 背景を適用: globe(地球儀を見せる) / white(既定) / img:<id>(blur済の小画像) */
+  /* ★背景色の明るさ(相対輝度): 0.72超=明るい背景→body.gc-bgwhite(暗色文字系)へ切替(ユーザ指示2026-07-18) */
+  function _gcLumaHex(h){ try{ h=String(h||"").replace("#",""); if(h.length===3) h=h.replace(/(.)/g,"$1$1"); if(h.length<6) return 0;
+    var r=parseInt(h.substr(0,2),16)/255, g=parseInt(h.substr(2,2),16)/255, b=parseInt(h.substr(4,2),16)/255;
+    return 0.2126*r+0.7152*g+0.0722*b; }catch(_){ return 0; } }
   function applyEnv(mode){
     try{ setTimeout(function(){ window.__tintDockIcons&&window.__tintDockIcons(); },30); }catch(_){}   // ★背景の明暗が変わったらドックアイコンの白/黒を貼り直す
     var bg=$("gcBg"); if(!bg) return; var e=loadEnv(); var gw=$("globeWrap");
@@ -12324,10 +12418,12 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     } else if(mode && mode.indexOf("color:")===0){   // 色パレット背景(OS標準カラーピッカーで選択)
       bg.style.backgroundImage="none"; bg.style.background=mode.slice(6)||DARKBG;   // backgroundが0.7sでクロスフェード
       bg.style.opacity="1"; document.body.classList.add("gc-noglobe");
+      try{ document.body.classList.toggle("gc-bgwhite", _gcLumaHex(mode.slice(6))>0.72); }catch(_){}   /* ★白/明るい背景=文字を暗色系に切替(白文字が見切れる/明るすぎ改善・ユーザ指示2026-07-18) */
       window.__bgPauseT=setTimeout(function(){ window.__globePaused=true; }, 720);  // フェード完了後に地球儀描画を停止(電池)
     } else {   /* dark(既定)=★ユーザが選んだアイコン色を背景に(黒はClassic専用・ユーザ指示)。CSS変数参照=色変更が即反映 */
       bg.style.backgroundImage="none"; bg.style.background="var(--gc-user, "+DARKBG+")";
       bg.style.opacity="1"; document.body.classList.add("gc-noglobe");
+      try{ document.body.classList.toggle("gc-bgwhite", _gcLumaHex(prof&&prof.color)>0.72); }catch(_){}   /* ★明るいユーザ色でも読める(ユーザ指示2026-07-18) */
       window.__bgPauseT=setTimeout(function(){ window.__globePaused=true; }, 720);
     }
     try{ syncRail(); }catch(_){}   // 背景(globe⇄非globe)切替でチャット中スイッチャーの出し入れを同期
@@ -12628,6 +12724,11 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     _envStars(ov,"in");
     ov.appendChild(_envAvaEl(peerAva, 72));
     var t=document.createElement("div"); t.textContent="相手が承認するまで待ってね"; t.style.cssText="color:#fff;font:500 15px/1.4 -apple-system,'Hiragino Sans',sans-serif;margin-top:120px;z-index:2"; ov.appendChild(t);
+    /* ★モード別ラベル(ユーザ指示2026-07-18): 交換=「こーかん！👉👈」/ シェア=「シェア👉👉」を待ってねの下に */
+    var _md=(_envPending&&_envPending.mode)||"";
+    var t2=document.createElement("div"); t2.textContent=(_md==="swap")?"こーかん！👉👈":"シェア👉👉";
+    t2.style.cssText="color:#fff;font:200 25px/1.3 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;margin-top:10px;z-index:2;letter-spacing:.05em;text-shadow:0 2px 12px rgba(0,0,0,.45)";
+    ov.appendChild(t2);
     var cn=_envPill("キャンセル"); cn.style.cssText+=";position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);left:50%;transform:translateX(-50%)";
     cn.onclick=function(){ haptic(); if(_envPending){ try{ pushMessage(_envPending.room,"cxenvno:{}"); }catch(_){} _envPending=null; } _envClose(ov); };
     ov.appendChild(cn); }

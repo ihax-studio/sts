@@ -125,7 +125,7 @@
 .sd-frs:empty{ display:none; }   /* 友達0人=行ごと出さない(余白を残さない) */
 /* ★友達1行の左端=＋(カメラ=投稿)と | バー(常時・ユーザ指示) */
 .sd-cam{ flex:0 0 auto; width:62px; height:62px; border:none; border-radius:55px; padding:0; cursor:pointer;
-  background:rgba(255,255,255,.1); box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.18);
+  background:rgba(255,255,255,.1); box-shadow:none;   /* ★＋(カメラ)のshadowは廃止(ユーザ指示2026-07-18) */
   display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; }
 .sd-cam .sd-cam-ic{ color:#fff; font:100 38px/1 -apple-system,'SF Pro Display',sans-serif; transform:translateY(-1px); }
 .sd-cam:active{ transform:scale(.9); transition:transform .12s; }
