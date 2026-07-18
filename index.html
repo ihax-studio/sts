@@ -11297,7 +11297,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
 
     var ava=$("nobAva"), inp=$("nobName"), go=$("nobGo");
     ava.style.background=prof.color; ava.textContent=avaText(prof.ava)||"🙂"; ava.style.cursor="pointer";
-    ava.onclick=function(){ try{ openEmojiRing(); }catch(_){} };   // アイコンタップ=フルのポンデリングも開ける
+    ava.onclick=function(){ try{ haptic(); }catch(_){} try{ if(window.__nobPalInput){ window.__nobPalInput.click(); return; } }catch(_){} try{ openEmojiRing(); }catch(_){} };   // ★自分のアイコンを押す=色のOSパレットが出る(ユーザ指示2026-07-18)。パレット未生成時のみ従来のリング
     go.style.background=prof.color; go.style.color=_gcInkFor(prof.color);   // ★白/灰の枠なら→は黒(0.5sで切替)=見やすく
     /* ★色とアイコンemojiはアイコンの円周上に「ポポっ」と初手で出る(スウォッチ行は廃止)。
        emojiは設定で変えれる時と同じ(ポンデリングのGC_RING_IN/OUT)を2周分の円周に・玉は少し大きく。
@@ -11325,14 +11325,16 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           b.onclick=function(e2){ e2.stopPropagation(); haptic(); try{ markColor(it.v); }catch(_){ prof.color=it.v; save(); }
             ava.style.background=it.v; go.style.background=it.v; go.style.color=_gcInkFor(it.v); inp.style.caretColor=it.v; }; }
         else { b=document.createElement("label");
-          var _pd=Math.round(Math.max(30,d)*1.5), _py=Math.round(R*0.52);   // ★パレットは下側・円の中(飛び出さない)・少し大きく
-          b.style.cssText="position:absolute;left:50%;top:calc(50% + "+_py+"px);transform:translate(-50%,-50%) scale(.2);opacity:0;width:"+_pd+"px;height:"+_pd+"px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.6);background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);cursor:pointer;overflow:hidden;display:block;transition:transform .5s var(--gc-spring), opacity .4s var(--gc-ease)";
+          var _pd=Math.round(Math.max(30,d)*1.5), _py=Math.round(R*0.52);   // ★グラデパレット=アイコンの「上」・グラデはborder枠のみで中=選択色(ユーザ指示2026-07-18)
+          b.style.cssText="position:absolute;left:50%;top:calc(50% - "+_py+"px);transform:translate(-50%,-50%) scale(.2);opacity:0;width:"+_pd+"px;height:"+_pd+"px;border-radius:50%;background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);cursor:pointer;overflow:hidden;display:block;transition:transform .5s var(--gc-spring), opacity .4s var(--gc-ease)";
+          var core=document.createElement("span"); core.style.cssText="position:absolute;inset:3px;border-radius:50%;background:"+((prof.color&&/^#/.test(prof.color))?prof.color:"#62d8ff")+";pointer-events:none;transition:background .3s var(--gc-ease)"; b.appendChild(core);
           var ci=document.createElement("input"); ci.type="color"; ci.value=(prof.color&&/^#/.test(prof.color))?prof.color:"#62d8ff";
-          ci.style.cssText="opacity:0;width:100%;height:100%;border:none;padding:0;cursor:pointer";
+          ci.style.cssText="position:absolute;inset:0;opacity:0;width:100%;height:100%;border:none;padding:0;cursor:pointer";
           ci.oninput=function(){ try{ markColor(ci.value); }catch(_){ prof.color=ci.value; save(); }
+            try{ core.style.background=ci.value; }catch(_){}
             ava.style.background=ci.value; go.style.background=ci.value; go.style.color=_gcInkFor(ci.value); inp.style.caretColor=ci.value; };
           ci.onclick=function(e2){ e2.stopPropagation(); };
-          b.appendChild(ci); }
+          b.appendChild(ci); try{ window.__nobPalInput=ci; }catch(_){} }
         aw.appendChild(b); return b; }
       inner.forEach(function(it,i){ var b=place(it, Rin, inC, i, inner.length);
         setTimeout(function(){ b.style.opacity="1"; b.style.transform="translate(-50%,-50%) scale(1)"; }, 160+i*30); });   // ★内周からぽぽぽっ
