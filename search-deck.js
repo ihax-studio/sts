@@ -149,6 +149,10 @@
     var host=els.frs||els.apps; if(!host) return;   /* ★友達は専用の左右スワイプ1行(.sd-frs)へ */
     Array.prototype.slice.call(host.querySelectorAll('.sd-app[data-fr]')).forEach(function(b){ try{ b.remove(); }catch(_){} });
     var frs=[]; try{ frs=(cb.friends&&cb.friends())||[]; }catch(_){}
+    /* ★友達がいない時=＋の右に「←友達のQR読み取って👀」の案内(ユーザ指示2026-07-18)。＋=カメラ(QR常時読取)へ誘導 */
+    var hint=host.querySelector('.sd-frhint');
+    if(!frs.length){ if(!hint){ hint=el('div','sd-frhint','←友達のQR読み取って👀'); host.appendChild(hint); } }
+    else if(hint){ try{ hint.remove(); }catch(_){} }
     frs.forEach(function(f){
       if(!f||!f.peer) return;
       var b=el('button','sd-app'); b.type='button';
@@ -402,7 +406,7 @@
     var tiles=Array.prototype.slice.call(els.apps.children);
     if(els.frs) tiles=tiles.concat(Array.prototype.slice.call(els.frs.children));   /* ★友達1行(.sd-frs)のタイルも同じ絞り込み対象 */
     tiles.forEach(function(b){
-      if(b.classList.contains('sd-cam')||b.classList.contains('sd-sep')) return;   /* ★＋カメラ/|バーは常に出す(ユーザ指示) */
+      if(b.classList.contains('sd-cam')||b.classList.contains('sd-sep')||b.classList.contains('sd-frhint')) return;   /* ★＋カメラ/|バー/QR案内は常に出す(ユーザ指示) */
       if(b.classList.contains('sd-gone')){ b.classList.add('hide'); return; }
       var isFr=!!b.getAttribute('data-fr');
       var nm=_norm(b.getAttribute('data-nm')||''), al=_norm(b.getAttribute('data-al')||'');

@@ -132,6 +132,9 @@
 /* ★検索中(1行)の＋: shadowなし・极細0.1pxのborderのみ(ユーザ指示2026-07-18) */
 .search-ov.sd-searching .sd-cam{ box-shadow:none; background:none; border:.1px solid rgba(255,255,255,.55); }
 .sd-sep{ flex:0 0 auto; width:2px; height:44px; margin-top:9px; border-radius:2px; background:rgba(255,255,255,.32); }
+/* ★友達0人の案内: ＋の右に「←友達のQR読み取って👀」(枠なし・ユーザ指示2026-07-18) */
+.sd-frhint{ flex:0 0 auto; display:flex; align-items:center; height:62px; color:rgba(255,255,255,.78);
+  font:500 13.5px/1.3 -apple-system,'Hiragino Sans',sans-serif; text-shadow:0 1px 6px rgba(0,0,0,.55); white-space:nowrap; }
 .sd-frs .sd-app{ flex:0 0 auto; width:62px !important; max-width:62px !important; }   /* ★1行=折り返さない(ピンチ拡大時も1行の寸法を維持) */
 .sd-frs .sd-app .nm{ -webkit-line-clamp:1; max-width:62px; opacity:1 !important; height:auto !important; }
 .sd-app{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
