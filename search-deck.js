@@ -287,8 +287,8 @@
      ・x,X,✕は×として掛け算 / 末尾の「=」は有無どちらでも / %は「あまり(剰余)」 / ÷は分数としても表示 ── */
   function calcEval(src){ var s=String(src||'').trim(); if(s.length<2||s.length>60) return null;
     s=s.replace(/[=＝\s]+$/,'');                        // 末尾の「=」やスペースは無視(1+2= でも計算)
-    s=s.replace(/×|✕|╳|✖|ｘ|Ｘ|x|X/g,'*').replace(/÷|／/g,'/').replace(/－|−/g,'-').replace(/＋/g,'+')
-       .replace(/[０-９]/g,function(d){ return String('０１２３４５６７８９'.indexOf(d)); }).replace(/，|,/g,'');
+    s=s.replace(/×|✕|╳|✖|ｘ|Ｘ|x|X|＊/g,'*').replace(/÷|／/g,'/').replace(/－|−/g,'-').replace(/＋/g,'+').replace(/％/g,'%').replace(/（/g,'(').replace(/）/g,')')
+       .replace(/[０-９]/g,function(d){ return String('０１２３４５６７８９'.indexOf(d)); }).replace(/，|,/g,'');   /* ★全角＊％（）も変換=「=」を押さなくても入力途中で即結果が出る(ユーザ指示) */
     if(!/[+\-*/%]/.test(s)) return null;                // 演算子(＋−×÷%)が無ければ計算ではない
     if(!/^[0-9+\-*/.()%\s]+$/.test(s)) return null;     // 数字と演算子・括弧・%のみ(letters不可)
     if(/[+\-*/%.]{3,}/.test(s)) return null;            // 記号連発は無効
