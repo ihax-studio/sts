@@ -10180,11 +10180,16 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   }
 
   /* ── toast ── */
-  function toast(msg){ var el=$("gcToast"); if(!el) return; el.textContent=msg; el.classList.add("show");
+  function toast(msg, kind){ var el=$("gcToast"); if(!el) return; el.textContent=msg; el.classList.add("show");
+    try{ if(kind==="error"){ _gcHapN(3,110); } else { _gcErrHap(msg); } }catch(_){}   /* ★エラー系=3回haptic(ユーザ指示2026-07-18) */
     clearTimeout(toast._t); toast._t=setTimeout(function(){ el.classList.remove("show"); },1800); }
 
   /* ── Dynamic Island 風 通知（0.7s iOS スプリングで膨らむ）── */
+  /* ★エラー系の文言(「シェアできる連絡先がないよ」等)は全て3回haptic(iOS・ユーザ指示2026-07-18) */
+  var _GC_ERRRE=/(できません|できないよ|できませんでした|失敗|見つから|がないよ|はまだないよ|エラー|未対応|オフです|許可して|許可されて|大きすぎ|読み込めません|読めません|取得できません|開けません|変換できません|送れません|使えません|接続を確認|確認してね|ではないみたい|あなた自身|復元できません)/;
+  function _gcErrHap(msg){ try{ if(_GC_ERRRE.test(String(msg||""))){ try{ _gcHapN(3,110); }catch(_){ try{ if(haptic.error)haptic.error(); else haptic(); }catch(__){} } } }catch(_){} }
   function dynamicIsland(msg){
+    try{ _gcErrHap(msg); }catch(_){}
     var el=$("gcDI"); if(!el){ toast(msg); return; }
     var tx=el.querySelector(".gcDI-tx"); if(tx) tx.textContent=msg;
     clearTimeout(dynamicIsland._t1); clearTimeout(dynamicIsland._t2);
