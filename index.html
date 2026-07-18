@@ -4785,11 +4785,10 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var ov=_stOverlay(9764); ov.style.background=_scan?"rgba(0,0,0,.82)":"rgba(0,0,0,.72)";
     try{ if(!_scan) gcHideDock(); }catch(_){}   // ★投稿UIでは左のドック(閉じた丸)を出さない
     var stream=null, facing=(_scan?"environment":"user"), tcol="#ffffff";
-    /* ★時間の字(ユーザ指示2026-07-18): 一番細い=SF Pro Rounded weight1(他より+3pxデカい) / 一番太い=SF Pro Expanded */
-    var FONTS=[{n:"Rounded Thin",f:"ui-rounded,'SF Pro Rounded','Hiragino Maru Gothic ProN',-apple-system,sans-serif",w:100,d:3},
-               {n:"SF Expanded",f:"-apple-system,'SF Pro Display',sans-serif",w:800,st:"expanded"},
-               {n:"明朝",f:"'Hiragino Mincho ProN','Times New Roman',serif",w:600},{n:"Rounded",f:"ui-rounded,'SF Pro Rounded','Hiragino Maru Gothic ProN',-apple-system,sans-serif",w:700},
-               {n:"Mono",f:"ui-monospace,Menlo,monospace",w:500}];
+    /* ★時間の字(ユーザ指示2026-07-18): Aa切替は3種だけ=weight1(Rounded・既定・細すぎ+3pxはデカいので-1px) / 普通 / 太い(SF Pro Expanded) */
+    var FONTS=[{n:"Rounded Thin",f:"ui-rounded,'SF Pro Rounded','Hiragino Maru Gothic ProN',-apple-system,sans-serif",w:100,d:-1},
+               {n:"普通",f:"-apple-system,'SF Pro Display','Hiragino Sans',sans-serif",w:500},
+               {n:"太い",f:"-apple-system,'SF Pro Display',sans-serif",w:800,st:"expanded"}];
     var fi=0, pendSg=null, pendEmo="";   // ★時刻のデフォルト書体=一番細いSF Thin(w100)が最初(ユーザ指示)
     var rec=null, recChunks=[], recT0=0, recMaxT=null, lpT=null, recording=false, shared=false, justRec=false;
     var videoMode=false, counting=false, cdT=null, vTapT=0, vStopOnUp=false;
@@ -4812,7 +4811,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var vid=document.createElement("video"); vid.setAttribute("playsinline",""); vid.muted=true; vid.autoplay=true;
     vid.style.cssText="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)";
     var tl=document.createElement("div"); function nowT(){ var d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
-    tl.textContent=nowT(); tl.style.cssText="position:absolute;top:12%;left:0;right:0;text-align:center;font-family:ui-rounded,'SF Pro Rounded',-apple-system,sans-serif;font-weight:100;font-size:47px;line-height:1;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45);pointer-events:none";   /* ★タイマー=よりデカくweight1(ユーザ指示) */
+    tl.textContent=nowT(); tl.style.cssText="position:absolute;top:12%;left:0;right:0;text-align:center;font-family:ui-rounded,'SF Pro Rounded',-apple-system,sans-serif;font-weight:100;font-size:43px;line-height:1;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45);pointer-events:none";   /* ★既定=weight1・-1px(44-1=43px)(ユーザ指示2026-07-18) */
     wrap.appendChild(vid); wrap.appendChild(tl); holder.appendChild(wrap); ov.appendChild(holder);
     /* ★時間の字: タップでサイズ切替(大=上 / ミディアム=中央 / 小さい=下)。★よりデカく(ユーザ指示2026-07-18) */
     var TSIZES=[{px:44,top:"11%",cy:0.18},{px:33,top:"44%",cy:0.55},{px:24,top:"77%",cy:0.88}], tsi=0;
