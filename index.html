@@ -11200,6 +11200,12 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       subs.forEach(function(sub){ fetch(PUSH_URL,{ method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ sub:sub, subscription:sub, title:(prof.name||"リアクション"), body:(emoji+" でリアクションしました"), tag:("react-"+(room||"")), url:"/" }) }).then(function(){ try{ Health.report('cf', true); }catch(_){} }, function(){ try{ Health.report('cf', false); }catch(_){} }); });
     }).catch(function(){}); }catch(_){} }
+  /* ★「一緒にいまを撮ろう」ペア招待のOS通知(ユーザ指示2026-07-18): 本文=「(名前)と一緒に写真を撮ろう」 */
+  function sendPairPush(addr, room){ try{ if(!db||!PUSH_URL||!addr) return; var me=myAddr()||uid; if(addr===me||addr===uid) return;
+    db.ref("push/"+addr).once("value").then(function(s){ var subs=_collectSubs(s.val()); if(!subs.length) return;
+      subs.forEach(function(sub){ fetch(PUSH_URL,{ method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ sub:sub, subscription:sub, title:"🤝 一緒にいまを撮ろう", body:(prof.name||"友達")+"と一緒に写真を撮ろう", tag:("pair-"+(room||"")), url:(room?("/?room="+encodeURIComponent(room)):"/") }) }).then(function(){ try{ Health.report('cf', true); }catch(_){} }, function(){ try{ Health.report('cf', false); }catch(_){} }); });
+    }).catch(function(){}); }catch(_){} }
   /* 🫨「シェイクしてシェア」した瞬間、友達(1:1の相手)全員へ Web Push＝相手が閉じていても通知が届く。 */
   function sendS2SPush(addr){ try{ if(!db||!PUSH_URL||!addr) return; var me=myAddr()||uid; if(addr===me||addr===uid) return;
     db.ref("push/"+addr).once("value").then(function(s){ var subs=_collectSubs(s.val()); if(!subs.length) return;
@@ -12523,6 +12529,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     var send=function(imgId){
       try{ window.__pairWith=peerAddr||null; stPost({ img:durl, vid:null, t:"🤝", sg:null, ef:null, loc:null }); }catch(_){}
       try{ pushMessage(room, "cxpair:"+JSON.stringify({ id:(imgId||""), n:(prof.name||"？").slice(0,24) })); }catch(_){}
+      try{ sendPairPush(peerAddr, room); }catch(_){}   /* ★OS通知=「(名前)と一緒に写真を撮ろう」(ユーザ指示) */
       try{ dynamicIsland(peerName+"を「一緒にいま」に誘ったよ 🤝"); }catch(_){} };
     if(window.Store&&Store.ready&&Store.ready()&&Store.upload){
       fetch(durl).then(function(r){ return r.blob(); }).then(function(bl){ return Store.upload(bl, "pair.jpg", "image/jpeg"); })
@@ -12576,9 +12583,15 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     t.style.cssText="color:#fff;font:200 30px/1.4 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;text-align:center;max-width:86vw;text-shadow:0 2px 18px rgba(0,0,0,.5)";
     inner.appendChild(t);
     function bye(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); }
+    /* ★iOSの着信風(ユーザ指示2026-07-18): 拒否=赤い丸ボタン(タップでhaptic)・その下にスライダ。振って拒否も引き続き有効 */
+    var dec=document.createElement("div"); dec.style.cssText="display:flex;flex-direction:column;align-items:center;gap:7px";
+    var decB=document.createElement("button"); decB.type="button"; decB.textContent="✕";
+    decB.style.cssText="width:62px;height:62px;border-radius:50%;border:none;background:#FF3B30;color:#fff;font:300 27px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:0 8px 24px rgba(255,59,48,.4);display:flex;align-items:center;justify-content:center";
+    var decL=document.createElement("div"); decL.textContent="拒否"; decL.style.cssText="color:rgba(255,255,255,.7);font:500 12.5px/1 -apple-system,'Hiragino Sans',sans-serif";
+    dec.appendChild(decB); dec.appendChild(decL);
+    decB.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} bye(); };
+    inner.appendChild(dec);
     inner.appendChild(_gcSlideBar("スライドしてとる", function(){ try{ window.__pairWith=m.f||null; }catch(_){} bye(); setTimeout(function(){ try{ stCamera(); }catch(_){} },220); }));
-    var hint=document.createElement("div"); hint.textContent="振って拒否 🫨"; hint.style.cssText="color:rgba(255,255,255,.5);font:500 13px/1 -apple-system,'Hiragino Sans',sans-serif";
-    inner.appendChild(hint);
     ov.appendChild(inner); document.body.appendChild(ov);
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; ov.style.webkitBackdropFilter="blur(30px) saturate(140%)"; ov.style.backdropFilter="blur(30px) saturate(140%)"; inner.style.transform="scale(1)"; }); });
     _pairShakeArm(function(){ try{ _gcHapN(3,110); }catch(_){ try{ haptic(); }catch(__){} } bye(); try{ _pairExplainOnce(); }catch(_){} }, 45000);   /* ★振って拒否=3回haptic(ユーザ指示) */
