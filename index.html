@@ -9653,7 +9653,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     fetch("hello/"+f+".json").then(function(r){ return r.json(); }).then(function(d){ _helloData[f]=d; cb(d); }).catch(function(){ cb(null); }); }
   /* ★Welcome手書き(welcome/<lang>.json・helloと同じストローク形式)。言語コード直(en/ja/ko…)、無ければen */
   var _welcomeData={};
-  function _loadWelcome(lang, cb){ var f=String(lang||"en").toLowerCase().split(/[-_]/)[0];
+  function _loadWelcome(lang, cb){ var l=String(lang||"en").toLowerCase(); var f=l.split(/[-_]/)[0];
+    /* ★ようこそも国別にちゃんと出す(ユーザ指示2026-07-18): zh/ptは地域ファイル名(zh_CN等)に解決=enに落ちない */
+    if(f==="zh"){ f=(/zh[-_](tw|hant)/.test(l))?"zh_TW":((/zh[-_]hk/.test(l))?"zh_HK":"zh_CN"); }
+    else if(f==="pt"){ f=(/pt[-_]pt/.test(l))?"pt_PT":"pt_BR"; }
     if(_welcomeData[f]){ cb(_welcomeData[f]); return; }
     fetch("welcome/"+f+".json").then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){ _welcomeData[f]=d; cb(d); })
       .catch(function(){ if(f!=="en"){ _loadWelcome("en", cb); } else { cb(null); } }); }
@@ -11729,6 +11732,20 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       d.style.left=cx+"px"; d.style.top=cy+"px"; document.body.appendChild(d);
       requestAnimationFrame(function(){ requestAnimationFrame(function(){ d.style.transform="translate("+(Math.cos(a)*dist)+"px,"+(Math.sin(a)*dist)+"px) scale(.3)"; d.style.opacity="0"; }); });
       setTimeout(function(){ try{ d.remove(); }catch(_){} },850); })(i); } }catch(_){} }   // ★一周(完了)=ドットが全体に広がる
+  /* ★iOSで「Webアプリとして開く」がOFFのままSafariで開かれた時: 小さく薄い案内をスライドアップで一度だけ(ユーザ指示2026-07-18)。
+     ※OSの仕様上、この設定を外からONに強制することはできない=案内が最善(登録はPWAゲートが従来どおり担保) */
+  (function(){ try{
+    var _sa=(navigator.standalone===true) || (window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
+    if(_sa) return; if(!/iPhone|iPad|iPod/.test(navigator.userAgent||"")) return;
+    if(sessionStorage.getItem("sts_webapp_hint")) return; sessionStorage.setItem("sts_webapp_hint","1");
+    setTimeout(function(){ try{
+      var h=document.createElement("div"); h.textContent="“Webアプリとして開く”をONにしてね";
+      h.style.cssText="position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translate(-50%,26px);z-index:9895;padding:8px 15px;border-radius:99px;background:rgba(20,24,40,.32);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);color:rgba(255,255,255,.58);font:400 12px/1.3 -apple-system,'Hiragino Sans',sans-serif;opacity:0;transition:opacity .5s ease, transform .5s cubic-bezier(.22,1,.36,1);pointer-events:none;white-space:nowrap";
+      document.body.appendChild(h);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ h.style.opacity="1"; h.style.transform="translate(-50%,0)"; }); });
+      setTimeout(function(){ h.style.opacity="0"; h.style.transform="translate(-50%,16px)"; setTimeout(function(){ try{ h.remove(); }catch(_){} },520); }, 4200);
+    }catch(_){} }, 1400);
+  }catch(_){} })();
   /* ★mov顔アニメのautoplayが(低電力モード等で)止まっていたら、ユーザの操作のたびに黙って再開=▶️ボタン/静止のバグを出さない */
   try{ document.addEventListener("pointerdown", function(){ try{ var vs=document.querySelectorAll(".nob-login-face video, #gcBio .bio-icon video, #gcRestore .rs-face video, .bk-face video, #gcHoDone .hod-face video");
     Array.prototype.forEach.call(vs, function(v){ if(v.paused){ v.muted=true; var p=v.play(); if(p&&p.catch)p.catch(function(){}); } }); }catch(_){} }, {capture:true, passive:true}); }catch(_){}
