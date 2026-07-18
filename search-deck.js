@@ -50,6 +50,7 @@
       if(a.al) b.setAttribute('data-al', String(a.al));   /* ★別名(エイリアス): "activity"/"apps"等の英語・ローマ字・かなでもヒット(ユーザ指示) */
       if(a.gone) b.__gone=a.gone;          /* ★gone()=trueの間は完全非表示(開くたび評価: ミュージック/翻訳) */
       if(a.hidden) b.__searchOnly=true;    /* ★hidden=名前を検索した時だけ出る(Story Magic/Document Studio/Terrakoku) */
+      if(a.ghide) b.__gridHide=true;       /* ★ghide=通常の4列グリッドでは非表示。検索(1行)の時だけ出る(アクティビティ・ユーザ指示) */
       b.style.animationDelay=(i*35)+'ms';
       var ic=document.createElement('img'); ic.className='ic'; ic.src=a.i; ic.alt=''; ic.loading='lazy'; ic.draggable=false;
       ic.onerror=function(){ this.style.objectFit='contain'; this.style.padding='14px'; };
@@ -65,8 +66,30 @@
 
     var res=el('div','sd-res'); els.res=res;
     scroll.appendChild(apps);   // ★スクロール=アプリ一覧のみ(結果はバーの上へ)
-    syncFriendTiles();   // ★友達もapp一覧のタイルに=アプリと同じ長押しドラッグ→左端でドックに追加できる(pin廃止の代替)
+    /* ★友達=app一覧の下の「左右スワイプの1行」(ユーザ指示)。タイル仕様/長押しドラッグ(ドック追加/×削除)はアプリと同じ */
+    var frs=el('div','sd-frs'); els.frs=frs; frs.setAttribute('data-hswipe','');
+    scroll.appendChild(frs);
+    /* ★友達1行の左端=常に「＋(カメラ=投稿)」+「|」バー(ユーザ指示: カメラはappではなくここから) */
+    (function(){ var cam=el('button','sd-cam'); cam.type='button'; cam.setAttribute('aria-label','カメラで投稿');
+      cam.innerHTML='<span class="sd-cam-ic">＋</span>';
+      cam.addEventListener('click', function(ev){ ev.stopPropagation(); if(reorder.sup()){ ev.preventDefault(); return; } try{ cb.haptic&&cb.haptic(); }catch(_){}
+        try{ cb.onRequestClose&&cb.onRequestClose(); }catch(_){}
+        setTimeout(function(){ try{ (cb.camera||window.__openCamApp||function(){})(); }catch(_){} },140); });
+      var sep=el('div','sd-sep');
+      frs.appendChild(cam); frs.appendChild(sep);
+    })();
+    syncFriendTiles();   // ★友達は専用1行タイルに=アプリと同じ長押しドラッグ→左端でドックに追加できる(pin廃止の代替)
     reorder.attach(apps);   // ★長押し→ドラッグでiOS風並び替え(FLIP+ジグル+保存)
+    reorder.attach(frs);    // ★友達1行も同じ長押しドラッグ(並び替え/ドック追加/×削除)
+    /* ★友達1行: アイコンの上でも指の左右ドラッグで確実に横スクロール(iOSはネイティブ横スクロールが子ボタン上で効かないのでJSでscrollLeftを直接動かす)。長押し並び替えと共存 */
+    (function(){ var on=false, sx=0, sy=0, sl=0, axis=0;
+      frs.addEventListener('touchstart', function(e){ if(reorder.sup()){ on=false; return; } var t=e.touches&&e.touches[0]; if(!t)return; on=true; sx=t.clientX; sy=t.clientY; sl=frs.scrollLeft; axis=0; }, {passive:true});
+      frs.addEventListener('touchmove', function(e){ if(!on||reorder.sup())return; var t=e.touches&&e.touches[0]; if(!t)return; var dx=t.clientX-sx, dy=t.clientY-sy;
+        if(!axis){ if(Math.abs(dx)>6||Math.abs(dy)>6) axis=(Math.abs(dx)>Math.abs(dy))?'x':'y'; }
+        if(axis==='x'){ frs.scrollLeft=sl-dx; if(e.cancelable) e.preventDefault(); } }, {passive:false});
+      function endF(){ on=false; }
+      frs.addEventListener('touchend', endF, {passive:true}); frs.addEventListener('touchcancel', endF, {passive:true});
+    })();
     /* ★検索中(1行)=アイコンの上でも指の左右ドラッグでappsを確実にスクロール。iOSはネイティブ横スクロールが子ボタン上で効かないのでJSでscrollLeftを直接動かす。横優勢の時だけ効かせ長押し並び替えと共存 */
     (function(){ var on=false, sx=0, sy=0, sl=0, axis=0;
       function searching(){ var o=document.getElementById('searchOv'); return o&&o.classList.contains('sd-searching'); }
@@ -123,8 +146,8 @@
   /* ★友達タイル: app一覧の末尾に友達(丸アイコン)を並べる。タップ=会話 / 長押しドラッグ→左端=ドックに追加。
      開くたびに作り直す(友達の増減/名前変更に追従)。cb.friends() は host(index.html)が提供 */
   function syncFriendTiles(){
-    if(!els.apps) return;
-    Array.prototype.slice.call(els.apps.querySelectorAll('.sd-app[data-fr]')).forEach(function(b){ try{ b.remove(); }catch(_){} });
+    var host=els.frs||els.apps; if(!host) return;   /* ★友達は専用の左右スワイプ1行(.sd-frs)へ */
+    Array.prototype.slice.call(host.querySelectorAll('.sd-app[data-fr]')).forEach(function(b){ try{ b.remove(); }catch(_){} });
     var frs=[]; try{ frs=(cb.friends&&cb.friends())||[]; }catch(_){}
     frs.forEach(function(f){
       if(!f||!f.peer) return;
@@ -138,7 +161,7 @@
       b.addEventListener('click', function(ev){ ev.stopPropagation(); if(reorder.sup()){ ev.preventDefault(); return; } try{ cb.haptic&&cb.haptic(); }catch(_){}
         try{ cb.onRequestClose&&cb.onRequestClose(); }catch(_){}
         setTimeout(function(){ try{ cb.chatOpen&&cb.chatOpen(f.peer); }catch(_){} },140); });
-      els.apps.appendChild(b);
+      host.appendChild(b);
     });
   }
 
@@ -366,9 +389,20 @@
     var ql=_norm(q);
     /* ★「apps」「アプリ」等=app一覧そのものを呼び出す語(全appを表示) */
     var allApps=!!ql && /^(app|apps|アプリ|アプリ一覧)$/.test(ql);
-    /* ★app一覧は最初の画面(未入力)では非表示(ユーザ指示)。名前/別名が合った時・「apps」と打った時だけ出る。
-       友達タイルは今まで通り最初から出て、入力で絞り込む */
+    /* ★app一覧はいままでどおり常に出す(ユーザ指示で「初期app非表示」を撤回):
+       未入力=全app表示 / 入力=名前・別名で絞り込み / 1件も合わなければ全部表示。
+       隠しapp(__searchOnly)は名前/別名が合った時だけ。友達タイルは最初から出て入力で絞り込む */
+    var hits=0;
     Array.prototype.forEach.call(els.apps.children, function(b){
+      if(b.classList.contains('sd-gone') || b.__searchOnly || b.getAttribute('data-fr')) return;
+      var nm0=_norm(b.getAttribute('data-nm')||''), al0=_norm(b.getAttribute('data-al')||'');
+      if(!ql || nm0.indexOf(ql)>=0 || (!!al0 && al0.indexOf(ql)>=0)) hits++;
+    });
+    var showAll=(!ql || hits===0 || allApps);
+    var tiles=Array.prototype.slice.call(els.apps.children);
+    if(els.frs) tiles=tiles.concat(Array.prototype.slice.call(els.frs.children));   /* ★友達1行(.sd-frs)のタイルも同じ絞り込み対象 */
+    tiles.forEach(function(b){
+      if(b.classList.contains('sd-cam')||b.classList.contains('sd-sep')) return;   /* ★＋カメラ/|バーは常に出す(ユーザ指示) */
       if(b.classList.contains('sd-gone')){ b.classList.add('hide'); return; }
       var isFr=!!b.getAttribute('data-fr');
       var nm=_norm(b.getAttribute('data-nm')||''), al=_norm(b.getAttribute('data-al')||'');
@@ -376,7 +410,8 @@
       var hit;
       if(isFr){ hit=(!ql || match); }
       else if(b.__searchOnly){ hit=match; }               /* 隠しapp=名前/別名が合った時だけ(「apps」では出ない) */
-      else { hit=!!ql && (match || allApps); }
+      else if(b.__gridHide){ hit=!!ql && (showAll || match); }   /* ★グリッドでは非表示・検索(1行)では通常appと同じ扱い(アクティビティ) */
+      else { hit=showAll || match; }
       b.classList.toggle('hide', !hit);
     });
     /* ★displayはCSSに任せる(通常=grid / 検索中=横1行flex)。ここでinline指定するとレイアウト切替アニメが効かない */
@@ -394,7 +429,8 @@
   /* ═══ 長押し=編集モード(iOSホーム風): 全タイルがジグル+友達タイルに×(中央下)。
      編集中に指を動かすとドラッグ(並び替え/ドック/下の友達レールへドロップ)。×=「振って削除」UIへ ═══ */
   var reorder=(function(){
-    var grid=null, dragging=false, supUntil=0, editing=false;
+    /* ★grids=対象コンテナ(apps一覧+友達1行)。grid=いまドラッグ中のタイルが属すコンテナ(並び替えは同一コンテナ内) */
+    var grids=[], grid=null, dragging=false, supUntil=0, editing=false;
     var ghost=null, ph=null, sx=0, sy=0, lastSwap=0, lastX=0, lastY=0;
     function blockScroll(e){ if(dragging){ try{ if(e.cancelable) e.preventDefault(); }catch(_){} } }
     function flip(mut){
@@ -408,7 +444,8 @@
     }
     /* ── ×バッジ(友達タイルの中央下)=押すと「振って削除」UIがトランジションで出る ── */
     function addMinBadges(){
-      Array.prototype.forEach.call(grid.children, function(b){
+      grids.forEach(function(g2){
+      Array.prototype.forEach.call(g2.children, function(b){
         if(!b.classList || !b.classList.contains('sd-app')) return;
         if(b.querySelector('.sd-min')) return;
         var fr=b.getAttribute('data-fr'); if(!fr) return;   /* ×=友達タイルのみ(appは並べ替え/ドックドロップ) */
@@ -417,18 +454,19 @@
           try{ window.__openUnfriend && window.__openUnfriend({ peer:fr, name:b.getAttribute('data-nm-raw')||'友達', ava:b.getAttribute('data-av')||'🙂', color:b.getAttribute('data-c')||'#62d8ff' }); }catch(_){} });
         ['pointerdown','touchstart'].forEach(function(ev2){ m.addEventListener(ev2, function(e3){ e3.stopPropagation(); }, {passive:true}); });
         b.appendChild(m); });
+      });
     }
     function outsideEdit(e){ try{ if(dragging) return;
       if(!e.target.closest || !e.target.closest('.sd-app,#gcDock,#gcRailTrack,.sd-min,.gcdk-min,.gc-rail-min')) exitEdit(); }catch(_){ exitEdit(); } }
-    function enterEdit(){ if(editing||!grid) return; editing=true; try{ cb.haptic&&cb.haptic(); }catch(_){}
-      grid.classList.add('sd-editing');
+    function enterEdit(){ if(editing||!grids.length) return; editing=true; try{ cb.haptic&&cb.haptic(); }catch(_){}
+      grids.forEach(function(g2){ g2.classList.add('sd-editing'); });   /* ★apps一覧と友達1行が一緒に編集モードへ */
       addMinBadges();
       try{ var dk=document.getElementById('gcDock'); if(dk&&dk.__enterEdit&&dk.classList.contains('show')) dk.__enterEdit(); }catch(_){}   /* ★Dock(+レール)のアイコンも一緒に震える */
       setTimeout(function(){ document.addEventListener('pointerdown', outsideEdit, true); },60);
     }
-    function exitEdit(){ if(!editing||!grid) return; editing=false; supUntil=Date.now()+400;
-      grid.classList.remove('sd-editing');
-      Array.prototype.forEach.call(grid.querySelectorAll('.sd-min'), function(m){ try{ m.classList.add('sd-min-out'); var _m=m; setTimeout(function(){ try{ _m.remove(); }catch(_){} },500); }catch(_){ try{ m.remove(); }catch(__){} } });   // ★消える=1→0.8(0.5s ease)
+    function exitEdit(){ if(!editing||!grids.length) return; editing=false; supUntil=Date.now()+400;
+      grids.forEach(function(g2){ g2.classList.remove('sd-editing');
+        Array.prototype.forEach.call(g2.querySelectorAll('.sd-min'), function(m){ try{ m.classList.add('sd-min-out'); var _m=m; setTimeout(function(){ try{ _m.remove(); }catch(_){} },500); }catch(_){ try{ m.remove(); }catch(__){} } }); });   // ★消える=1→0.8(0.5s ease)
       document.removeEventListener('pointerdown', outsideEdit, true);
       try{ var dk=document.getElementById('gcDock'); if(dk&&dk.__exitEdit) dk.__exitEdit(); }catch(_){}
     }
@@ -462,6 +500,7 @@
       return x>=dr.left-34 && x<=dr.right+34 && y>=dr.top-34 && y<=dr.bottom+34; }catch(_){ return false; } }
     function start(t, e){
       dragging=true; try{ cb.haptic&&cb.haptic(); }catch(_){}
+      if(t.parentElement && grids.indexOf(t.parentElement)>=0) grid=t.parentElement;   /* ★掴んだタイルの属すコンテナ内で並び替え */
       grid.classList.add('sd-editing');
       try{ document.body.classList.add('sd-dragging'); }catch(_){}   /* ★app移動(ドラッグ)開始=検索中でもdock(apps user)をドロップ先として復活させる目印 */
       if(els.scroll) els.scroll.style.overflowY='hidden';
@@ -522,18 +561,18 @@
       else if(ghost){ try{ ghost.remove(); }catch(_){} }
       if(ph){ (function(p){ setTimeout(function(){ p.classList.remove('sd-ph'); },260); })(ph); }
       ghost=null; ph=null;
-      try{ var names=Array.prototype.map.call(grid.children,function(c){ return c.getAttribute('data-nm-raw'); }).filter(Boolean);
-        localStorage.setItem('sd_app_order', JSON.stringify(names)); }catch(_){}
+      try{ if(grid && grid!==els.frs){ var names=Array.prototype.map.call(grid.children,function(c){ return c.getAttribute('data-nm-raw'); }).filter(Boolean);
+        localStorage.setItem('sd_app_order', JSON.stringify(names)); } }catch(_){}   /* ★並び順の保存はapps一覧のみ(友達1行はcb.friends()の順) */
     }
-    function attach(g){ if(grid) return; grid=g;
-      document.addEventListener('touchmove', blockScroll, {passive:false});
+    function attach(g){ if(!g || grids.indexOf(g)>=0) return; grids.push(g); if(!grid) grid=g;
+      if(grids.length===1) document.addEventListener('touchmove', blockScroll, {passive:false});
       var lpT=null, px0=0, py0=0, cand=null;
-      grid.addEventListener('pointerdown', function(e){
+      g.addEventListener('pointerdown', function(e){
         if(e.target.closest && e.target.closest('.sd-min')) return;   /* ×は削除専用(編集開始/ドラッグにしない) */
         var t=e.target.closest&&e.target.closest('.sd-app'); if(!t){ cand=null; return; }
         cand=t; px0=e.clientX; py0=e.clientY;
         clearTimeout(lpT); lpT=setTimeout(function(){ if(cand){ enterEdit(); } }, 430); });   /* ★長押し=編集モード(震え+×)。すぐ指を動かせばそのままドラッグ */
-      grid.addEventListener('pointermove', function(e){
+      g.addEventListener('pointermove', function(e){
         if(dragging){ move(e); return; }
         if(!cand) return;
         var dx=Math.abs(e.clientX-px0), dy=Math.abs(e.clientY-py0);

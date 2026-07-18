@@ -108,13 +108,37 @@
 .search-ov.sd-zoom:not(.sd-searching) .sd-app .nm{ opacity:0; height:0; margin:0; overflow:hidden; }
 .sd-app.hide{ display:none; }
 .sd-app.sd-gone{ display:none !important; }   /* gone()=完全非表示(ミュージック/翻訳の条件落ち) */
+/* ── 友達: app一覧の下の「左右スワイプの1行」(ユーザ指示)。タイルはアプリと同じ・横スクロールで全員出る ── */
+.sd-frs{
+  display:flex; flex-wrap:nowrap; justify-content:flex-start; align-items:flex-start;
+  gap:18px;
+  width:100vw; margin-left:calc(50% - 50vw);   /* full-bleed=画面いっぱいで左右スワイプ */
+  padding:14px max(16px,env(safe-area-inset-right)) 6px max(16px,env(safe-area-inset-left));
+  overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+  touch-action:pan-x !important;   /* ★bodyのtouch-action:pan-yを上書き=指で左右スクロールできる */
+  scroll-snap-type:none;
+}
+/* ★中央揃えの1行(ユーザ指示): 収まる時は中央・あふれたら左右スクロール(auto marginなら両立できる) */
+.sd-frs > :first-child{ margin-left:auto; }
+.sd-frs > :last-child{ margin-right:auto; }
+.sd-frs::-webkit-scrollbar{ display:none; }
+.sd-frs:empty{ display:none; }   /* 友達0人=行ごと出さない(余白を残さない) */
+/* ★友達1行の左端=＋(カメラ=投稿)と | バー(常時・ユーザ指示) */
+.sd-cam{ flex:0 0 auto; width:62px; height:62px; border:none; border-radius:55px; padding:0; cursor:pointer;
+  background:rgba(255,255,255,.1); box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.18);
+  display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; }
+.sd-cam .sd-cam-ic{ color:#fff; font:100 38px/1 -apple-system,'SF Pro Display',sans-serif; transform:translateY(-1px); }
+.sd-cam:active{ transform:scale(.9); transition:transform .12s; }
+.sd-sep{ flex:0 0 auto; width:2px; height:44px; margin-top:9px; border-radius:2px; background:rgba(255,255,255,.32); }
+.sd-frs .sd-app{ flex:0 0 auto; width:62px !important; max-width:62px !important; }   /* ★1行=折り返さない(ピンチ拡大時も1行の寸法を維持) */
+.sd-frs .sd-app .nm{ -webkit-line-clamp:1; max-width:62px; opacity:1 !important; height:auto !important; }
 .sd-app{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 /* 編集モード(長押し)中: iOSホーム風ジグル・掴んだ元タイルは薄く */
 /* ★編集中は全タイルを強制表示=出現アニメ(sdAppIn forwards)がジグルに置き換わってopacity:0へ戻る不具合の根治 */
-.sd-apps.sd-editing .sd-app{ opacity:1; transform:none; }
-.sd-apps.sd-editing .sd-app:not(.sd-ph){ animation: none; }   /* ★長押し移動中のジグル(ブレ)を撤去=移動中はブレない(ユーザ指示) */
+.sd-apps.sd-editing .sd-app, .sd-frs.sd-editing .sd-app{ opacity:1; transform:none; }
+.sd-apps.sd-editing .sd-app:not(.sd-ph), .sd-frs.sd-editing .sd-app:not(.sd-ph){ animation: none; }   /* ★長押し移動中のジグル(ブレ)を撤去=移動中はブレない(ユーザ指示) */
 @keyframes sdJiggle{ from{ transform:rotate(-1.4deg); } to{ transform:rotate(1.4deg); } }
-.sd-app.sd-ph, .sd-apps.sd-editing .sd-app.sd-ph{ opacity:0; animation:none !important; transition:opacity .5s var(--gc-ease); }   /* ★並び替えで掴んだタイルが消えるのは0.5s(編集中も) */
+.sd-app.sd-ph, .sd-apps.sd-editing .sd-app.sd-ph, .sd-frs.sd-editing .sd-app.sd-ph{ opacity:0; animation:none !important; transition:opacity .5s var(--gc-ease); }   /* ★並び替えで掴んだタイルが消えるのは0.5s(編集中も) */
 .sd-ghost .nm{ text-shadow:0 2px 10px rgba(0,0,0,.7); }
 /* ★×バッジ(友達タイルの中央下・前面): 編集モードで0.3sで出る。押すと「振って削除」UIへ */
 .sd-app{ position:relative; }
@@ -123,7 +147,7 @@
   display:flex; align-items:center; justify-content:center; box-shadow:none;
   cursor:pointer; -webkit-tap-highlight-color:transparent; pointer-events:auto;
   opacity:0; transform:translateX(-50%) scale(.8); transition:opacity .5s ease, transform .5s ease; }   /* ★白丸(borderなし)+黒文字の×・出る=scale0.8→1/消える=1→0.8(0.5s ease) */
-.sd-apps.sd-editing .sd-min{ opacity:1; transform:translateX(-50%) scale(1); }
+.sd-apps.sd-editing .sd-min, .sd-frs.sd-editing .sd-min{ opacity:1; transform:translateX(-50%) scale(1); }
 .sd-min.sd-min-out{ opacity:0; transform:translateX(-50%) scale(.8); }
 /* ★ドラッグ中の第2ドロップ先: 画面下の友達レール(＋/カメラ除く)。
    slideup/リフトは廃止=フェードのみ(トランジション重複と他要素との干渉を防ぐ・ユーザ指示)。かざすとユーザー色リングが0.3sで出る/離れると消える */
