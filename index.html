@@ -2859,6 +2859,8 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* ★やりとり(チャット)の文字=SF Pro Rounded Ultralight(weight100)に統一(ユーザ指示2026-07-18) */
   .gc-msg, .gc-chat-input input{ font-family:ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif; }
   .gc-msg{ font-weight:100; }
+  /* ★チャットの上下スワイプ死守(デバッグ2026-07-18): メッセージ領域は常に縦パン可・慣性は領域内で完結 */
+  #gcMsgs{ touch-action:pan-y !important; overscroll-behavior:contain; }
   .gc-msg.me{touch-action:pan-y!important;overscroll-behavior-x:none!important; align-self:flex-end; text-align:right; }
   .gc-msg.armed{touch-action:pan-y!important;overscroll-behavior-x:none!important; }
   .gc-msg .mn{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:block; font-size:14px; font-weight:400; opacity:.55; margin-bottom:2px; text-shadow:none; }
@@ -11649,9 +11651,13 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   /* ★mov顔アニメのautoplayが(低電力モード等で)止まっていたら、ユーザの操作のたびに黙って再開=▶️ボタン/静止のバグを出さない */
   try{ document.addEventListener("pointerdown", function(){ try{ var vs=document.querySelectorAll(".nob-login-face video, #gcBio .bio-icon video, #gcRestore .rs-face video, .bk-face video, #gcHoDone .hod-face video");
     Array.prototype.forEach.call(vs, function(v){ if(v.paused){ v.muted=true; var p=v.play(); if(p&&p.catch)p.catch(function(){}); } }); }catch(_){} }, {capture:true, passive:true}); }catch(_){}
-  /* ★送信ボタン(上矢印)の周りに重なったメッセージは半透明に(0.5s easeで切替・ユーザ指示2026-07-18) */
-  (function(){ var _nsT=0;
-    function _dim(){ _nsT=0; try{ var up=$("gcSendUp"), box=$("gcMsgs"); if(!up||!box) return;
+  /* ★送信ボタン(上矢印)の周りに重なったメッセージは半透明に(0.5s easeで切替・ユーザ指示2026-07-18)。
+     ★デバッグ2026-07-18: スクロール中に毎フレーム実測(gBCR×16)していたのが上下スワイプのカクつきの原因
+     →スクロール中は一切計測せず、止まって0.16s後に1回だけ判定=チャットの上下スワイプがネイティブに滑らか */
+  (function(){ var _nsT=0, _lastSc=0, _settleT=null;
+    function _dim(){ _nsT=0; try{
+      if(Date.now()-_lastSc<150) return;   // ★スクロール最中は何もしない(慣性スクロールを邪魔しない)
+      var up=$("gcSendUp"), box=$("gcMsgs"); if(!up||!box) return;
       var inChat=document.body.classList.contains("gc-inchat");
       var r=inChat?up.getBoundingClientRect():null;
       var ms=box.querySelectorAll(".gc-msg"), n=ms.length;
@@ -11660,8 +11666,9 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           hit=!(mr.right<r.left-18 || mr.left>r.right+18 || mr.bottom<r.top-14 || mr.top>r.bottom+12); }
         el.classList.toggle("gc-nearsend", hit); } }catch(_){} }
     function _q(){ if(_nsT) return; _nsT=requestAnimationFrame(_dim); }
-    try{ var bx=$("gcMsgs"); if(bx) bx.addEventListener("scroll", _q, {passive:true});
-      window.addEventListener("resize", _q, {passive:true}); setInterval(_q, 800); }catch(_){}
+    function _onScroll(){ _lastSc=Date.now(); clearTimeout(_settleT); _settleT=setTimeout(function(){ _lastSc=0; _q(); },160); }   // ★止まってから1回だけ
+    try{ var bx=$("gcMsgs"); if(bx) bx.addEventListener("scroll", _onScroll, {passive:true});
+      window.addEventListener("resize", _q, {passive:true}); setInterval(_q, 900); }catch(_){}
     window.__gcSendZoneDim=_q; })();
   function hideRestoring(){ var ov=document.getElementById("gcRestore"); if(!ov) return;
     _restoreProg(1);   // 完了=リング一周
