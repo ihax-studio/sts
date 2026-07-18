@@ -4391,7 +4391,9 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
             } else { stB.style.display="block"; stB.textContent=(st.sg&&!st.t)?"🎧":(st.t||"💬");
               stB.onclick=function(ev){ ev.stopPropagation(); haptic(); stViewer(addr, meFlag); }; }
           } }); }catch(_){}
-          if(!meFlag){ try{ friendSong(addr, function(sg){ if(sg&&sg.t){ var _se=rc.querySelector(".gc-fpin-song"); if(_se){ _se.textContent="🎧 "+sg.t; _se.style.display=""; } } }); }catch(_){} }   // ★友達の曲を右(rc)に常時表示(枠なし・ジャケットは出さない)
+          if(!meFlag){ try{ friendSong(addr, function(sg){ if(sg&&sg.t){ var _se=rc.querySelector(".gc-fpin-song"); if(_se){ _se.textContent="🎧 "+sg.t; _se.style.display="";
+            _se.style.pointerEvents="auto"; _se.style.cursor="pointer"; pin.style.pointerEvents="auto";   /* ★友達の曲もタップで再生(ユーザ指示2026-07-18) */
+            _se.onclick=function(ev){ ev.stopPropagation(); try{ haptic(); }catch(_){} try{ gcPlaySong({ title:sg.t, artist:sg.a||"", art:sg.art||"", preview:sg.p||"", previewUrl:sg.p||"" }); }catch(_){} }; } } }); }catch(_){} }   // ★友達の曲を右(rc)に常時表示(枠なし)・タップ=再生
           else { try{ var _cs=window.__gcCurSong; var _ca=_cs&&(_cs.art||((_cs.artworkUrl100||"").replace("100x100","300x300"))||"");   // ★地球儀: 自分のピンの上に再生中のジャケット(大きめ)
             if(_ca){ jk.style.width="104px"; jk.style.height="104px"; jk.style.borderRadius="20px"; jk.style.display="block"; jk.src=_ca; jk.style.cursor="pointer"; jk.onclick=function(ev){ ev.stopPropagation(); haptic(); try{ openNowPlaying(); }catch(_){} }; } }catch(_){} }   // ★地球儀: 自分のピンの上に再生中ジャケット(少しデカく)
         })(sp.me?(myAddr()||uid):(sp.room&&sp.room.peer), sp.me, grp.length>1);
@@ -4464,7 +4466,10 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
   function _openMusicPick(){ try{ spotOpenSearch({focus:true}); dynamicIsland("曲を検索して ♥ でお気に入りに設定"); }catch(_){} }   // ★PM廃止→検索デッキで曲を探して♥
   function friendSong(peer, cb){ if(!peer||!db){ cb(null); return; } if(_songCache[peer]!==undefined){ cb(_songCache[peer]); return; }
     try{ db.ref("users/"+peer+"/song").once("value").then(function(s){ var v=s.val()||null; _songCache[peer]=v; cb(v); }).catch(function(){ cb(null); }); }catch(_){ cb(null); } }
-  function _fillFriendSong(el, peer){ if(!el) return; friendSong(peer, function(sg){ if(sg&&sg.t){ el.textContent="🎧 "+sg.t; el.style.display=""; _addFriendSongLS(peer, sg); } else { el.style.display="none"; } }); }
+  function _fillFriendSong(el, peer){ if(!el) return; friendSong(peer, function(sg){ if(sg&&sg.t){ el.textContent="🎧 "+sg.t; el.style.display=""; _addFriendSongLS(peer, sg);
+      el.style.cursor="pointer"; el.style.pointerEvents="auto";   /* ★友達の曲もタップで再生(ユーザ指示2026-07-18) */
+      el.onclick=function(ev){ ev.stopPropagation(); try{ haptic(); }catch(_){} try{ gcPlaySong({ title:sg.t, artist:sg.a||"", art:sg.art||"", preview:sg.p||"", previewUrl:sg.p||"" }); }catch(_){} };
+    } else { el.style.display="none"; } }); }
   function _addFriendSongLS(peer, sg){ try{ var r=(prof.rooms||[]).filter(function(x){return x.peer===peer;})[0]; var nm=(r&&(r.nickname||r.name))||"友達"; var arr=JSON.parse(localStorage.getItem("cx_friend_songs")||"[]"); arr=arr.filter(function(x){return x&&x.peer!==peer;}); arr.unshift({peer:peer, name:nm, t:sg.t, a:sg.a||"", art:sg.art||""}); localStorage.setItem("cx_friend_songs", JSON.stringify(arr.slice(0,30))); }catch(_){} }   // P19: 友達のお気に入りをlocalStorageへ公開→Purple Music(同一オリジン)が2段目に表示
   function _injectSongCss(){ if(document.getElementById("gcSongCss"))return; var st=document.createElement("style"); st.id="gcSongCss";
     st.textContent=".gc-rail-song{ font-size:11px; color:rgba(255,255,255,.62); margin-top:1px; max-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }"
