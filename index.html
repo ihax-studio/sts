@@ -12393,7 +12393,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       var ang=Math.random()*6.283, r=110+Math.random()*Math.min(window.innerWidth,window.innerHeight)*0.72;   // ★今より広いところから
       d.style.cssText="position:absolute;width:"+(2+Math.random()*2.5)+"px;height:"+(2+Math.random()*2.5)+"px;border-radius:50%;background:#fff;left:0;top:0;"+
         "--dx:"+Math.round(Math.cos(ang)*r)+"px;--dy:"+Math.round(Math.sin(ang)*r)+"px;"+
-        "animation:"+(dir==="out"?"envDotOut":"envDotIn")+" "+(dir==="out"?(0.9+Math.random()*0.5):(2.2+Math.random()*1.4))+"s "+(dir==="out"?"ease-out":"ease-in")+" "+(Math.random()*1.8)+"s "+(dir==="out"?"1 forwards":"infinite")+";";
+        "animation:"+(dir==="out"?"envDotOut":"envDotIn")+" "+(dir==="out"?(0.9+Math.random()*0.5):(1.3+Math.random()*0.9))+"s "+(dir==="out"?"ease-out":"cubic-bezier(.22,1,.36,1)")+" "+(Math.random()*1.2)+"s "+(dir==="out"?"1 forwards":"infinite")+";";   /* ★「待ってね」のドット縮小=強めのcubicで速くダイナミックに(長押しカメラのドットと同系・ユーザ指示2026-07-18) */
       wrap.appendChild(d); }
     host.appendChild(wrap); return wrap; }
   function _envPill(txt){ var b=document.createElement("button"); b.textContent=txt;
