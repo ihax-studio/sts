@@ -2252,12 +2252,14 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   function _beginHello(word){ if(cur||done) return; cur=buildWord(word); layout(cur);
     drawMs=Math.max(550,Math.min(900,cur.total/1000*520)); phase="draw"; t0=performance.now(); raf=requestAnimationFrame(frame); }
   var _pick=_helloPick(); try{ window.__helloLang=_pick.lang; }catch(_){}   // ★検証用: コンソールで window.__helloLang=検出言語
-  /* ★挨拶は一貫して hello(EN)に統一(ユーザ指示2026-07-18)。例外=端末が韓国語なら動く韓国語JSONのまま */
-  if(_pick.lang!=="ko"){ _beginHello(HELLO_EN); }
-  else { var _hto=setTimeout(function(){ if(!cur) _beginHello(HELLO_EN); }, 1200);   // ko.json取得が遅い時はhelloへ(起動を待たせない)
+  /* ★起動の挨拶=確実に国別(ユーザ指示2026-07-18最終): ja=こんにちは / en=hello / 他=その国のhello/<lang>.json。
+     取得が遅い・失敗した時は1.5sでこんにちはに確実にフォールバック=挨拶が出ないことは無い */
+  if(_pick.mode==="ja"){ _beginHello(HELLO_JA); }
+  else if(_pick.mode==="en"){ _beginHello(HELLO_EN); }
+  else { var _hto=setTimeout(function(){ if(!cur) _beginHello(HELLO_JA); }, 1500);
     fetch("hello/"+_pick.file+".json").then(function(r){ if(!r.ok) throw 0; return r.json(); })
-      .then(function(d){ clearTimeout(_hto); if(!cur){ if(d&&d.strokes&&d.strokes.length) _beginHello(d); else _beginHello(HELLO_EN); } })
-      .catch(function(){ clearTimeout(_hto); if(!cur) _beginHello(HELLO_EN); }); }
+      .then(function(d){ clearTimeout(_hto); if(!cur){ if(d&&d.strokes&&d.strokes.length) _beginHello(d); else _beginHello(HELLO_JA); } })
+      .catch(function(){ clearTimeout(_hto); if(!cur) _beginHello(HELLO_JA); }); }
   // hello 出て 0.4s：背景をブラーへフェード、globe を裏で出現させ透けさせる(★地球儀ぐるっは0.1s遅らす)
   setTimeout(function(){ try{ if(!lightBg) intro.classList.add("bgfade"); if(globeWrap) globeWrap.classList.add("reveal"); }catch(_){} }, 0);   // ★背景の透明blur化を即時=起動時の色フラッシュを残さず地球儀が即透ける(delay撤去)
 })();
@@ -2807,7 +2809,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   @keyframes gcUfDotIn{ to{ opacity:1; transform:translateX(0); } }
   .gc-uf-cancel{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom,0px) + 42px); text-align:center; color:rgba(255,255,255,.55); font-size:16px; font-weight:300; }
   @keyframes gcUfGlitch{ 0%{ text-shadow:0 2px 18px rgba(0,0,0,.7); transform:translate(0); } 20%{ text-shadow:-3px 0 #ff00d4, 3px 0 #00e5ff; transform:translate(2px,-1px); } 45%{ text-shadow:3px 0 #ff00d4, -3px 0 #00e5ff; transform:translate(-3px,1px); } 70%{ text-shadow:-2px 0 #ff00d4, 2px 0 #00e5ff; transform:translate(1px,1px); opacity:.85; } 100%{ text-shadow:0 0 0 transparent; transform:translate(0) scale(1.12); opacity:0; } }
-  .gc-uf-tx.glitch{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:gcUfGlitch .42s steps(2,end) 1 both; }
+  .gc-uf-tx.glitch{touch-action:pan-y!important;overscroll-behavior-x:none!important; animation:gcUfGlitch 1s ease 1 both; }   /* ★削除の消滅=1s ease(ユーザ指示2026-07-18) */
   /* ★旧設定UI(My Friendsバー/自分QR枠/削除トグル=.gc-set-*)のCSSは廃止(ユーザ指示2026-07-18) */
   .gc-rail-track, .gc-rail-track *{ touch-action:pan-y !important; overscroll-behavior-x:none !important; }   /* 横スクロールはJS増幅(attachSwipeScroll)が単一機構で担う */
   .gc-power.gc-ho-left.gc-corner img{ filter:brightness(0) invert(1); }   /* ★カメラアイコンは常に白(classicでも地球儀背景でも) */
@@ -7621,7 +7623,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     if(_ufMotionOn){ window.removeEventListener("devicemotion",_ufMotion); _ufMotionOn=false; } clearTimeout(_ufTimer); clearTimeout(_ufDeleteTimer); _ufTaps=0; _ufBusy=false;
     try{ var _inn=$("gcUfInner"); if(_inn){ clearTimeout(_inn.__lpT); _inn.onpointerdown=null; _inn.onpointerup=null; _inn.onpointercancel=null; _inn.onwebkitmouseforcedown=null; _inn.onclick=null; } }catch(_){} }   // キャンセルでMac長押し/強押しの保留も解除(誤削除防止)
   function doUnfriend(){ if(_ufBusy) return; _ufBusy=true; var peer=peerOf(_acct||{});
-    try{ if(haptic.error)haptic.error(); else haptic(); }catch(_){}                                  // 削除時 haptic.error()
+    try{ _gcHapN(3,110); }catch(_){ try{ if(haptic.error)haptic.error(); else haptic(); }catch(__){} }   // ★削除時=3回haptic(ユーザ指示2026-07-18)
     if(_ufMotionOn){ try{ window.removeEventListener("devicemotion",_ufMotion); }catch(_){} _ufMotionOn=false; }   // シェイク連発を止める
     var tx=$("gcUfTx"); if(tx){ tx.classList.remove("glitch"); void tx.offsetWidth; tx.classList.add("glitch"); }   // TikTok風マゼンタ/シアン グリッチ→消滅
     _ufDeleteTimer=setTimeout(function(){ _ufDeleteTimer=null; var _ov=$("gcUnfriend"); if(_ov){ _ov.classList.add("closing"); _ov.classList.remove("show"); setTimeout(function(){ _ov.classList.remove("closing"); },700); } if(_ufMotionOn){ try{ window.removeEventListener("devicemotion",_ufMotion); }catch(_){} _ufMotionOn=false; }
@@ -7631,7 +7633,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       acctHideEl(); _acct=null; _ufBusy=false; dynamicIsland("友達を解除しました");
       try{ buildSettingsFriends(); }catch(_){} try{ buildFriends(); }catch(_){}                         // −削除は設定に留まりバー再構築＋home一覧更新
       try{ if(window.SearchDeck&&SearchDeck.syncFriends) SearchDeck.syncFriends(); }catch(_){}          // ★apps一覧(×から削除)のタイルも即更新
-    }, 420); }
+    }, 1000); }   /* ★1s easeのグリッチ消滅を見届けてから畳む(ユーザ指示2026-07-18) */
   window.__openUnfriend=openUnfriend;   // ★apps一覧の編集モード(×)からも「振って削除」UIを開ける
   /* gid は meettomeet(app.js) と同一: メンバー集合で決定的 → 同じメンツは同じgid＝重複不可・相互運用可 */
   function _ghash(s){ var h=0x811c9dc5>>>0; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } return h.toString(36); }
@@ -12472,7 +12474,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     inner.appendChild(hint);
     ov.appendChild(inner); document.body.appendChild(ov);
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; ov.style.webkitBackdropFilter="blur(30px) saturate(140%)"; ov.style.backdropFilter="blur(30px) saturate(140%)"; inner.style.transform="scale(1)"; }); });
-    _pairShakeArm(function(){ try{ haptic(); }catch(_){} bye(); try{ _pairExplainOnce(); }catch(_){} }, 45000);
+    _pairShakeArm(function(){ try{ _gcHapN(3,110); }catch(_){ try{ haptic(); }catch(__){} } bye(); try{ _pairExplainOnce(); }catch(_){} }, 45000);   /* ★振って拒否=3回haptic(ユーザ指示) */
     ov.addEventListener("click", function(e){ if(e.target===ov) bye(); });
   }catch(_){} }
   /* ★振って拒否: devicemotionで大きく2回振る=拒否。初回だけ「だるいですか。振りましょう✨」の説明(blur背景・0.7s ease) */
