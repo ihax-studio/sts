@@ -41,8 +41,8 @@
 })();
 </script>
 <link rel="stylesheet" href="globe.css">
-<link rel="stylesheet" href="search-deck.css?v=14">
-<script src="search-deck.js?v=14"></script>
+<link rel="stylesheet" href="search-deck.css?v=15">
+<script src="search-deck.js?v=15"></script>
 <script>window.IHAX_MODEL_BASE="";/* ★iHaxモデル=HuggingFace直配信(完全無料)で確定。R2を使う時だけ公開URLを入れる */
 /* ★LINEログインは廃止(2026-07)。二次ログイン/引き継ぎはGitHub連携+パスキーに一本化 */</script>
 <script src="ihax.js?v=5" defer></script>
@@ -3085,9 +3085,22 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   /* ★入力中UI刷新: 回転ローディング(blur版)。高さ/位置の変化は1sで滑らか=文字の位置ズレがスッと動く */
   .gc-typing{touch-action:pan-y!important;overscroll-behavior-x:none!important; height:0; overflow:hidden; opacity:0; padding:0 18px; font-size:12px; color:rgba(255,255,255,.6);
     transition:opacity .4s var(--gc-ease), height 1s cubic-bezier(.22,1,.36,1), padding 1s cubic-bezier(.22,1,.36,1); }
-  .gc-typing.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; height:36px; opacity:1; padding-bottom:6px; overflow:visible; }   /* ★表示中はoverflow:visible=大きい回転リングのblur/glowが枠切れしない(収納アニメ時はbase側overflow:hiddenで畳む) */
+  .gc-typing.show{touch-action:pan-y!important;overscroll-behavior-x:none!important; height:50px; opacity:1; padding-top:5px; padding-bottom:9px; overflow:visible; }   /* ★リアルタイム文字=上下の余白を若干開けて見やすく(ユーザ指示2026-07-18) */
+  #gcTyping{ position:relative; }
   /* live text (realtime peer input) replaces the old typing-dot indicator */
-  .gc-typing .gc-ltx{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:inline-block; max-width:78vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:17px; line-height:1.25; color:rgba(255,255,255,.95); vertical-align:middle; }
+  .gc-typing .gc-lt-wrap{ display:inline-flex; align-items:center; gap:9px; opacity:0; transition:opacity .5s var(--gc-ease), transform .4s var(--gc-ease); max-width:70vw; }
+  .gc-typing .gc-ltx{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:inline-block; max-width:62vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif; font-weight:100; font-size:19px; line-height:1.4; color:rgba(255,255,255,.96); vertical-align:middle; padding:2px 0; }
+  /* ★入力中の合図=・・・ではなくシアン/マゼンタのぼけた玉(TikTok風)が0.5sでふわっと出る(ユーザ指示) */
+  .gc-lt-blob{ position:relative; width:26px; height:16px; flex:0 0 auto; filter:blur(4px); }
+  .gc-lt-blob::before,.gc-lt-blob::after{ content:""; position:absolute; top:2px; width:12px; height:12px; border-radius:50%; }
+  .gc-lt-blob::before{ left:2px; background:#00F2EA; }
+  .gc-lt-blob::after{ left:11px; background:#FF0050; mix-blend-mode:screen; }
+  /* ★Aa(日本語=あぁ)トグル: SF Pro Rounded w100・左右にTikTok風シアン/マゼンタのブレ。off=横線 */
+  .gc-lt-aa{ position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:none; padding:4px 10px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    font-family:ui-rounded,"SF Pro Rounded",-apple-system,sans-serif; font-weight:100; font-size:21px; line-height:1; color:#fff;
+    text-shadow:1.8px 1.4px 0 rgba(255,0,80,.8), -1.8px -1.4px 0 rgba(0,242,234,.8); z-index:3; transition:opacity .5s var(--gc-ease); }
+  .gc-lt-aa.off{ text-decoration:line-through; opacity:.55; }
+  .gc-typing.aaonly.show{ height:40px; }
   .gc-typing .gc-ltx.up{ animation:gcLtUp .5s var(--gc-spring) both; }
   @keyframes gcLtUp{ 0%{ opacity:0; transform:translateY(14px) } 100%{ opacity:1; transform:translateY(0) } }
   body.gc-bgwhite .gc-typing .gc-ltx{ color:rgba(0,0,0,.85); }
@@ -3643,9 +3656,11 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   #gcEnvChoose .ecAstro.show{ transform:translate(-50%,0); opacity:1; }
   #gcEnvChoose .ecAstro .gcSw{ width:56px; height:56px; scroll-snap-align:center; }
   /* ★environmentタブ/星ストリップが画面幅で見切れない=幅ごとにサイズを縮めて全部収める+押しやすく(ユーザ指示) */
+  /* ★環境チューザーは少し小さく=ボタン全部(地球儀+火星金星冥王星+色+ダーク)が画面内に収まる(ユーザ指示2026-07-18) */
+  #gcEnvChoose .ecRow .gcSw{ width:54px; height:54px; }
   @media (max-width:520px){
-    #gcEnvChoose .ecRow{ gap:12px; padding:14px 16px; }
-    #gcEnvChoose .ecRow .gcSw{ width:56px; height:56px; }
+    #gcEnvChoose .ecRow{ gap:10px; padding:13px 14px; }
+    #gcEnvChoose .ecRow .gcSw{ width:47px; height:47px; }
     #gcEnvChoose .ecAstro{ gap:12px; padding:12px 16px; }
     #gcEnvChoose .ecAstro .gcSw{ width:54px; height:54px; }
   }
@@ -4223,7 +4238,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     [].forEach.call(document.querySelectorAll(".gc-sw-pick"),function(n){ if(/^#/.test(c)){ n.style.setProperty("--pick-in", c);   // ★背景(グラデborder)は残し、枠内の色だけ更新+scaleup再生
       n.classList.remove("just-picked"); void n.offsetWidth; n.classList.add("just-picked"); } });
     [].forEach.call(document.querySelectorAll(".gc-sw-pickin"),function(n){ try{ if(/^#/.test(c))n.value=c; }catch(_){} });
-    if(/^#/.test(c)){ var _nb=$("nobAva"); if(_nb) _nb.style.background=c; var _ng=$("nobGo"); if(_ng) _ng.style.background=c; }   // 登録画面のアバター/→も選んだ色に追従
+    if(/^#/.test(c)){ var _nb=$("nobAva"); if(_nb) _nb.style.background=c; var _ng=$("nobGo"); if(_ng){ _ng.style.background=c; try{ _nobGoSwap(); }catch(_){} } }   // 登録画面のアバター/→も選んだ色に追従・★色変更=→が右へ0.5s cubicフェードアウト→左から再登場(ユーザ指示)
     if(prof.admin) return;                                  // 管理者は色固定（反映/保存しない）
     try{ refreshProfileUI(); }catch(_){}                    // 名前/アイコンUIを更新
     if(/^#/.test(c)){ ["gcPeAva","gcPpAva","gcAvaIc","gcAddAva","gcMyQRAva"].forEach(function(id){ var el=$(id); if(el && !avaIsImg(prof.ava)) el.style.background=c; }); }   // 選んだ色を自分のアバターに即反映（編集プレビュー/ホーム中央/追加カード/QR）
@@ -4659,6 +4674,10 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
           setTimeout(function(){ try{ card.remove(); }catch(_){} },300);
           try{ dynamicIsland("モーメントから削除しました"); }catch(_){} };
         card.appendChild(delB);
+        /* ★思い出はちゃんと日付ごとに分かれて見える=グループ先頭に日付見出し(ユーザ指示2026-07-18) */
+        if(x.__tlFirst){ var _hd=document.createElement("div"); _hd.textContent=x.__lb||"";
+          _hd.style.cssText="grid-column:1/-1;color:rgba(255,255,255,.85);font:600 14px/1 -apple-system,'SF Pro Text','Hiragino Sans',sans-serif;letter-spacing:.06em;padding:12px 2px 0;text-shadow:0 1px 6px rgba(0,0,0,.5)";
+          grid.appendChild(_hd); }
         grid.appendChild(card); });
       /* ★右端タイムライン(思い出app内・日付を見やすく): 今日/昨日/--/--(今年)・年(去年以前)+一番下に記念日(選んだemoji)。タップでその日へスクロール */
       try{ var _tlArr=arr.filter(function(x){ return x.__tlFirst; });
@@ -4759,7 +4778,9 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var ov=_stOverlay(9764); ov.style.background=_scan?"rgba(0,0,0,.82)":"rgba(0,0,0,.72)";
     try{ if(!_scan) gcHideDock(); }catch(_){}   // ★投稿UIでは左のドック(閉じた丸)を出さない
     var stream=null, facing=(_scan?"environment":"user"), tcol="#ffffff";
-    var FONTS=[{n:"SF Thin",f:"-apple-system,'SF Pro Display',sans-serif",w:100},{n:"SF",f:"-apple-system,'SF Pro Display',sans-serif",w:800},
+    /* ★時間の字(ユーザ指示2026-07-18): 一番細い=SF Pro Rounded weight1(他より+3pxデカい) / 一番太い=SF Pro Expanded */
+    var FONTS=[{n:"Rounded Thin",f:"ui-rounded,'SF Pro Rounded','Hiragino Maru Gothic ProN',-apple-system,sans-serif",w:100,d:3},
+               {n:"SF Expanded",f:"-apple-system,'SF Pro Display',sans-serif",w:800,st:"expanded"},
                {n:"明朝",f:"'Hiragino Mincho ProN','Times New Roman',serif",w:600},{n:"Rounded",f:"ui-rounded,'SF Pro Rounded','Hiragino Maru Gothic ProN',-apple-system,sans-serif",w:700},
                {n:"Mono",f:"ui-monospace,Menlo,monospace",w:500}];
     var fi=0, pendSg=null, pendEmo="";   // ★時刻のデフォルト書体=一番細いSF Thin(w100)が最初(ユーザ指示)
@@ -4784,10 +4805,10 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var vid=document.createElement("video"); vid.setAttribute("playsinline",""); vid.muted=true; vid.autoplay=true;
     vid.style.cssText="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)";
     var tl=document.createElement("div"); function nowT(){ var d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
-    tl.textContent=nowT(); tl.style.cssText="position:absolute;top:12%;left:0;right:0;text-align:center;font:800 34px/1 -apple-system,'SF Pro Display',sans-serif;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45);pointer-events:none";
+    tl.textContent=nowT(); tl.style.cssText="position:absolute;top:12%;left:0;right:0;text-align:center;font-family:ui-rounded,'SF Pro Rounded',-apple-system,sans-serif;font-weight:100;font-size:47px;line-height:1;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45);pointer-events:none";   /* ★タイマー=よりデカくweight1(ユーザ指示) */
     wrap.appendChild(vid); wrap.appendChild(tl); holder.appendChild(wrap); ov.appendChild(holder);
-    /* ★時間の字: タップでサイズ切替(大=上 / ミディアム=中央 / 小さい=下) */
-    var TSIZES=[{px:34,top:"12%",cy:0.19},{px:26,top:"44%",cy:0.55},{px:18,top:"78%",cy:0.88}], tsi=0;
+    /* ★時間の字: タップでサイズ切替(大=上 / ミディアム=中央 / 小さい=下)。★よりデカく(ユーザ指示2026-07-18) */
+    var TSIZES=[{px:44,top:"11%",cy:0.18},{px:33,top:"44%",cy:0.55},{px:24,top:"77%",cy:0.88}], tsi=0;
     tl.style.pointerEvents="auto"; tl.style.cursor="pointer";
     tl.addEventListener("click", function(e){ e.stopPropagation(); haptic(); tsi=(tsi+1)%TSIZES.length; syncT(); });
     /* ★タイマーリング: プレビューの一番内側の円周に沿う(ノブを縁に沿って回す=0〜8秒 / ノブをタップ=3→7→0) */
@@ -4879,7 +4900,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     function cancelCountdown(){ counting=false; clearInterval(cdT); cdEl.style.display="none"; }
     function runCountdown(n, done){ counting=true; var left=n; cdEl.textContent=String(left); cdEl.style.display="flex"; haptic();
       cdT=setInterval(function(){ left--; if(left<=0){ cancelCountdown(); done(); return; } cdEl.textContent=String(left); haptic(); },1000); }
-    function startCam(){ stopCam(); navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ideal:960} }, audio:false })
+    function startCam(){ stopCam(); navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ideal:1920}, height:{ideal:1440} }, audio:false })   /* ★解像度を落とさない(ユーザ指示2026-07-18) */
       .then(function(st2){ stream=st2; vid.srcObject=st2; vid.style.transform=(facing==="user")?"scaleX(-1)":"none"; })
       .catch(function(){ try{ dynamicIsland("カメラを許可してね"); }catch(_){} ov.__close(); }); }
     startCam();
@@ -4902,7 +4923,8 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
       }).catch(function(){ if(_scan){ try{ dynamicIsland("QR読み取りを読み込めませんでした"); }catch(_){} } });
     })();
     function syncT(){ var F=FONTS[fi], TS=TSIZES[tsi]; tl.style.color=tcol; tl.style.fontWeight=String(F.w); tl.style.fontFamily=F.f;
-      tl.style.fontSize=TS.px+"px"; tl.style.top=TS.top; tl.textContent=nowT(); }   // ★大=上/ミディアム=中央/小さい=下
+      tl.style.fontStretch=F.st||"normal";   /* ★一番太い=expanded(ユーザ指示) */
+      tl.style.fontSize=(TS.px+(F.d||0))+"px"; tl.style.top=TS.top; tl.textContent=nowT(); }   // ★大=上/ミディアム=中央/小さい=下・Rounded Thinは+3px
     /* ★色ボタンの行は廃止=色はプレビュー円周のリングへ移動。Aa(左)とレンズ切替(右)は同じ行・より下に */
     var arow=document.createElement("div"); arow.style.cssText="width:min(64vw,250px);display:flex;align-items:center;justify-content:space-between;margin-top:60px";   /* ★Aa/カメラ切替をより下に(60px) */
     var aaB=document.createElement("button"); aaB.textContent="Aa";
@@ -4933,13 +4955,17 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
         if(!videoMode && stream){ haptic(); shareShot(); } return; }
       _wTapT=setTimeout(function(){ _wTapT=null; haptic(); videoMode=!videoMode; applyMode(); },260); });
     var tTick=setInterval(function(){ if(!document.body.contains(ov)){ clearInterval(tTick); return; } syncT(); },20000);
-    function bake(){ var S=240, cv=document.createElement("canvas"); cv.width=S; cv.height=S; var ctx=cv.getContext("2d");
+    function bake(){ /* ★撮影画質を落とさない(ユーザ指示2026-07-18): 240px/q0.55→実解像度基準(最大1080px)/q0.92+彩度高め */
       var vw=vid.videoWidth||640, vh=vid.videoHeight||480, side=Math.min(vw,vh), sx=(vw-side)/2, sy=(vh-side)/2;
+      var S=Math.max(480, Math.min(1080, side)), K=S/240;
+      var cv=document.createElement("canvas"); cv.width=S; cv.height=S; var ctx=cv.getContext("2d");
+      try{ ctx.filter="saturate(1.15) contrast(1.03)"; }catch(_){}   /* ★色彩度高く */
       if(facing==="user"){ ctx.translate(S,0); ctx.scale(-1,1); }
       ctx.drawImage(vid, sx, sy, side, side, 0, 0, S, S); ctx.setTransform(1,0,0,1,0,0);
-      var F=FONTS[fi], TS=TSIZES[tsi]; ctx.font=F.w+" "+TS.px+"px "+F.f; ctx.textAlign="center";   // ★選んだサイズ/位置で焼き込む(中=中央/小=下)
-      ctx.shadowColor="rgba(0,0,0,.45)"; ctx.shadowBlur=8; ctx.fillStyle=tcol; ctx.fillText(nowT(), S/2, S*TS.cy);
-      return cv.toDataURL("image/jpeg",0.55); }
+      try{ ctx.filter="none"; }catch(_){}
+      var F=FONTS[fi], TS=TSIZES[tsi]; ctx.font=F.w+" "+(F.st||"normal")+" "+Math.round((TS.px+(F.d||0))*K)+"px "+F.f; ctx.textAlign="center";   // ★選んだサイズ/位置で焼き込む(中=中央/小=下)
+      ctx.shadowColor="rgba(0,0,0,.45)"; ctx.shadowBlur=8*K; ctx.fillStyle=tcol; ctx.fillText(nowT(), S/2, S*TS.cy);
+      return cv.toDataURL("image/jpeg",0.92); }
     /* ★撮影時(カメラ=写真のみ): 白い光が0.2sでぽわっと全体に→0.2sでぽわっと消える */
     function _flash(){ var fl=document.createElement("div"); fl.style.cssText="position:fixed;inset:0;z-index:9767;background:#fff;opacity:0;pointer-events:none;transition:opacity .2s var(--gc-ease)";
       document.body.appendChild(fl); requestAnimationFrame(function(){ requestAnimationFrame(function(){ fl.style.opacity="1";
@@ -4965,8 +4991,8 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
         var nu="https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=ja&lat="+la+"&lon="+lo;
         function pick(d){ var a=(d&&d.address)||{}; return a.city||a.city_district||a.suburb||a.ward||a.town||a.village||a.county||a.state||(d&&d.name)||""; }
         fetch("https://corsproxy.io/?url="+encodeURIComponent(nu)).then(function(r){ return r.json(); }).then(function(d){ var n=pick(d); if(n){ cb(n,{la:la,lo:lo}); } else throw 0; })
-          .catch(function(){ fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(nu)).then(function(r){ return r.json(); }).then(function(d){ cb(pick(d)||null,{la:la,lo:lo}); }).catch(function(){ cb(null); }); });
-      }, function(){ cb(null); }, {enableHighAccuracy:false, timeout:9000, maximumAge:600000}); }
+          .catch(function(){ fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(nu)).then(function(r){ return r.json(); }).then(function(d){ cb(pick(d)||"現在地",{la:la,lo:lo}); }).catch(function(){ cb("現在地",{la:la,lo:lo}); }); });   /* ★地名の逆引きに失敗しても座標は取れている=「現在地」で必ず設置できる(ユーザ指示2026-07-18) */
+      }, function(err){ try{ dynamicIsland(err&&err.code===1?"位置情報がオフです。設定で許可してね":"現在地を取得できませんでした"); }catch(_){} cb(null); }, {enableHighAccuracy:true, timeout:9000, maximumAge:120000}); }
     window.__stGeoWard=_stGeoWard;   // ★カメラapp(openCamApp)の「今の場所はシェアする?👀」でも使う
     function _stShareScreen(media, onShare){
       var so=_stOverlay(9766);
@@ -6892,8 +6918,23 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
         if(/^https?:\/\//i.test(text) || /^[\w-]+(\.[\w-]+){1,}(\/|$|\?)/.test(text)){ _gcScanShowURL(text); }   // URL系→中央表示+タップコピー
         else { if(haptic.error)haptic.error(); dynamicIsland("このQRコードではないみたい"); } } return false; }
     if(peer===uid||peer===myAddr()){ dynamicIsland("それはあなた自身のQRだよ"); return false; }
-    gcStopScan(); var nm="友達 "+String(peer).slice(0,5); addByUid(peer,nm); if(haptic.confirm)haptic.confirm();
-    var room=dmRoom(peer); setTimeout(function(){ openChat(room,nm); },340); return true; }
+    gcStopScan();
+    /* ★友達追加もスライドUI(tog.html風・ユーザ指示2026-07-18): スライドで追加→チャットへ */
+    (function(){ var nm="友達 "+String(peer).slice(0,5);
+      var ov=document.createElement("div");
+      ov.style.cssText="position:fixed;inset:0;z-index:9877;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:transparent;-webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);opacity:0;transition:opacity .5s ease, -webkit-backdrop-filter .5s ease, backdrop-filter .5s ease";
+      var inner=document.createElement("div"); inner.style.cssText="display:flex;flex-direction:column;align-items:center;gap:24px;transform:scale(1.1);transition:transform .8s ease";
+      var em=document.createElement("div"); em.textContent="🫶🏻"; em.style.cssText="font-size:56px;line-height:1"; inner.appendChild(em);
+      var t=document.createElement("div"); t.textContent="友達に追加する"; t.style.cssText="color:#fff;font:200 28px/1.4 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;text-align:center;text-shadow:0 2px 18px rgba(0,0,0,.5)"; inner.appendChild(t);
+      function bye(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); }
+      inner.appendChild(_gcSlideBar("スライドで友達追加", function(){ bye();
+        addByUid(peer, nm); if(haptic.confirm)haptic.confirm();
+        var room=dmRoom(peer); setTimeout(function(){ openChat(room,nm); },340); }));
+      ov.appendChild(inner); ov.addEventListener("click", function(e){ if(e.target===ov) bye(); });
+      document.body.appendChild(ov);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; ov.style.webkitBackdropFilter="blur(30px) saturate(140%)"; ov.style.backdropFilter="blur(30px) saturate(140%)"; inner.style.transform="scale(1)"; }); });
+    })();
+    return true; }
 
   /* ── 友達一覧（今までのユーザのみ・グローバル無し） ── */
   /* prof.rooms を peer/room キーで upsert（承認フロー対応） */
@@ -7855,7 +7896,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
         var b=document.createElement("button"); b.textContent=em; b.style.cssText="position:absolute;left:calc(50% + "+(R*Math.cos(a)).toFixed(1)+"px);top:calc(50% + "+(R*Math.sin(a)).toFixed(1)+"px);transform:translate(-50%,-50%) scale(.2);opacity:0;width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,.12);font-size:24px;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:transform .5s var(--gc-spring), opacity .4s";
         b.onclick=function(ev){ ev.stopPropagation(); haptic(); an.e=em; ctr.textContent=em;
           /* ★ハートを選ぶとアイコンの枠色もハートに合う色に自動変更(後から自分で色変更は可・ユーザ指示) */
-          try{ var _hc={"💜":"#AF52DE","❤️":"#FF3B30","💙":"#007AFF","🖤":"#3a3a3f","🩷":"#FF2D92","💚":"#34C759","🧡":"#FF9500","💛":"#FFCC00","🤍":"#E9E9EE"}[em];
+          try{ var _hc={"💜":"#B024D8","❤️":"#FF3B30","💙":"#007AFF","🖤":"#3a3a3f","🩷":"#FF2D92","💚":"#34C759","🧡":"#FF9500","💛":"#FFCC00","🤍":"#E9E9EE"}[em];   /* ★💜=明るくて濃い赤寄りパープル(ユーザ指示) */
             if(_hc&&!prof.admin){ try{ markColor(_hc); }catch(__){ prof.color=_hc; save(); } try{ if(!avaIsImg(prof.ava)) avIn.style.background=_hc; }catch(__){} } }catch(_){}
           ov2.style.opacity="0"; setTimeout(function(){ try{ ov2.remove(); }catch(_){} renderAnniv(); },260); };
         host.appendChild(b); setTimeout(function(){ b.style.opacity="1"; b.style.transform="translate(-50%,-50%) scale(1)"; }, base+i*30); }); }
@@ -7910,7 +7951,7 @@ window.GC_ADMIN_SECRET = "h2so4+naoh->na2so4+h2o";
     var avw=document.createElement("div"); avw.style.cssText="position:relative;width:222px;height:222px;display:flex;align-items:center;justify-content:center;margin:0 auto";
     av.style.position="relative"; av.style.zIndex="1"; avw.appendChild(av);
     /* ★色スウォッチ(7色+OS標準)=アバター周囲の円形リング。avw定義前に実行するとavw未定義エラーで利用者のプロフィールUI(MBTI含む)が出なくなるため必ずここ(avw定義後)で生成する */
-    if(!prof.admin){ (function(){ var COLS=["#00C7BE","#FF2D92","#34C759","#AF52DE","#FF9500","#FFCC00","#007AFF"];
+    if(!prof.admin){ (function(){ var COLS=["#00C7BE","#FF2D92","#34C759","#B024D8","#FF9500","#FFCC00","#007AFF"];   /* ★パープル=明るくて濃い・若干赤寄り(ユーザ指示2026-07-18) */
       function applyCol(c){ if(!prof.admin){ try{ markColor(c); }catch(_){ prof.color=c; save(); } }
         try{ if(!avaIsImg(prof.ava)) avIn.style.background=c; }catch(_){} }
       var CX=111, R=92;   // avw中心(222/2)・半径
@@ -9020,7 +9061,28 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     try{ _vmAbortAll(); }catch(_){}
   }
   /* 会話を閉じて最初の画面へ（戻るボタンと左スワイプで共有） */
-  function gcLeaveChat(){ leaveChatListeners(); chatRoom=null; try{ document.body.classList.remove("gc-inchat"); }catch(_){} hideAll(); if(prof.onboarded){ gotoHome(); } else { startReg(); } }
+  /* ★初めて繋がった相手との空チャット=「🫩who are You👀」/hello/welcome の提案がスライドアップ(ユーザ指示2026-07-18)。
+     どれかを送る or 最初のメッセージが届いたら0.5s easeで縮小スライドダウンして二度と出ない(部屋ごと) */
+  function _chatSuggDismiss(mark){ var b=$("gcSuggBar"); if(!b) return;
+    if(mark!==false){ try{ localStorage.setItem("cx_sugg_"+(b.__room||chatRoom||""),"1"); }catch(_){} }
+    b.style.transition="transform .5s ease, opacity .5s ease"; b.style.transform="translateY(28px) scale(.8)"; b.style.opacity="0";
+    setTimeout(function(){ try{ b.remove(); }catch(_){} },520); }
+  function _chatSuggBar(room){ try{
+    if(!room||$("gcSuggBar")) return;
+    try{ if(localStorage.getItem("cx_sugg_"+room)) return; }catch(_){}
+    var box=$("gcMsgs"); if(!box||box.querySelector(".gc-msg")) return;   // 既にやりとりがある=出さない
+    var b=document.createElement("div"); b.id="gcSuggBar"; b.__room=room;
+    b.style.cssText="position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 122px);display:flex;justify-content:center;gap:10px;z-index:9140;padding:0 14px;transform:translateY(30px);opacity:0;transition:transform .5s cubic-bezier(.22,1,.36,1), opacity .5s ease;pointer-events:auto";
+    function pill(tx, fn){ var p=document.createElement("button"); p.type="button"; p.textContent=tx;
+      p.style.cssText="border:none;border-radius:99px;background:rgba(255,255,255,.13);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);color:#fff;font:500 14px/1 -apple-system,'Hiragino Sans',sans-serif;padding:12px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22);white-space:nowrap";
+      p.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} try{ fn(); }catch(_){} _chatSuggDismiss(); }; return p; }
+    b.appendChild(pill("🫩who are You👀", function(){ pushMessage(room, "🫩who are You👀"); }));
+    b.appendChild(pill("hello", function(){ pushMessage(room, "hello"); }));
+    b.appendChild(pill("welcome ✨", function(){ var l="en"; try{ l=String(navigator.language||"en").toLowerCase().split(/[-_]/)[0]; }catch(_){} pushMessage(room, "cxwelcome:"+l); }));
+    document.body.appendChild(b);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ b.style.transform="translateY(0)"; b.style.opacity="1"; }); });
+  }catch(_){} }
+  function gcLeaveChat(){ leaveChatListeners(); chatRoom=null; try{ document.body.classList.remove("gc-inchat"); }catch(_){} try{ var _sb=$("gcSuggBar"); if(_sb) _sb.remove(); }catch(_){} hideAll(); if(prof.onboarded){ gotoHome(); } else { startReg(); } }
   /* ★独自機能: チャットを左スワイプ（中央域）で最初の画面へ戻る。戻るボタン不要。
      ・右スワイプ=返信／端24px起点=ドック召喚 とは競合しない（中央域・左方向のみ・横優先で判定）。 */
   (function(){ var sc=$("gcChat"); if(!sc) return; var x0=0,y0=0,act=false;
@@ -9079,28 +9141,65 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
      The old typing indicator (dots / first char / ring) is removed — this single
      feature replaces it. Firebase RTDB is the lightest transport available here
      (SDK already loaded, tiny throttled writes, node auto-removed on disconnect). */
-  var _prRoom=null, _ltLast="", _ltTimer=null, _ltUpTimer=null;
+  var _prRoom=null, _ltLast="", _ltTimer=null;
   function _prRef(){ return (chatRoom&&db&&uid)?db.ref("chats/"+chatRoom+"/typing/"+uid):null; }
+  /* ★リアルタイム文字のオン/オフ(Aa): 自分がオフ=部屋ごとにlocalStorage+typingノードにltoff=1(相手側も出さなくなる=両者停止・ユーザ指示2026-07-18) */
+  function _ltOffLocal(room){ try{ return !!localStorage.getItem("cx_ltoff_"+(room||chatRoom||"")); }catch(_){ return false; } }
+  function _ltAaSync(){ var el=$("gcTyping"); if(!el) return; var b=el.querySelector(".gc-lt-aa"); if(!b) return;
+    var off=_ltOffLocal(chatRoom)||!!window.__ltPeerOff; b.classList.toggle("off", off);
+    el.classList.toggle("aaonly", off&&!el.querySelector(".gc-ltx[data-on]"));
+    if(off && document.body.classList.contains("gc-inchat")){ el.classList.add("show"); } }
+  function _ltEnsureAa(){ var el=$("gcTyping"); if(!el) return;
+    var b=el.querySelector(".gc-lt-aa");
+    if(!b){ b=document.createElement("button"); b.type="button"; b.className="gc-lt-aa";
+      b.textContent=(String(navigator.language||"").toLowerCase().indexOf("ja")===0)?"あぁ":"Aa";
+      b.onclick=function(e){ e.stopPropagation(); try{ _gcHapN(3,110); }catch(_){ try{ haptic(); }catch(__){} }   // ★3回ハプティック(ユーザ指示)
+        var off=!_ltOffLocal(chatRoom);
+        try{ if(off) localStorage.setItem("cx_ltoff_"+chatRoom,"1"); else localStorage.removeItem("cx_ltoff_"+chatRoom); }catch(_){}
+        var ref=_prRef(); if(ref){ try{ ref.update({ ltoff:(off?1:null), tx:null }); }catch(_){} }
+        _ltLast="";
+        if(off){ showLiveText(null); } else { _ltAaSync(); } };
+      el.appendChild(b); }
+    _ltAaSync(); }
   function presenceOpen(room){ _prRoom=room; _ltLast=""; var ref=_prRef(); if(!ref) return;
-    try{ ref.set({ name:prof.name||"だれか", on:1 }); ref.onDisconnect().remove(); }catch(_){} }
+    try{ var _po={ name:prof.name||"だれか", on:1 }; if(_ltOffLocal(room)) _po.ltoff=1; ref.set(_po); ref.onDisconnect().remove(); }catch(_){}
+    try{ setTimeout(_ltEnsureAa, 60); }catch(_){} }
   function presenceClose(room){ var r=room||_prRoom; _prRoom=null; _ltLast=""; clearTimeout(_ltTimer); _ltTimer=null;
     if(db&&uid&&r){ try{ db.ref("chats/"+r+"/typing/"+uid).remove(); }catch(_){} } }
   function _ltPush(){ var ref=_prRef(); if(!ref) return;
+    if(_ltOffLocal(chatRoom)||window.__ltPeerOff){ if(_ltLast!==""){ _ltLast=""; try{ ref.update({ tx:null }); }catch(_){} } return; }   // ★どちらかがAaオフ=リアルタイム文字は流さない
     var v=($("gcChatInput")&&$("gcChatInput").value)||""; v=String(v).slice(0,140);
     if(v===_ltLast) return; _ltLast=v;
     try{ ref.update({ tx:(v||null) }); }catch(_){} }
   function setTyping(on){ if(!chatRoom||!db||!uid){ clearTimeout(_ltTimer); _ltTimer=null; return; }
     if(on){ if(_ltTimer) return; _ltTimer=setTimeout(function(){ _ltTimer=null; _ltPush(); }, 600); }   // 600ms throttle = minimal writes
     else { clearTimeout(_ltTimer); _ltTimer=null; if(_ltLast!==""){ _ltLast=""; var ref=_prRef(); if(ref){ try{ ref.update({ tx:null }); }catch(_){} } } } }
+  /* ★リアルタイム文字UI刷新(ユーザ指示2026-07-18): blob(シアン/マゼンタ)0.5sふわっ+SF Pro Rounded w100+
+     文字の更新はiOSストップウォッチ風の縦スライド(_gcNumSlide=枠なし版)=上下スワイプ/更新でバグらない。
+     終わり/送信時=文字が少し拡大しながらinput側へぽわっと消える */
   function showLiveText(tx){ var el=$("gcTyping"); if(!el) return;
     tx=tx==null?"":String(tx);
-    if(tx){ var sp=el.querySelector(".gc-ltx");
-      if(!sp){ el.innerHTML='<span class="gc-ltx up"></span>'; sp=el.querySelector(".gc-ltx"); }
-      sp.textContent=tx; el.classList.add("show");   // realtime update; textContent blocks HTML injection
-      if(!_ltUpTimer){ _ltUpTimer=setInterval(function(){ var s2=el.querySelector(".gc-ltx");
-        if(!s2||!el.classList.contains("show")){ clearInterval(_ltUpTimer); _ltUpTimer=null; return; }
-        s2.classList.remove("up"); void s2.offsetWidth; s2.classList.add("up"); }, 2000); }   // re-run slide-up every 2s
-    } else { el.classList.remove("show"); el.innerHTML=""; if(_ltUpTimer){ clearInterval(_ltUpTimer); _ltUpTimer=null; } } }
+    var wrap=el.querySelector(".gc-lt-wrap");
+    if(!wrap){ wrap=document.createElement("span"); wrap.className="gc-lt-wrap";
+      wrap.innerHTML='<span class="gc-lt-blob"></span><span class="gc-ltx"></span>';
+      el.insertBefore(wrap, el.firstChild); }
+    var sp=wrap.querySelector(".gc-ltx");
+    var off=_ltOffLocal(chatRoom)||!!window.__ltPeerOff;
+    if(tx && !off){
+      wrap.style.transition="opacity .5s var(--gc-ease), transform .4s var(--gc-ease)"; wrap.style.opacity="1"; wrap.style.transform="";
+      var old=sp.__lt||"";
+      if(old!==tx){ if(old && typeof _gcNumSlide==="function"){ try{ _gcNumSlide(sp, tx, true, 10); }catch(_){ sp.textContent=tx; } } else { sp.textContent=tx; } sp.__lt=tx; sp.setAttribute("data-on","1"); }
+      el.classList.add("show"); el.classList.remove("aaonly");
+    } else {
+      if(sp.__lt){   // ★送信/入力終了=拡大しながらinput側(下)へぽわっ
+        wrap.style.transition="opacity .4s var(--gc-ease), transform .4s var(--gc-ease)";
+        wrap.style.opacity="0"; wrap.style.transform="scale(1.18) translateY(12px)";
+        setTimeout(function(){ try{ sp.textContent=""; sp.__lt=""; sp.removeAttribute("data-on"); wrap.style.transform=""; }catch(_){} },420);
+      } else { sp.textContent=""; sp.__lt=""; sp.removeAttribute("data-on"); wrap.style.opacity="0"; }
+      if(off && document.body.classList.contains("gc-inchat")){ el.classList.add("show","aaonly"); }
+      else { el.classList.remove("show"); el.classList.remove("aaonly"); }
+    }
+    try{ _ltAaSync(); }catch(_){} }
   /* 会話の背景（0.2s長押しで Off/Blur/Color。Colorは<input type=color>でOS標準カラーパネルが確実に開く） */
   /* 相手がアカウント削除済み → 入力→を隠し「送信できません」＋削除を表示 */
   function setChatGone(gone, room, peer){ var row=$("gcChatInputRow"), bar=$("gcChatGone"), clip=$("gcChatClip"); if(!row||!bar) return;
@@ -9173,7 +9272,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           _rendered[key]=true;
           if(_cacheShown){ _cacheShown=false; try{ $("gcMsgs").innerHTML=""; }catch(_){} msgEls={}; _gcLastTs[room]=0; }   // キャッシュ表示を実データで置換(時刻区切りもリセット)
           _chatRenderN++;
-          if(_chatRenderN===1){ try{ Health.report('fb', true, Date.now()-_loadT0); }catch(_){} _chatReadRetry[room]=0; _chatReadErr[room]=false; }   // 初回到達＝Firebase健全
+          if(_chatRenderN===1){ try{ Health.report('fb', true, Date.now()-_loadT0); }catch(_){} _chatReadRetry[room]=0; _chatReadErr[room]=false; try{ _chatSuggDismiss(); }catch(_){} }   // 初回到達＝Firebase健全・★初メッセージ=提案バーは0.5s縮小で消える
           m=m||{}; m._key=key; m._room=room; renderMsg(m, room); cacheMsg(room, m); try{ _talkStamp(room, m.ts); }catch(_){}   // 描画＋ローカルキャッシュ（追加リクエスト0）＋★最近話した記録
           if(!firstLoad && m && m.f!==uid){ markSeen(); markActive();
             if(document.visibilityState!=="visible"){ notifyMessage({room:room, name:($("gcChatTitle").textContent||title)}, m); }   // 開いてるがバックグラウンド→OS通知
@@ -9232,9 +9331,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           Object.keys(v).forEach(function(k){ if(k!==uid && typeof v[k]==="number"){ map[k]=v[k]; if(v[k]>mx) mx=v[k]; } }); peerSeenMax=mx; _seenMap=map; updateSeen(); });
         // presence + live text + voice-message signal, one node: chats/<cid>/typing/<uid>
         typeRef=db.ref("chats/"+room+"/typing");
-        typeRef.on("value",function(s){ var v=s.val()||{}, onN=0, tx=null, vm=null;
-          Object.keys(v).forEach(function(k){ if(k!==uid && v[k]){ onN++; if(tx==null && v[k].tx) tx=String(v[k].tx); if(vm==null && v[k].vm && v[k].vm.r) vm=v[k].vm; } });
-          if(chatRoom===room){ showLiveText(tx); _peerOnline(onN>0); _vmOnSignal(vm, room); } });
+        typeRef.on("value",function(s){ var v=s.val()||{}, onN=0, tx=null, vm=null, pOff=false;
+          Object.keys(v).forEach(function(k){ if(k!==uid && v[k]){ onN++; if(v[k].ltoff) pOff=true; if(tx==null && v[k].tx) tx=String(v[k].tx); if(vm==null && v[k].vm && v[k].vm.r) vm=v[k].vm; } });
+          window.__ltPeerOff=pOff;   /* ★相手がAaオフ=両者のリアルタイム文字を止める(ユーザ指示) */
+          if(chatRoom===room){ showLiveText(pOff?null:tx); _peerOnline(onN>0); _vmOnSignal(vm, room); } });
         presenceOpen(room);
         markSeen();
       }catch(e){ console.warn("chat sub fail",e); }
@@ -9242,6 +9342,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     // サーバ読取が遅い/制限中で何も来ない時はローカルキャッシュから表示＝チャットが空にならず成り立つ（リクエスト増なし）
     setTimeout(function(){ if(chatRoom===room && _chatRenderN===0 && !_cacheShown){ if(renderCachedRoom(room)){ _cacheShown=true; try{ dynamicIsland("キャッシュから会話を表示中"); }catch(_){} } } }, 2600);   // !_cacheShown＝既にキャッシュ描画済みなら2本目のタイマーは描画しない（二重防止の二段構え）
     setTimeout(function(){ if(chatRoom===room && _chatRenderN===0 && !_cacheShown){ var ld=$("gcMsgs")&&$("gcMsgs").querySelector(".gc-msgs-loading"); if(ld) ld.remove(); } }, 6000);   // 6秒で何も来なければ空チャットとしてスピナー停止（無限回転防止）
+    setTimeout(function(){ if(chatRoom===room && _chatRenderN===0){ try{ _chatSuggBar(room); }catch(_){} } }, 3200);   // ★初めて繋がった相手(空チャット)=挨拶の提案がスライドアップ(ユーザ指示)
     // 履歴に部屋を記録
     prof.rooms=prof.rooms||[]; if(!prof.rooms.some(function(r){return r.room===room;})){ prof.rooms.unshift({room:room,name:title}); prof.rooms=prof.rooms.slice(0,20); save(); }
   }
@@ -9738,26 +9839,14 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
           _pw.style.cssText="position:relative;display:block;width:min(62vw,240px);aspect-ratio:1/1;border:none;border-radius:15px;overflow:hidden;background:#0c101a;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0";
           if(_pd.id&&window.Store){ var _pim=document.createElement("img"); _pim.loading="lazy"; _pim.src=Store.fileUrl(_pd.id); _pim.style.cssText="width:100%;height:100%;object-fit:cover;display:block"; _pw.appendChild(_pim); }
           /* ドットが内側へ縮小していくアニメ(募集中の合図) */
-          try{ if(!$("gcPairCss")){ var _pst=document.createElement("style"); _pst.id="gcPairCss";
-            _pst.textContent="@keyframes gcPairDot{0%{transform:translate(var(--dx),var(--dy)) scale(1);opacity:.95}100%{transform:translate(0,0) scale(0);opacity:0}}";
-            document.head.appendChild(_pst); }
-            var _dw=document.createElement("div"); _dw.style.cssText="position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:2";
-            for(var _pi=0;_pi<10;_pi++){ var _dd=document.createElement("span"); var _pa=(_pi/10)*6.2832, _prr=64+(_pi%3)*20;
-              _dd.style.cssText="position:absolute;left:0;top:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:#fff;--dx:"+Math.round(Math.cos(_pa)*_prr)+"px;--dy:"+Math.round(Math.sin(_pa)*_prr)+"px;animation:gcPairDot "+(1.6+(_pi%4)*0.3)+"s ease-in "+((_pi*0.17)%1.2)+"s infinite;box-shadow:0 1px 6px rgba(0,0,0,.5)";
-              _dw.appendChild(_dd); }
-            _pw.appendChild(_dw); }catch(_){}
+          try{ _pairDots(_pw); }catch(_){}
           var _pcap=document.createElement("div"); _pcap.textContent=(m.f===uid)?"一緒にいまを撮ろう 🤝":((_pd.n||"友達")+"と一緒にいまを取ろう");
           _pcap.style.cssText="position:absolute;left:0;right:0;bottom:0;padding:10px;background:linear-gradient(transparent,rgba(0,0,0,.65));color:#fff;font:600 13px/1.4 -apple-system,'Hiragino Sans',sans-serif;pointer-events:none;text-align:left"; _pw.appendChild(_pcap);
           if(m.f!==uid){
             _pw.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){}
-              try{ window.__pairWith=m.f||null; }catch(_){}
-              try{ dynamicIsland("🤝 いまを撮って投稿しよう"); }catch(_){}
-              setTimeout(function(){ try{ stCamera(); }catch(_){} },160); };
-            /* ★受信直後(2分以内)だけ「振って拒否」を武装。初回は説明(だるいですか。振りましょう✨) */
-            try{ if(m.ts && (Date.now()-m.ts)<120000){
-              _pairShakeArm(function(){ try{ haptic(); }catch(_){}
-                _pcap.textContent="拒否したよ 🫨"; _pw.style.opacity=".45"; _pw.onclick=null;
-                try{ _pairExplainOnce(); }catch(_){} }, 60000); } }catch(_){}
+              try{ _pairFSSeen={}; _pairIncomingFS(_pd, {f:m.f, ts:Date.now()}); }catch(_){} };   // ★カードタップ=全画面「一緒にいまをとろう」を再表示(スライドしてとる)
+            /* ★受信直後(2分以内)=全画面UI(scale1.1→1 0.8s ease・スライドしてとる・振って拒否)を自動表示 */
+            try{ _pairIncomingFS(_pd, m); }catch(_){}
           } else { _pw.onclick=function(e){ e.stopPropagation(); try{ haptic(); }catch(_){} try{ stMine(function(st){ if(st){ stViewer(myAddr()||uid, true); } }); }catch(_){} }; }
           d.appendChild(_pw); if(box) box.scrollTop=box.scrollHeight; return; }
         if(plain.indexOf("cxwelcome:")===0){ if(tx&&tx.parentNode)tx.parentNode.removeChild(tx); d.classList.add("img");   // ★P4: 「Welcome welcome」=登録時の動く手書きwelcome(welcome/<lang>.json・helloと同じ_gcHelloAnim)を再生
@@ -10167,9 +10256,20 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     var seq=0, mt=null;
     function _msNote(t){ list.innerHTML=""; var n=document.createElement("div");
       n.style.cssText="color:rgba(255,255,255,.6);font:500 13.5px/1.5 -apple-system,'Hiragino Sans',sans-serif;text-align:center;padding:14px 0"; n.textContent=t; list.appendChild(n); }
-    inp.addEventListener("input", function(){ clearTimeout(mt); var q=(inp.value||"").trim(); if(!q){ list.innerHTML=""; return; }
-      mt=setTimeout(function(){ var my=++seq; _msNote("検索中…");   // ★iPhoneでも反応が見える(遅い回線=数秒かかる時がある)
-        try{ window.__gc.musicSearch(q).then(function(arr){ if(my!==seq) return; list.innerHTML="";
+    /* ★検索中スピナー(ユーザ指示2026-07-18): 灰色トラックなし・blurのかかった白い回転線のみ。0.5s easeで拡大して出る→結果が来たらscaleupで消え、結果が0.5s scaleupで出る */
+    function _msSpin(){ if(ov.querySelector(".ms-spin")) return; list.innerHTML="";
+      var w=document.createElement("div"); w.className="ms-spin";
+      w.style.cssText="display:flex;justify-content:center;padding:18px 0 4px;transform:scale(.4);opacity:0;transition:transform .5s ease, opacity .5s ease;pointer-events:none";
+      var r=document.createElement("div"); r.style.cssText="width:34px;height:34px;border-radius:50%;border:3.5px solid transparent;border-top-color:rgba(255,255,255,.98);animation:gcTSpin 1s linear infinite;filter:blur(2.5px) drop-shadow(0 0 14px rgba(255,255,255,.55))";
+      w.appendChild(r); ov.insertBefore(w, list);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ w.style.transform="scale(1)"; w.style.opacity="1"; }); }); }
+    function _msSpinOut(){ var w=ov.querySelector(".ms-spin"); if(!w) return;
+      w.style.transform="scale(1.45)"; w.style.opacity="0"; setTimeout(function(){ try{ w.remove(); }catch(_){} },500); }
+    function _msListIn(){ list.style.transition="none"; list.style.transform="scale(.6)"; list.style.opacity="0";
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ list.style.transition="transform .5s ease, opacity .5s ease"; list.style.transform="scale(1)"; list.style.opacity="1"; }); }); }
+    inp.addEventListener("input", function(){ clearTimeout(mt); var q=(inp.value||"").trim(); if(!q){ list.innerHTML=""; _msSpinOut(); return; }
+      mt=setTimeout(function(){ var my=++seq; _msSpin();   // ★iPhoneでも反応が見える(遅い回線=数秒かかる時がある)
+        try{ window.__gc.musicSearch(q).then(function(arr){ if(my!==seq) return; _msSpinOut(); list.innerHTML=""; _msListIn();
           if(!(arr||[]).length){ _msNote("見つからなかった…もう少し打ってみて"); return; }
           (arr||[]).forEach(function(t,i){   // ★制限なし=全件出す
             var s={ t:String(t.title||t.trackName||"").slice(0,120), a:String(t.artist||t.artistName||"").slice(0,80), art:String(t.art||((t.artworkUrl100||"").replace("100x100","300x300"))||"").slice(0,300), p:String(t.preview||t.previewUrl||"").slice(0,300), u:String(t.u||t.trackViewUrl||"").slice(0,300) };
@@ -11100,7 +11200,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       setTimeout(function(){
         if(onPick){ closeEmojiRing(); onPick(e); }                                   // グループ等：親に委譲(prof.avaは触らない)
         else { prof.ava=e; try{ markColor(_avaColor(e)); }catch(_){ prof.color=_avaColor(e); } save(); refreshAvatars(); animateAvaSwap(); saveProfileDBLazy(); refreshProfileUI(); updateDockSelf();   // ★編集時もemojiの色を枠に反映(ハート=色名/他=安定ハッシュ)。サーバは遅延同期=リクエスト節約
-          var nb=$("nobAva"); if(nb) applyAva(nb, prof.ava); closeEmojiRing(); }       // 登録中(nobAva)にも反映
+          var nb=$("nobAva"); if(nb){ applyAva(nb, prof.ava); try{ _nobGoSwap(); }catch(_){} } closeEmojiRing(); }       // 登録中(nobAva)にも反映・★emoji変更=→スワップアニメ(ユーザ指示)
       }, 500);
     }
   }
@@ -11137,6 +11237,16 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
    '#gcOnb .nob-login:active{ transform:translateX(-50%) scale(.96); }'+
    '#gcOnb .nob-login-face{ width:34px; height:34px; border-radius:50px; overflow:hidden; flex:0 0 auto; background:transparent; }'+   /* ★mov枠の黒bg廃止=透過・radius50px */
    '#gcOnb .nob-login-face video{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; mix-blend-mode:screen; }';   /* ★黒背景movはscreen合成で黒を消す */
+  /* ★初期設定の→: 色/emoji変更・押下で「右へ0.5s cubicフェードアウト→左から右へフェードイン」(ユーザ指示2026-07-18) */
+  function _nobGoSwap(){ try{ var g=$("nobGo"); if(!g||g.__swp) return; g.__swp=1;
+    g.style.transition="transform .5s cubic-bezier(.22,1,.36,1), opacity .5s cubic-bezier(.22,1,.36,1), color .5s var(--gc-ease), background-color .5s var(--gc-ease)";
+    g.style.transform="translateX(26px)"; g.style.opacity="0";
+    setTimeout(function(){ try{ g.style.transition="none"; g.style.transform="translateX(-26px)";
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){
+        g.style.transition="transform .5s cubic-bezier(.22,1,.36,1), opacity .5s cubic-bezier(.22,1,.36,1), color .5s var(--gc-ease), background-color .5s var(--gc-ease)";
+        g.style.transform="translateX(0)"; g.style.opacity="1";
+        setTimeout(function(){ g.__swp=0; },520); }); }); }catch(_){ g.__swp=0; } },500);
+  }catch(_){} }
   function isAdminName(v){ var norm=(v||"").toLowerCase().replace(/\s+/g,"").replace(/[→⇒]/g,"->");
     return norm===window.GC_ADMIN_SECRET || /h2so4\+?naoh-?>?na2so4\+?h2o/.test(norm); }
   function applyAdminMode(){ prof.name=ADMIN_NAME; prof.ava=ADMIN_AVA; prof.color=ADMIN_COLOR; haptic(); }   // 管理者の名前/アイコン/色を固定
@@ -11246,7 +11356,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         }catch(e){ go.classList.remove("busy"); try{ dynamicIsland("登録に失敗しました"); }catch(_){} }
       }, 30); }
 
-    go.onclick=function(ev){ ev.stopPropagation(); if(go.classList.contains("busy"))return; haptic(); confirmName(); };
+    go.onclick=function(ev){ ev.stopPropagation(); if(go.classList.contains("busy"))return; haptic(); try{ _nobGoSwap(); }catch(_){} confirmName(); };   /* ★押した時も→スワップ(ユーザ指示) */
     $("nobLogin").onclick=function(ev){ ev.stopPropagation(); openHandoffEnter(); };
     setTimeout(function(){ try{ inp.focus(); }catch(_){} },90);
     ov.classList.add("show"); haptic();
@@ -12309,6 +12419,62 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       fetch(durl).then(function(r){ return r.blob(); }).then(function(bl){ return Store.upload(bl, "pair.jpg", "image/jpeg"); })
         .then(function(r){ send(r&&r.id?String(r.id):""); }).catch(function(){ send(""); });
     } else send(""); }
+  /* ★ドット縮小アニメ(共用): もっと手前(大きく)から0.3sフェードも混ぜてcubicでダイナミックに(ユーザ指示2026-07-18) */
+  function _pairDots(host){ if(!$("gcPairCss")){ var _pst=document.createElement("style"); _pst.id="gcPairCss";
+      _pst.textContent="@keyframes gcPairDot{0%{transform:translate(var(--dx),var(--dy)) scale(2.1);opacity:0}20%{opacity:.95}100%{transform:translate(0,0) scale(0);opacity:0}}";
+      document.head.appendChild(_pst); }
+    var _dw=document.createElement("div"); _dw.style.cssText="position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:2";
+    for(var _pi=0;_pi<12;_pi++){ var _dd=document.createElement("span"); var _pa=(_pi/12)*6.2832, _prr=96+(_pi%3)*30;
+      _dd.style.cssText="position:absolute;left:0;top:0;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:#fff;--dx:"+Math.round(Math.cos(_pa)*_prr)+"px;--dy:"+Math.round(Math.sin(_pa)*_prr)+"px;animation:gcPairDot "+(1.3+(_pi%4)*0.25)+"s cubic-bezier(.22,1,.36,1) "+((_pi*0.15)%1.1)+"s infinite;box-shadow:0 1px 6px rgba(0,0,0,.5)";
+      _dw.appendChild(_dd); }
+    host.appendChild(_dw); return _dw; }
+  /* ★iOS電源オフ風スライドバー(tog.html移植・枠なしガラス): ドラッグで右端まで=完了、途中で離す=cubicで戻る */
+  function _gcSlideBar(label, onDone){ var wrap=document.createElement("div");
+    wrap.setAttribute("data-hswipe","");
+    wrap.style.cssText="position:relative;width:min(78vw,310px);height:60px;border-radius:36px;background:rgba(255,255,255,.10);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);box-shadow:inset 1px -1px 11px rgba(255,255,255,.12), inset 0 0 0 .5px rgba(255,255,255,.2), 0 2px 18px rgba(0,0,0,.25);overflow:hidden;touch-action:none";
+    var lab=document.createElement("div"); lab.textContent=label;
+    lab.style.cssText="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.86);font:500 16.5px/1 -apple-system,'Hiragino Sans',sans-serif;letter-spacing:.06em;pointer-events:none;text-shadow:0 2px 10px rgba(0,0,0,.5);transition:opacity .2s";
+    var knob=document.createElement("div");
+    knob.style.cssText="position:absolute;top:4px;left:4px;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.88);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;will-change:transform;cursor:pointer";
+    knob.innerHTML='<svg width="30" height="30" viewBox="0 0 32 32"><polyline points="12,8 20,16 12,24" fill="none" stroke="#2579F7" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    wrap.appendChild(lab); wrap.appendChild(knob);
+    var down=false, sx=0, x=0, done=false, lastH=0;
+    function maxX(){ return Math.max(60, wrap.clientWidth-52-8); }
+    knob.addEventListener("pointerdown", function(e){ if(done) return; down=true; sx=e.clientX-x; try{ knob.setPointerCapture(e.pointerId); }catch(_){} knob.style.transition="none"; try{ haptic(); }catch(_){} e.stopPropagation(); });
+    knob.addEventListener("pointermove", function(e){ if(!down||done) return; x=Math.max(0, Math.min(maxX(), e.clientX-sx));
+      knob.style.transform="translateX("+x+"px)"; lab.style.opacity=String(Math.max(0,1-x/maxX()));
+      if(Math.abs(x-lastH)>26){ lastH=x; try{ haptic(); }catch(_){} } });
+    function up(){ if(!down||done) return; down=false;
+      if(x>=maxX()*0.88){ done=true; try{ if(haptic.confirm)haptic.confirm(); else haptic(); }catch(_){}
+        knob.style.transition="transform .3s var(--gc-ease)"; knob.style.transform="translateX("+maxX()+"px)";
+        setTimeout(function(){ try{ onDone&&onDone(); }catch(_){} },140); }
+      else { knob.style.transition="transform .5s cubic-bezier(.62,0,.4,1)"; knob.style.transform="translateX(0)"; x=0; lastH=0; lab.style.opacity="1"; try{ _gcHapN(2,90); }catch(_){} } }
+    knob.addEventListener("pointerup", up); knob.addEventListener("pointercancel", up);
+    return wrap; }
+  /* ★受信側の全画面「(名前)と一緒にいまをとろう」(ユーザ指示2026-07-18): scale1.1→1 0.8s ease・スライドしてとる・振って拒否 */
+  var _pairFSSeen={};
+  function _pairIncomingFS(pd, m){ try{
+    if(!pd||!m||m.f===uid) return; if(!(m.ts&&(Date.now()-m.ts)<120000)) return;
+    var key=String(m.ts)+"_"+String(m.f||""); if(_pairFSSeen[key]) return; _pairFSSeen[key]=1;
+    if($("gcPairFS")) return;
+    var ov=document.createElement("div"); ov.id="gcPairFS";
+    ov.style.cssText="position:fixed;inset:0;z-index:9878;display:flex;flex-direction:column;align-items:center;justify-content:center;background:transparent;-webkit-backdrop-filter:blur(0px) saturate(100%);backdrop-filter:blur(0px) saturate(100%);opacity:0;transition:opacity .5s ease, -webkit-backdrop-filter .5s ease, backdrop-filter .5s ease";
+    var inner=document.createElement("div"); inner.style.cssText="display:flex;flex-direction:column;align-items:center;gap:24px;transform:scale(1.1);transition:transform .8s ease";
+    if(pd.id&&window.Store){ var imw=document.createElement("div");
+      imw.style.cssText="position:relative;width:min(60vw,280px);aspect-ratio:1/1;border-radius:15px;overflow:hidden;background:#0c101a url('"+String(Store.fileUrl(pd.id)).replace(/'/g,"%27")+"') center/cover no-repeat;box-shadow:0 20px 60px rgba(0,0,0,.5)";
+      try{ _pairDots(imw); }catch(_){} inner.appendChild(imw); }
+    var t=document.createElement("div"); t.textContent=(pd.n||"友達")+"と一緒にいまをとろう";
+    t.style.cssText="color:#fff;font:200 30px/1.4 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;text-align:center;max-width:86vw;text-shadow:0 2px 18px rgba(0,0,0,.5)";
+    inner.appendChild(t);
+    function bye(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); }
+    inner.appendChild(_gcSlideBar("スライドしてとる", function(){ try{ window.__pairWith=m.f||null; }catch(_){} bye(); setTimeout(function(){ try{ stCamera(); }catch(_){} },220); }));
+    var hint=document.createElement("div"); hint.textContent="振って拒否 🫨"; hint.style.cssText="color:rgba(255,255,255,.5);font:500 13px/1 -apple-system,'Hiragino Sans',sans-serif";
+    inner.appendChild(hint);
+    ov.appendChild(inner); document.body.appendChild(ov);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; ov.style.webkitBackdropFilter="blur(30px) saturate(140%)"; ov.style.backdropFilter="blur(30px) saturate(140%)"; inner.style.transform="scale(1)"; }); });
+    _pairShakeArm(function(){ try{ haptic(); }catch(_){} bye(); try{ _pairExplainOnce(); }catch(_){} }, 45000);
+    ov.addEventListener("click", function(e){ if(e.target===ov) bye(); });
+  }catch(_){} }
   /* ★振って拒否: devicemotionで大きく2回振る=拒否。初回だけ「だるいですか。振りましょう✨」の説明(blur背景・0.7s ease) */
   function _pairShakeArm(cb, ms){ var armed=true, last=0, cnt=0;
     function onM(e){ if(!armed) return; var a=e.accelerationIncludingGravity||e.acceleration; if(!a) return;
