@@ -8470,7 +8470,8 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
         {n:"Terrakoku", i:"globe.png", al:"terrakoku てらこく 歴史 れきし", hidden:true, run:function(){ try{ window.__openTerrakoku(); }catch(_){} }},   // ★検索した時だけ出る
         {n:"翻訳", i:"trans.png", al:"translate ほんやく translation", gone:function(){ return document.body.classList.contains("gc-noglobe"); }, run:function(){ try{ window.__gcGlobeTranslate(); }catch(_){} }},   // ★背景が地球儀の時のみ
         {n:"グラフ", i:"graph.png", al:"graph ぐらふ math", stay:true, seed:"y=sin(x)"},
-        {n:"アクティビティ", i:"high-resorse.png", al:"activity apps activety あくてぃびてぃ かつどう health", ghide:true, run:function(){ try{ window.__openActivity(); }catch(_){} }}   // ★グリッドでは非表示・検索(1行apps)の時だけ出る(ユーザ指示)。カメラ=友達1行の＋へ/設定=自分のQRタップへ移設(app廃止)
+        {n:"アクティビティ", i:"high-resorse.png", al:"activity apps activety あくてぃびてぃ かつどう health", ghide:true, run:function(){ try{ window.__openActivity(); }catch(_){} }},   // ★グリッドでは非表示・検索(1行apps)の時だけ出る(ユーザ指示)。カメラ=友達1行の＋へ
+        {n:(prof.name||"設定"), i:_selfIcon(), al:"settings せってい config 設定 じぶん me "+(prof.name||""), run:function(){ try{ openMyProf(); }catch(_){} }}   // ★設定をappsに復元=タイル名は自分の名前(ユーザ指示2026-07-18)→自分の情報(openMyProf)
       ])
     });
     try{ _renderDockApps(); }catch(_){}   // ★ドックに追加済みのカスタムアプリを復元
