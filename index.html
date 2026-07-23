@@ -5297,11 +5297,6 @@ window.GC_ADMIN_SECRET = "";
     if(!rooms.length){ try{ dynamicIsland("先に友達を追加してね"); }catch(_){} return; }
     var ov=document.createElement("div"); ov.style.cssText="position:fixed;inset:0;z-index:9750;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,10,16,.45);-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px)";
     var card=document.createElement("div"); card.style.cssText="display:flex;flex-direction:column;align-items:center;transform:scale(.6);opacity:0;transition:transform .7s cubic-bezier(.16,1,.3,1),opacity .7s ease";   // ★0.7s scaleupで出る
-    /* ★AER(Aero LEAP)の友達ダイアログの上に自分のQRを表示(ユーザ指示): 目の前の相手が読み取れば友達に追加できる */
-    var myq=document.createElement("div"); myq.style.cssText="width:120px;height:120px;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)";
-    var myqbox=document.createElement("div"); myqbox.style.cssText="width:106px;height:106px;pointer-events:none"; myq.appendChild(myqbox);
-    (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(myqbox, gcQRText(), 106); }catch(_){} });
-    card.appendChild(myq);
     var t=document.createElement("div"); t.textContent="🫧 コースを送る相手"; t.style.cssText="color:#fff;font-size:18px;font-weight:600;margin-bottom:18px"; card.appendChild(t);
     var list=document.createElement("div"); list.style.cssText="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:90vw;max-height:58vh;overflow:auto;padding:8px"; card.appendChild(list);
     rooms.forEach(function(r){ var c=document.createElement("button"); c.style.cssText="display:flex;flex-direction:column;align-items:center;gap:6px;border:none;background:none;cursor:pointer;width:84px";
@@ -12634,6 +12629,11 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         _stopPair(); _envClose(ov,320);
         _pairSendInvite(room, durl, ro.peer||"", peerName);
       }catch(_){ try{ dynamicIsland("撮影に失敗しました"); }catch(__){} } };
+    /* ★アストロノミー(環境ペア/交換)ダイアログの上に自分のQRを表示(ユーザ指示): 目の前の相手が読み取れば友達に追加できる */
+    var _aq=document.createElement("div"); _aq.style.cssText="width:118px;height:118px;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.4);margin-bottom:4px";
+    var _aqb=document.createElement("div"); _aqb.style.cssText="width:104px;height:104px;pointer-events:none"; _aq.appendChild(_aqb);
+    (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(_aqb, gcQRText(), 104); }catch(_){} });
+    ov.appendChild(_aq);
     ov.appendChild(frame);
     var pill=document.createElement("div");
     pill.style.cssText="display:flex;align-items:center;gap:20px;background:#fff;border-radius:99px;padding:10px 16px;box-shadow:0 12px 30px rgba(0,0,0,.4);margin-top:22px;transform:scale(.85);opacity:0;transition:transform .7s var(--gc-spring) .08s,opacity .5s var(--gc-ease) .08s";
