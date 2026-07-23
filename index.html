@@ -2447,7 +2447,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   .gc-ava-col{ display:flex; flex-direction:column; justify-content:center; align-items:center; min-width:0; line-height:1.12; text-align:center; }   /* ★名前とMBTIを互いに中央揃え(flex-startのガタつき廃止・ユーザ指示) */
   #gcAvaSub{ font:600 11px/1.3 -apple-system,'SF Pro Text',sans-serif; letter-spacing:2px; color:rgba(255,255,255,.62); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:42vw; text-shadow:0 1px 5px rgba(0,0,0,.5); }
   body.gc-bgwhite #gcAvaSub{ color:rgba(0,0,0,.5); text-shadow:none; }
-  #gcAvaCount{ display:none; min-width:40px; height:40px; align-items:center; justify-content:center; background:none; color:var(--gc-user,#62d8ff); font:400 22px/1 -apple-system,'SF Pro Display','SF Pro Text',sans-serif; flex:0 0 auto; padding:0 4px; margin-left:2px; cursor:pointer; -webkit-tap-highlight-color:transparent; text-shadow:0 1px 4px rgba(0,0,0,.65), 0 0 12px rgba(0,0,0,.35); }   /* ★件数(最初のやつ)=weight1が薄すぎたのを修正: weight400+22px+影強化=くっきり見える(ユーザ指示2026-07-18) */
+  #gcAvaCount{ display:none; min-width:40px; height:40px; align-items:center; justify-content:center; background:none; color:var(--gc-user,#62d8ff); font:100 22px/1 -apple-system,'SF Pro Display','SF Pro Text',sans-serif; flex:0 0 auto; padding:0 4px; margin-left:2px; cursor:pointer; -webkit-tap-highlight-color:transparent; text-shadow:0 1px 4px rgba(0,0,0,.65), 0 0 12px rgba(0,0,0,.35); }   /* ★名前の隣の全体通知件数=font weight1(ユーザ指示)。影は残して視認性確保 */
   #gcAvaCount.on{ display:flex; }
   @keyframes gcCountPop{ 0%{ transform:scale(.8); } 100%{ transform:scale(1); } }
   #gcSearchFab .ic{touch-action:pan-y!important;overscroll-behavior-x:none!important; filter:none; }
@@ -6954,6 +6954,11 @@ window.GC_ADMIN_SECRET = "";
       var ov=document.createElement("div");
       ov.style.cssText="position:fixed;inset:0;z-index:9877;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:transparent;-webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);opacity:0;transition:opacity .5s ease, -webkit-backdrop-filter .5s ease, backdrop-filter .5s ease";
       var inner=document.createElement("div"); inner.style.cssText="display:flex;flex-direction:column;align-items:center;gap:24px;transform:scale(1.1);transition:transform .8s ease";
+      /* ★友達を増やすダイアログの上に自分のQRを表示(ユーザ指示): 目の前の相手がこれを読み取れば相互に追加できる */
+      var myq=document.createElement("div"); myq.style.cssText="width:132px;height:132px;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 10px 30px rgba(0,0,0,.35)";
+      var myqbox=document.createElement("div"); myqbox.style.cssText="width:118px;height:118px;pointer-events:none"; myq.appendChild(myqbox);
+      (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(myqbox, gcQRText(), 118); }catch(_){} });
+      inner.appendChild(myq);
       var em=document.createElement("div"); em.textContent="🫶🏻"; em.style.cssText="font-size:56px;line-height:1"; inner.appendChild(em);
       var t=document.createElement("div"); t.textContent="友達に追加する"; t.style.cssText="color:#fff;font:200 28px/1.4 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;text-align:center;text-shadow:0 2px 18px rgba(0,0,0,.5)"; inner.appendChild(t);
       function bye(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); }
@@ -8725,31 +8730,7 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
     try{ dynamicIsland(sent+"件に送信しました"+(miss.length?("／不明: "+miss.join(", ")):"")); }catch(_){} };
   /* 設定appブリッジ: spotlight「設定」→検索を閉じてから本物の設定シートを開く（中央下の⚙と同じ） */
   window.__openSettings=function(){ try{ openSettings(); }catch(e){} };
-  /* ★Cloudflareメイン化: Netlify版を開いた登録済みユーザーに引っ越し案内(3日に1回)。
-     新ドメインでは「パスキーで引き継ぐ」だけでログインできる(ROR済み)ので案内するだけでよい。 */
-  (function(){ try{
-    if(location.hostname.indexOf("netlify.app")<0) return;   // Cloudflare側では出さない
-    window.addEventListener("load", function(){ setTimeout(function(){ try{
-      if(!prof || !prof.onboarded) return;
-      var last=+(localStorage.getItem("gc_cfmove_ts")||0); if(Date.now()-last < 3*86400000) return;
-      localStorage.setItem("gc_cfmove_ts", String(Date.now()));
-      var ov=document.createElement("div"); ov.id="gcCfMove";
-      ov.style.cssText="position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 118px);transform:translateX(-50%) translateY(18px) scale(.92);opacity:0;z-index:9905;width:min(88vw,380px);border-radius:22px;padding:16px 18px;background:rgba(16,16,22,.92);-webkit-backdrop-filter:blur(30px) saturate(150%);backdrop-filter:blur(30px) saturate(150%);color:#fff;box-shadow:0 14px 44px rgba(0,0,0,.45);transition:transform .5s var(--gc-spring),opacity .35s var(--gc-ease)";
-      var t=document.createElement("div"); t.textContent="StSは新しいアドレスに引っ越します"; t.style.cssText="font:700 15px/1.4 -apple-system,'Hiragino Sans',sans-serif";
-      var s=document.createElement("div"); s.textContent="新しいStSでは「パスキーで引き継ぐ」だけで、このアカウントにそのままログインできるよ"; s.style.cssText="font:500 12.5px/1.55 -apple-system,'Hiragino Sans',sans-serif;color:rgba(255,255,255,.66);margin-top:5px";
-      var row=document.createElement("div"); row.style.cssText="display:flex;gap:10px;margin-top:13px";
-      var go=document.createElement("button"); go.type="button"; go.textContent="新しいStSを開く";
-      go.style.cssText="flex:1;border:none;border-radius:99px;padding:11px 0;background:var(--gc-user,#62d8ff);color:#fff;font:700 14px/1 -apple-system,'Hiragino Sans',sans-serif;cursor:pointer";
-      try{ go.style.color=_gcInkFor(prof.color||"#62d8ff"); }catch(_){}
-      var la=document.createElement("button"); la.type="button"; la.textContent="あとで";
-      la.style.cssText="flex:0 0 auto;border:none;border-radius:99px;padding:11px 16px;background:rgba(255,255,255,.12);color:#fff;font:600 14px/1 -apple-system,sans-serif;cursor:pointer";
-      function hide(){ ov.style.opacity="0"; ov.style.transform="translateX(-50%) translateY(18px) scale(.92)"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },360); }
-      go.onclick=function(){ try{ haptic(); }catch(_){} hide(); setTimeout(function(){ try{ var w=window.open("https://shake-to-shake.pages.dev/","_blank"); if(!w) location.href="https://shake-to-shake.pages.dev/"; }catch(_){ location.href="https://shake-to-shake.pages.dev/"; } },200); };
-      la.onclick=function(){ try{ haptic(); }catch(_){} hide(); };
-      row.appendChild(go); row.appendChild(la); ov.appendChild(t); ov.appendChild(s); ov.appendChild(row); document.body.appendChild(ov);
-      requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.style.opacity="1"; ov.style.transform="translateX(-50%) translateY(0) scale(1)"; }); });
-    }catch(_){} }, 7000); });
-  }catch(_){} })();
+  /* ★「StSは新しいアドレスに引っ越します」引っ越し案内(gcCfMove)の挙動は撤去(html/css/js廃止・ユーザ指示)。 */
   /* ★新StS(pages.dev)をiPhoneのSafariタブで開いた時: 右下にSF Pro細字の「↓」が下→上→下→上とバウンス
      =共有→ホーム画面に追加(PWAインストール)への誘導。standalone(インストール済み)では出さない。14秒でフェード。 */
   (function(){ try{
