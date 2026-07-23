@@ -13304,12 +13304,12 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     var r=dk.getBoundingClientRect(); var w=r.width||46, h=r.height||46;
     var L, T;
     if(deck && shown){ try{ dk.classList.add("dk-side"); }catch(_){}   // ★apps中も左右の端に「縦」で(ユーザ指示)
-      L=right?(window.innerWidth-w-12-_sInset("--sar")):(12+_sInset("--sal"));   // 左/右端
+      L=right?(window.innerWidth-w-2-_sInset("--sar")):(2+_sInset("--sal"));   // 左/右端
       T=(window.innerHeight-h)/2;   // ★home時と全く同じ縦中央=検索を開いても動かない(下に行かない・上下移動しない・ユーザ指示)
       try{ document.documentElement.style.setProperty("--sd-dock-reserve", "0px"); }catch(_){} }   // 端に出すので検索バー下の余白は不要
     else { try{ dk.classList.remove("dk-side"); }catch(_){}
       T=(window.innerHeight-h)/2;                                                // 縦中央
-      if(shown){ L=right?(window.innerWidth-w-12-_sInset("--sar")):(12+_sInset("--sal")); }
+      if(shown){ L=right?(window.innerWidth-w-2-_sInset("--sar")):(2+_sInset("--sal")); }
       else { L=right?(window.innerWidth+40):(-w-40); } }                          // 非表示=画面外
     dk.style.left=Math.round(L)+"px"; dk.style.top=Math.round(T)+"px"; }
   function _dockPlaceSettle(){ var dk=$("gcDock"); if(!dk) return;
