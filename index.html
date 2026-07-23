@@ -8258,9 +8258,10 @@ window.GC_ADMIN_SECRET = "";
   function notifyMessage(r,m){ if(prof.notif!==false){ try{ playNotifSound(); }catch(_){} } haptic();
     var _fem=""; try{ var _ra=r.ava; if(!_ra && r.room){ var _rr=(prof.rooms||[]).filter(function(x){return x.room===r.room;})[0]; _ra=_rr&&_rr.ava; } _fem=avaText(_ra||"")||""; }catch(_){}   // 友達のemoji(部屋から解決)
     var _mk=(m&&m.__kind)||"";   // 呼び出し側が種別を渡せる(music等)
-    var body=(m && m.img)? "📷 画像" : (_mk==="music"? "🎧 音楽をシェア" : ((_fem||"💬")+" 新着メッセージ"));   // ★新着=💬を友達emojiに / 音楽シェアは🎧(ユーザ指示)。本文はE2E暗号化のため汎用
-    try{ dynamicIsland((r.name||"メッセージ")+"："+body); }catch(_){}
-    osNotify(r.name||"新着メッセージ", { body:body, icon:"icon-sts-180.png", badge:"icon-sts-180.png", tag:r.room, renotify:true, data:{ url:"/", room:r.room } });
+    var body=(m && m.img)? "📷 画像" : (_mk==="music"? "🎧 音楽をシェア" : "新着メッセージ");   // ★💬は撤去=emojiはタイトル(名前)側へ / 音楽シェアは🎧。本文はE2E暗号化のため汎用
+    var _ttl=(_fem?_fem+" ":"")+(r.name||"新着メッセージ");   // ★"emoji 名前"(相手の💬をなくしてemoji・ユーザ指示)
+    try{ dynamicIsland(_ttl+"："+body); }catch(_){}
+    osNotify(_ttl, { body:body+"\nタップで表示", icon:"icon-sts-180.png", badge:"icon-sts-180.png", tag:r.room, renotify:true, data:{ url:"/", room:r.room } });   // ★本文の下に「タップで表示」(ユーザ指示)
   }
   /* 再発防止バックアップ: 会話のテキストを端末に定期スナップショット。空になった部屋はバックアップから自動復元（重複しないよう空の時だけ） */
   function backupChats(){ (authReady||Promise.resolve()).then(function(){ if(!db||!uid) return;
@@ -11316,9 +11317,11 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     return subs; }
   function sendPushTo(addr,count,room){ try{ if(!db||!PUSH_URL) return;
     db.ref("push/"+addr).once("value").then(function(s){ var subs=_collectSubs(s.val()); if(!subs.length) return;
-      var body=(count>1)?(count+"件の新着メッセージ"):"💬 新着メッセージ";
+      var body=(count>1)?(count+"件の新着メッセージ"):"新着メッセージ";   // ★💬撤去=emojiはタイトル(名前)側へ
+      var _emj=""; try{ _emj=avaText(prof.ava)||""; }catch(_){}   // 送信者=自分のemoji(相手には"emoji 名前"で届く=From StSではなく誰からか分かる)
+      var _ttl=(_emj?_emj+" ":"")+(prof.name||"メッセージ");
       subs.forEach(function(sub){ fetch(PUSH_URL,{ method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ sub:sub, subscription:sub, title:(prof.name||"メッセージ"), body:body, tag:(room||("gc-"+(myAddr()||uid))), url:(room?("/?room="+encodeURIComponent(room)):"/") }) }).then(function(){ try{ Health.report('cf', true); }catch(_){} }, function(){ try{ Health.report('cf', false); }catch(_){} }); });   // ★address配下の全購読(管理者の複数アカウント含む)へ同じ通知。tag=部屋でOSが束ね二重を防ぐ。url=?room=で通知タップ→その会話を必ず開く(「通知は来るのにチャットが来ない」根治)
+        body:JSON.stringify({ sub:sub, subscription:sub, title:_ttl, body:(body+"\nタップで表示"), tag:(room||("gc-"+(myAddr()||uid))), url:(room?("/?room="+encodeURIComponent(room)):"/") }) }).then(function(){ try{ Health.report('cf', true); }catch(_){} }, function(){ try{ Health.report('cf', false); }catch(_){} }); });   // ★address配下の全購読(管理者の複数アカウント含む)へ同じ通知。tag=部屋でOSが束ね二重を防ぐ。url=?room=で通知タップ→その会話を必ず開く(「通知は来るのにチャットが来ない」根治)
     }).catch(function(){}); }catch(_){} }
   /* リアクションの通知: 相手のメッセージに付けた emoji をそのまま Web Push で本文として送る（相手がアプリを閉じていても emoji が届く）。 */
   function sendReactPush(addr,emoji,room){ try{ if(!db||!PUSH_URL||!addr||!emoji) return; var me=myAddr()||uid; if(addr===me||addr===uid) return;
