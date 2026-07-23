@@ -6954,11 +6954,6 @@ window.GC_ADMIN_SECRET = "";
       var ov=document.createElement("div");
       ov.style.cssText="position:fixed;inset:0;z-index:9877;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:transparent;-webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);opacity:0;transition:opacity .5s ease, -webkit-backdrop-filter .5s ease, backdrop-filter .5s ease";
       var inner=document.createElement("div"); inner.style.cssText="display:flex;flex-direction:column;align-items:center;gap:24px;transform:scale(1.1);transition:transform .8s ease";
-      /* ★友達を増やすダイアログの上に自分のQRを表示(ユーザ指示): 目の前の相手がこれを読み取れば相互に追加できる */
-      var myq=document.createElement("div"); myq.style.cssText="width:132px;height:132px;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 10px 30px rgba(0,0,0,.35)";
-      var myqbox=document.createElement("div"); myqbox.style.cssText="width:118px;height:118px;pointer-events:none"; myq.appendChild(myqbox);
-      (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(myqbox, gcQRText(), 118); }catch(_){} });
-      inner.appendChild(myq);
       var em=document.createElement("div"); em.textContent="🫶🏻"; em.style.cssText="font-size:56px;line-height:1"; inner.appendChild(em);
       var t=document.createElement("div"); t.textContent="友達に追加する"; t.style.cssText="color:#fff;font:200 28px/1.4 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;text-align:center;text-shadow:0 2px 18px rgba(0,0,0,.5)"; inner.appendChild(t);
       function bye(){ ov.style.opacity="0"; setTimeout(function(){ try{ ov.remove(); }catch(_){} },520); }
@@ -13218,11 +13213,6 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     row.appendChild(col);
     var _dk=circle("dark","dark"); _dk.style.background="var(--gc-user,#000)"; row.appendChild(_dk);   // ★過去の色背景(ダーク=自分の色)も選べる
     /* ★Classic(LINE風)は機能ごと完全廃止(ユーザ指示2026-07-18) */
-    /* ★environment(火星/金星/冥王星)チューザーの惑星の上に自分のQRを表示(ユーザ指示): 目の前の相手が読み取れば友達に追加できる */
-    var _cq=document.createElement("div"); _cq.className="ecMyQR"; _cq.style.cssText="position:absolute;left:50%;top:calc(50% - 128px);transform:translateX(-50%);width:118px;height:118px;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:3";
-    var _cqb=document.createElement("div"); _cqb.style.cssText="width:104px;height:104px;pointer-events:none"; _cq.appendChild(_cqb);
-    (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(_cqb, gcQRText(), 104); }catch(_){} });
-    ov.appendChild(_cq);
     return ov;
   }
   /* ★星ストリップ(_toggleAstroStrip)は廃止: 火星/金星/冥王星はチューザーに最初から一気に出る(ユーザ指示) */
@@ -13244,7 +13234,6 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     try{ var _dkp=$("gcDock"); if(_dkp){ _dkp.classList.remove("show"); _dkp.classList.remove("open"); _dkp.__deck=false; _dockPlace(); } }catch(_){}
     var ti=ov.querySelector(".ecTitle"); if(ti) ti.textContent="どこに国にピン👀";
     var row=ov.querySelector(".ecRow"); if(row) row.style.display="none";
-    try{ var _mq=ov.querySelector(".ecMyQR"); if(_mq) _mq.style.display="none"; }catch(_){}   // ★国ピン中は自分QRを隠す
     var pins=document.createElement("div"); pins.className="ecPins"; ov.appendChild(pins);
     var chips=Object.keys(CC_LATLON).map(function(cc){ var b=document.createElement("button"); b.className="ecFlag"; b.textContent=_ccFlag(cc);
       b.onclick=function(e){ e.stopPropagation(); _pinCountry(cc,b); }; pins.appendChild(b);
