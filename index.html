@@ -12629,11 +12629,6 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         _stopPair(); _envClose(ov,320);
         _pairSendInvite(room, durl, ro.peer||"", peerName);
       }catch(_){ try{ dynamicIsland("撮影に失敗しました"); }catch(__){} } };
-    /* ★アストロノミー(環境ペア/交換)ダイアログの上に自分のQRを表示(ユーザ指示): 目の前の相手が読み取れば友達に追加できる */
-    var _aq=document.createElement("div"); _aq.style.cssText="width:118px;height:118px;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.4);margin-bottom:4px";
-    var _aqb=document.createElement("div"); _aqb.style.cssText="width:104px;height:104px;pointer-events:none"; _aq.appendChild(_aqb);
-    (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(_aqb, gcQRText(), 104); }catch(_){} });
-    ov.appendChild(_aq);
     ov.appendChild(frame);
     var pill=document.createElement("div");
     pill.style.cssText="display:flex;align-items:center;gap:20px;background:#fff;border-radius:99px;padding:10px 16px;box-shadow:0 12px 30px rgba(0,0,0,.4);margin-top:22px;transform:scale(.85);opacity:0;transition:transform .7s var(--gc-spring) .08s,opacity .5s var(--gc-ease) .08s";
@@ -13223,6 +13218,11 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     row.appendChild(col);
     var _dk=circle("dark","dark"); _dk.style.background="var(--gc-user,#000)"; row.appendChild(_dk);   // ★過去の色背景(ダーク=自分の色)も選べる
     /* ★Classic(LINE風)は機能ごと完全廃止(ユーザ指示2026-07-18) */
+    /* ★environment(火星/金星/冥王星)チューザーの惑星の上に自分のQRを表示(ユーザ指示): 目の前の相手が読み取れば友達に追加できる */
+    var _cq=document.createElement("div"); _cq.className="ecMyQR"; _cq.style.cssText="position:absolute;left:50%;top:calc(50% - 128px);transform:translateX(-50%);width:118px;height:118px;border-radius:16px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:3";
+    var _cqb=document.createElement("div"); _cqb.style.cssText="width:104px;height:104px;pointer-events:none"; _cq.appendChild(_cqb);
+    (authReady||Promise.resolve()).then(function(){ try{ gcDrawDotQR(_cqb, gcQRText(), 104); }catch(_){} });
+    ov.appendChild(_cq);
     return ov;
   }
   /* ★星ストリップ(_toggleAstroStrip)は廃止: 火星/金星/冥王星はチューザーに最初から一気に出る(ユーザ指示) */
@@ -13244,6 +13244,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     try{ var _dkp=$("gcDock"); if(_dkp){ _dkp.classList.remove("show"); _dkp.classList.remove("open"); _dkp.__deck=false; _dockPlace(); } }catch(_){}
     var ti=ov.querySelector(".ecTitle"); if(ti) ti.textContent="どこに国にピン👀";
     var row=ov.querySelector(".ecRow"); if(row) row.style.display="none";
+    try{ var _mq=ov.querySelector(".ecMyQR"); if(_mq) _mq.style.display="none"; }catch(_){}   // ★国ピン中は自分QRを隠す
     var pins=document.createElement("div"); pins.className="ecPins"; ov.appendChild(pins);
     var chips=Object.keys(CC_LATLON).map(function(cc){ var b=document.createElement("button"); b.className="ecFlag"; b.textContent=_ccFlag(cc);
       b.onclick=function(e){ e.stopPropagation(); _pinCountry(cc,b); }; pins.appendChild(b);
