@@ -10500,7 +10500,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       if(dur>30.5 || (file&&file.size>50*1024*1024)){ try{ dynamicIsland((file&&file.size>50*1024*1024)?"大きい動画はpppで軽くして送ってね ✂️":"30秒を超える動画はpppで編集してね ✂️"); }catch(_){} _mediaClipRoom=room; setTimeout(function(){ try{ window.__openApp("apps/cinema-studio-final.html?to=chat","🍍ppp"); }catch(_){} },320); return; }
       try{ videoSendChoice(room, file); }catch(_){} }
     vt.onloadedmetadata=function(){ go(vt.duration||0); }; vt.onerror=function(){ go(0); }; setTimeout(function(){ go(0); },1600); }
-  function _pickMediaForChat(rm){ if(!rm) return; var f=document.createElement("input"); f.type="file"; f.multiple=true; f.accept="image/*,video/*,audio/*,.heic,.heif,.mp4,.mov,.m4v,.webm,.stl,.gcode,.gco,.nc,.usdz,.mp3,.wav,.m4a,.caf,model/stl,model/vnd.usdz+zip,application/sla,application/vnd.ms-pki.stl,application/octet-stream";   // ★複数画像+STL/G-code/USDZ+音声もここから。octet-stream=iOSのFilesでSTL等がグレーアウトしない(ユーザ指示2026-07-18)
+  function _pickMediaForChat(rm){ if(!rm) return; var f=document.createElement("input"); f.type="file"; f.multiple=true; f.accept="image/*,video/*,audio/*,.heic,.heif,.dng,.tif,.tiff,.bmp,.avif,.mp4,.mov,.m4v,.webm,.stl,.gcode,.gco,.nc,.usdz,.mp3,.wav,.m4a,.caf,model/stl,model/vnd.usdz+zip,application/sla,application/vnd.ms-pki.stl,application/octet-stream";   // ★複数画像(HEIC/HEIF/DNG/TIFF/BMP/AVIFも→PNG化して送信)+STL/G-code/USDZ+音声もここから。octet-stream=iOSのFilesでSTL等がグレーアウトしない(ユーザ指示2026-07-18)
     f.onchange=function(){ var files=f.files&&f.files.length?Array.prototype.slice.call(f.files):[]; if(!files.length) return;
       var imgs=[], vids=[], threeD=[], auds=[];
       files.forEach(function(file){ var nm=String(file.name||"");
@@ -10613,17 +10613,31 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   /* ★HEIC/HEIFは「デコード済みピクセル」からPNG化して送る(ユーザ指示2026-07-18・早急):
      旧: FileReaderのdataURLをそのまま送る→transcode時にデコード不能だと真っ黒(ブラックアウト)。
      新: createImageBitmap(確実にデコード or 明示的に失敗)→canvas→PNG。失敗時は<img>デコードにフォールバック、それでも無理なら送らずに知らせる(黒画像は絶対に送らない) */
+  /* ★heic2any(jsdelivr・CSPのscript-src許可済)を遅延ロード=Safari以外(Android/Chrome)でネイティブHEICデコードが無い時の保険。iPhoneはネイティブ(createImageBitmap/img)で足りるので通常は読み込まない。 */
+  var _heic2anyP=null;
+  function _loadHeic2any(){ if(window.heic2any) return Promise.resolve(window.heic2any);
+    if(_heic2anyP) return _heic2anyP;
+    _heic2anyP=gcLoadScript("https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js").then(function(){ return window.heic2any||null; }).catch(function(){ _heic2anyP=null; return null; });
+    return _heic2anyP; }
+  function _blobToDataURL(blob){ return new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(){ res(String(rd.result)); }; rd.onerror=function(){ rej(0); }; try{ rd.readAsDataURL(blob); }catch(e){ rej(e); } }); }
   function _fileToSendableDataURL(file){
-    var isHeic=/\.(heic|heif)$/i.test(String(file&&file.name||"")) || /heic|heif/i.test(String(file&&file.type||""));
+    var nm=String(file&&file.name||""), ty=String(file&&file.type||"");
+    var isHeic=/\.(heic|heif)$/i.test(nm) || /heic|heif/i.test(ty);
+    /* ★iPhone/スマホの特殊・RAW拡張子(dng/heif/tiff/bmp/avif等)も広く対応=デコード済みピクセルからPNG化(相手にはPNGで届く)。
+       標準web画像(png/jpg/jpeg/webp/gif)は効率のため従来どおり素通し(=写真はjpeg,pngはステッカー)。 */
+    var needPng=isHeic || /\.(dng|tif|tiff|bmp|avif)$/i.test(nm) || /image\/(x-adobe-dng|tiff|bmp|avif)/i.test(ty);
     function viaBitmap(){ if(!window.createImageBitmap) return Promise.reject(0);
-      return createImageBitmap(file).then(function(bm){ var cv=document.createElement("canvas"); cv.width=bm.width; cv.height=bm.height;
+      return createImageBitmap(file).then(function(bm){ var cv=document.createElement("canvas"); cv.width=bm.width||1; cv.height=bm.height||1;
         cv.getContext("2d").drawImage(bm,0,0); try{ bm.close&&bm.close(); }catch(_){} return cv.toDataURL("image/png"); }); }
     function viaImg(){ return new Promise(function(res,rej){ var u=URL.createObjectURL(file); var im=new Image();
       im.onload=function(){ try{ var cv=document.createElement("canvas"); cv.width=im.naturalWidth||1; cv.height=im.naturalHeight||1;
           cv.getContext("2d").drawImage(im,0,0); URL.revokeObjectURL(u); res(cv.toDataURL("image/png")); }catch(e){ try{ URL.revokeObjectURL(u); }catch(_){} rej(e); } };
       im.onerror=function(){ try{ URL.revokeObjectURL(u); }catch(_){} rej(0); }; im.src=u; }); }
+    function viaHeic2any(){ return _loadHeic2any().then(function(h2a){ if(!h2a) throw 0;
+      return h2a({ blob:file, toType:"image/png", quality:0.92 }); }).then(function(out){ var b=Array.isArray(out)?out[0]:out; if(!b) throw 0; return _blobToDataURL(b); }); }
     function viaReader(){ return new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(){ res(String(rd.result)); }; rd.onerror=function(){ rej(0); }; try{ rd.readAsDataURL(file); }catch(e){ rej(e); } }); }
-    return (isHeic ? viaBitmap().catch(viaImg) : viaReader().catch(viaImg)); }
+    if(needPng){ return viaBitmap().catch(viaImg).catch(function(){ return isHeic ? viaHeic2any() : Promise.reject(0); }); }
+    return viaReader().catch(viaImg); }
   function _readImagesThenSend(files, toRoom){ if(!files||!files.length) return; var shots=new Array(files.length), left=files.length, bad=0;   // ★複数画像を順序保持で全部読んでから1回のsendImagesへ(2枚以上も正常に・ユーザ指示)
     function done(i,v){ shots[i]=v; if(v===null) bad++;
       if(--left===0){ var ok=shots.filter(Boolean);
@@ -10631,7 +10645,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         if(bad){ try{ dynamicIsland("画像を"+bad+"枚読み込めませんでした(HEIC変換失敗)"); }catch(_){} } } }
     files.forEach(function(file, i){ _fileToSendableDataURL(file).then(function(u){ done(i,u); }).catch(function(){ done(i,null); }); }); }
   function attachPhoto(){ var f=document.createElement("input"); f.type="file"; f.multiple=true;   // ★複数選択(2枚以上)対応(ユーザ指示)
-    f.accept="image/*,.heic,.heif,.png,.jpg,.jpeg,.webp,.gif";   // ★HEIC/PNG/JPG等も選んで送れる(ファイルAppのheicもiOSがネイティブデコード→送信時にjpeg化)
+    f.accept="image/*,.heic,.heif,.dng,.tif,.tiff,.bmp,.avif,.png,.jpg,.jpeg,.webp,.gif";   // ★HEIC/HEIF/DNG/TIFF/BMP/AVIF/PNG/JPG等も選んで送れる(特殊/RAWはPNG化して相手に届く)
     f.onchange=function(){ var files=f.files&&f.files.length?Array.prototype.slice.call(f.files):[]; if(!files.length) return; _readImagesThenSend(files); }; f.click(); }
   /* attachContact() は廃止（P1）。連絡先共有はP11でドラッグ操作として再実装する。 */
   function attachSumi(variant){ var room=chatRoom; if(!room) return; var seed=Math.floor(Math.random()*1e9);
