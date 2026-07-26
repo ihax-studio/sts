@@ -612,8 +612,12 @@
   function slideRows(rows){ try{ Array.prototype.forEach.call(rows.querySelectorAll('.sd-row'), function(r,i){
     r.style.transitionDelay=(Math.min(i,14)*36)+'ms';   /* ★staggerは先頭15行だけ=数百件出しても待たせない */
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ r.classList.add('in'); }); }); }); }catch(_){} }
-  /* ★翻訳/英単語のタップ=TTS(サマンサが英文1.1x→0.1秒後にKyokoが日本語1.2x) */
-  function speakPair(en, ja){ try{ var ss=window.speechSynthesis; if(!ss) return; ss.cancel();
+  /* ★翻訳/英単語のタップ=TTS(サマンサが英文1.1x→0.1秒後にKyokoが日本語1.2x)
+     → 読み上げ(TTS)/スクリーンリーダーは一時的に完全停止(ユーザ指示・本番)。
+       呼び出し箇所(行タップ/翻訳結果)はそのまま＝UIは不変、音声だけ出ない。 */
+  function speakPair(en, ja){ return; }   // ★TTS停止中: 有効化経路なし
+  /* eslint-disable no-unused-vars */
+  function _speakPairImpl(en, ja){ try{ var ss=window.speechSynthesis; if(!ss) return; ss.cancel();
     var vs=ss.getVoices()||[];
     function pick(nm,lang){ for(var i=0;i<vs.length;i++){ if((vs[i].name||'').indexOf(nm)>=0) return vs[i]; }
       for(var j=0;j<vs.length;j++){ if((vs[j].lang||'').indexOf(lang)===0) return vs[j]; } return null; }

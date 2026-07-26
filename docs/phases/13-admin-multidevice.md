@@ -1,4 +1,24 @@
-# 管理者の複数デバイス共有受信(Firebaseルール反映)
+# 管理者の複数デバイス共有受信(Firebaseルール反映) — **廃止済み(ARCHIVED)**
+
+> ## ⚠️ このフェーズは完全に廃止されました
+>
+> 管理者「徒/と」(`and_admin`)の概念、および化学式
+> `h2so4+naoh->na2so4+h2o` による管理者主張(claimAdmin)は **本番から撤去済み** です。
+> 以下の記述はすべて **過去の設計メモ(履歴)** であり、現在のコードとは一致しません。
+>
+> 現在の状態:
+> - `index.html` … `claimAdmin()` は常に `false` を返すだけの no-op。`myAddr()` は常に自分の `uid`。
+>   管理者UI(`#gcAdminOv` / `#gcAdminEntry` / `.gc-adminb`)はCSSで恒久非表示、結線も撤去。
+>   起動時に保存済みの管理者フラグと `and_admin` 宛の会話をローカルから削除する。
+> - `database.rules.json` … `admin/*` の特権判定と化学式シークレットを全削除。
+>   `admin/*` と `users|friends|push|s2s|gallery/and_admin` は **削除(null書込)だけ許可** ＝
+>   残骸を掃除でき、かつ二度と作成/更新できない。
+> - 起動時に一度だけ上記ノードの削除を試行する(`gc_admin_purged_v1`)。
+>   まだ残骸が見えるときは Firebase コンソールから該当ノードを手動削除してください。
+>
+> 運用(利用者の管理・一斉送信など)は外部(Cloudflare)側で行います。
+
+---
 
 ## 目的
 

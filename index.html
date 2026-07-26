@@ -2595,6 +2595,12 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
 
   /* 旧プロフィール編集ピルのCSSは削除済み */
 
+  /* ★管理者(徒/と)の概念は完全廃止(ユーザ指示・本番)＝管理者UIはどの状態でも出さない。
+     .show が付いても display:none で勝つ＝化学式ログイン画面/アカウント一覧/一斉送信は一切表示されない。 */
+  #gcAdminOv, #gcAdminOv.show,
+  #gcAdminEntry, #gcAdminEntry.show,
+  #gcAdminCastBox, .gc-adminb{ display:none !important; }
+
   /* 管理者アカウント一覧（globe 新UI） */
   #gcAdminOv{touch-action:pan-y!important;overscroll-behavior-x:none!important; position:fixed; inset:0; z-index:9420; display:none; flex-direction:column; padding:calc(env(safe-area-inset-top,0px)+16px) 16px calc(env(safe-area-inset-bottom,0px)+16px);
     background:rgba(6,8,14,.5); backdrop-filter:blur(30px) saturate(160%); -webkit-backdrop-filter:blur(30px) saturate(160%); }
@@ -3034,6 +3040,11 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
   .gc-att-round.file{touch-action:pan-y!important;overscroll-behavior-x:none!important; background-color:#0a84ff; margin-top:12px; }   /* B10: 墨流ピル(上padding12px)の丸と同じ高さに揃える */
   .gc-att-round.sumi{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:55px; height:55px; background-color:#0a0a11; }
   .gc-att-round.sumi.shuffle{touch-action:pan-y!important;overscroll-behavior-x:none!important; background:radial-gradient(circle at 38% 32%, #ff5bd0, #c026d3 68%, #7a1fb0); }
+  .gc-att-round.cxheart{touch-action:pan-y!important;overscroll-behavior-x:none!important; width:55px; height:55px; background-color:#0a0a11; }   /* 💓再生中の曲を送る(旧sumi heartの見た目を維持・墨流しではない) */
+  /* ★墨流し(suminagashi / sumi shuffle)は廃止・非表示(ユーザ指示・本番)。
+     添付シートの墨流しピル/丸と、受信バブルの墨流し描画を出さない。💓cxheart(曲の鼓動)は別機能なので残す。 */
+  .gc-att-round.sumi, .gc-att-col.sumi-col, .gc-att-sumi-pill{ display:none !important; }
+  .gc-sumi:not(.sumi-heart){ display:none !important; }
   .gc-att-sumi-pill{touch-action:pan-y!important;overscroll-behavior-x:none!important; display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-radius:44px; background:rgba(60,60,68,.5); border:.5px solid rgba(255,255,255,.12); -webkit-backdrop-filter:blur(20px) saturate(150%); backdrop-filter:blur(20px) saturate(150%); }
   .gc-att-lab{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:13px; font-weight:600; color:#fff; }
   .gc-att-lab.sm{touch-action:pan-y!important;overscroll-behavior-x:none!important; font-size:11px; font-weight:500; color:rgba(255,255,255,.85); }
@@ -3884,7 +3895,7 @@ if(!window.__globePaused){ window.__globeBoot().catch(function(e){ try{ console.
 <button class="gc-fab gc-loc" id="gcLocFab" title="現在地">📍</button>
 <button class="gc-fab gc-chatback" id="gcChatBackFab" title="戻る">←</button>
 <!-- ★📎添付FAB: body直下=どのモード(classic含む)でも確実に押せる。チャット中(gc-inchat)のみ表示 -->
-<button class="gc-clip-fab" id="gcChatClip" title="添付（画像・シェイク・Todo・動画・墨流し・Music）">📎</button>
+<button class="gc-clip-fab" id="gcChatClip" title="添付（画像・動画・シェイク・Todo・連絡先・Music）">📎</button>
 <div id="gcHomeBar"></div>
 <div id="gcNotifBadge" title="新着メッセージ"></div>
 <div id="gcFriendPins"></div>
@@ -4094,8 +4105,28 @@ window.FIREBASE_CONFIG = {
 /* App Check(reCAPTCHA v3) サイトキー。※公開OK。meettomeet/app.js と同じ ichat-pwa プロジェクトの鍵＝
    App Check を「強制ON」にしていても index.html からの読み書きが 403 で弾かれない（=チャット/返信が届く）。 */
 window.RECAPTCHA_SITE_KEY = "6LfMsBwtAAAAALnqY-OUxeKzZPk2PGkzSb3RGPzp";
-/* ★管理者(と)の概念は廃止。運用は外部(Cloudflare)へ移行したため、アプリ内の管理者シークレット/化学式ログインは無効化する。 */
+/* ★管理者(と)の概念は完全廃止(ユーザ指示・本番)。化学式(h2so4+naoh->na2so4+h2o)による管理者主張・
+   管理者アカウント(and_admin/「と」)は撤去済み。運用は外部(Cloudflare)で行う。 */
 window.GC_ADMIN_SECRET = "";
+window.GC_ADMIN_DISABLED = true;
+/* ★読み上げ(TTS)/スクリーンリーダー機能は一時的に完全停止(ユーザ指示・本番)。
+   「あとから有効にできない」よう Web Speech Synthesis 自体をページ先頭で不活性化する＝
+   どのコード経路(検索デッキの単語タップ/アプリ内の読み上げ)からも音声は出ない。
+   API は消さずに no-op へ差し替える＝呼び出し側は例外を出さずそのまま動く(UI/機能/要素は残置)。 */
+window.GC_TTS_DISABLED = true;
+(function(){ try{
+  var ss = window.speechSynthesis;
+  if(ss){
+    try{ ss.cancel(); }catch(_){}
+    var noop=function(){};
+    try{ ss.speak = noop; }catch(_){}
+    try{ ss.pause = noop; }catch(_){}
+    try{ ss.resume = noop; }catch(_){}
+    try{ ss.getVoices = function(){ return []; }; }catch(_){}   // 声が1つも無い＝有効化しようとしても選べない
+  }
+  /* 新規に speechSynthesis を掴み直されても無効のまま返す */
+  try{ Object.defineProperty(window, "speechSynthesis", { get:function(){ return ss||null; }, configurable:false }); }catch(_){}
+}catch(_){ } })();
 </script>
 <script>
 (function(){
@@ -4103,17 +4134,29 @@ window.GC_ADMIN_SECRET = "";
   var $=function(id){return document.getElementById(id);};
   var LS="gc_profile_v1";
   var prof=load();
-  if(prof.admin){ delete prof.admin; try{ localStorage.setItem(LS,JSON.stringify(prof)); }catch(_){} }   // ★管理者(と)概念は廃止=保存済みの管理者フラグも確実に解除(以降どの端末でも管理者にはならない)
+  /* ★管理者(徒/と)の概念は完全廃止(ユーザ指示・本番):
+     ・保存済みの管理者フラグを必ず解除＝以降どの端末でも管理者にならない
+     ・管理者アカウント「と」(and_admin)との会話/友達エントリをローカルから削除＝アプリ上からアカウントを消す
+       (相手が居ない宛先なので残しても送れない。一覧に幽霊として残らないようにする) */
+  (function(){ var ch=false;
+    if(prof.admin){ delete prof.admin; ch=true; }
+    try{ if(prof.rooms && prof.rooms.length){ var n=prof.rooms.filter(function(r){
+      return !(r && (r.peer==="and_admin" || (typeof r.room==="string" && r.room.indexOf("and_admin")>=0))); });
+      if(n.length!==prof.rooms.length){ prof.rooms=n; ch=true; } } }catch(_){}
+    try{ if(prof.delRooms){ Object.keys(prof.delRooms).forEach(function(k){ if(k.indexOf("and_admin")>=0){ delete prof.delRooms[k]; ch=true; } }); } }catch(_){}
+    if(ch){ try{ localStorage.setItem(LS,JSON.stringify(prof)); }catch(_){} }
+  })();
   if(prof.seen===undefined) prof.seen=true;   // 👀 見たよ通知は既定でON
   function load(){ try{ return JSON.parse(localStorage.getItem(LS))||{}; }catch(_){ return {}; } }
   function save(){ try{ localStorage.setItem(LS,JSON.stringify(prof)); }catch(_){}
     try{ document.documentElement.style.setProperty("--gc-user",(prof&&prof.color)||"#62d8ff"); }catch(_){} }   // ★ユーザのアイコン色をCSS変数へ(Classic背景/自分バブル等で使用)
 
   /* ── アバター: 絵文字 or 画像ファイル("img:/founder.png" 形式) 両対応 ──
-     管理者(と)は昔どおり画像アイコン固定。avaText はインライン表示用に画像を空文字へ。 */
+     ★管理者(徒/と)は完全廃止(ユーザ指示・本番)。定数は既存コードの参照先として残すだけで、
+       もう「管理者になる」経路も、and_admin 宛の送受信も存在しない。 */
   var ADMIN_NAME="と", ADMIN_AVA="img:/founder-icon.png", ADMIN_COLOR="#1c1c1e";
-  var ADMIN_ID="and_admin";   // 管理者"と"の固定共有アドレス。どの端末でも同じ宛先に届く（複数デバイス共有受信）
-  function myAddr(){ return (prof&&prof.admin)?ADMIN_ID:(uid||""); }   // 非管理者は従来通り uid（通常チャットは不変）、管理者だけ固定ID
+  var ADMIN_ID="and_admin";   // 旧・管理者"と"の固定共有アドレス(廃止済み。ローカル掃除の目印としてのみ使う)
+  function myAddr(){ return uid||""; }   // ★常に自分の uid。管理者(と)の固定IDに化ける経路は廃止
   function avaIsImg(v){ return typeof v==="string" && v.slice(0,4)==="img:"; }
   function avaText(v){ return avaIsImg(v) ? "" : (v||"🙂"); }
   /* ★P24: 設定appのアイコン=自分のアバター(色丸+絵文字)をcanvasでdataURL化して使う */
@@ -4369,7 +4412,8 @@ window.GC_ADMIN_SECRET = "";
     (prof.rooms||[]).forEach(function(r){ if(r.pending||!r.loc||r.loc.lat==null) return; specs.push({lat:r.loc.lat, lon:r.loc.lon, ava:r.ava, name:r.name||"友達", me:false, room:r}); });
     _renderPinSpecs(specs); }
   /* 管理者: 全ユーザーを地図(globe)にプロット（mode A・openAdminListのusersを再利用） */
-  function plotAllUsers(){ if(!prof.admin||!db) return; dynamicIsland("全ユーザーを地図に…");
+  function plotAllUsers(){ return; }   /* ★廃止: 管理者による全ユーザーの地図プロットは撤去 */
+  function _plotAllUsersAbolished(){ if(!prof.admin||!db) return; dynamicIsland("全ユーザーを地図に…");
     db.ref("users").once("value").then(function(s){ var v=s.val()||{}, specs=[];
       Object.keys(v).forEach(function(k){ var u=v[k]||{}; if(!u.loc||u.loc.lat==null) return; specs.push({lat:u.loc.lat, lon:u.loc.lon, ava:u.ava, name:u.name||"利用者", me:(k===uid)}); });
       if(!specs.length){ dynamicIsland("位置のあるユーザーがいません"); return; }
@@ -6552,8 +6596,10 @@ window.GC_ADMIN_SECRET = "";
       if(_selfWiped||prof.admin) return;
       if(_selfSeen || (prof.onboarded && !grace)) onSelfDeleted();   // 存在→消滅(=管理者削除) / 既存ユーザなのに記録が無い
     }); }catch(_){} }); }
-  /* 管理者：アカウント一覧（globe 新UI。users 読みは admin のみ許可＝ルール準拠） */
-  function openAdminList(){
+  /* 管理者：アカウント一覧 ── ★管理者(徒/と)の概念ごと廃止(ユーザ指示・本番)=開けない。
+     UI(#gcAdminOv)はCSSで非表示、実装は _openAdminListAbolished として残置(呼び出し無し)。 */
+  function openAdminList(){ /* 廃止: 管理者アカウント一覧は開かない */ }
+  function _openAdminListAbolished(){
     // ★破壊的な purgeAccounts() の自動実行は廃止＝一覧を開いただけでアカウント/友達(チャット相手)を勝手に消さない。掃除は明示操作(🗑)のみ。
     // empty mode は完全廃止済み（Workerの自動削除も撤去）＝会話は勝手に消えない。残存フラグは無害なので重い掃除読取はしない（リクエスト削減）。
     _admSel={}; adminUpdateBulkBar();   // 開き直すたびに一括削除の選択はリセット
@@ -8094,8 +8140,10 @@ window.GC_ADMIN_SECRET = "";
     var pn=invitePathName(s); if(pn){ resolveHandle(pn).then(function(p){ if(p) connectToInvite(p,pn,""); else { try{ dynamicIsland("ユーザー「"+pn+"」が見つかりません"); }catch(_){} } }); return true; }
     return false; }
   function dmRoom(peer){ var a=myAddr()||uid, b=peer; return (a<b)?(a+"__"+b):(b+"__"+a); }   // P06: app.js の pairId と完全一致(a__b)＝meettomeetと同一トンネル。管理者は ADMIN_ID
-  function addByUid(peer,label){ if(!peer||peer===uid||peer===myAddr()) return Promise.resolve(); var room=dmRoom(peer); var name=label||("友達 "+peer.slice(0,5));
-    var toAdmin=(peer===ADMIN_ID);
+  function addByUid(peer,label){ if(!peer||peer===uid||peer===myAddr()) return Promise.resolve();
+    if(peer===ADMIN_ID){ try{ dynamicIsland("この宛先は利用できません"); }catch(_){} return Promise.resolve(); }   // ★管理者(徒/と)アカウントは廃止=and_admin とは繋がらない
+    var room=dmRoom(peer); var name=label||("友達 "+peer.slice(0,5));
+    var toAdmin=false;
     // 承認機能は撤廃＝追加した瞬間に友達&会話可能。相手側にも自分を書き込む（双方向）
     // ★自分のアドレス＝myAddr()（管理者は and_admin）。管理者が利用者を追加した時は friends/<利用者>/and_admin を書く＝
     //   部屋ID(dmRoom も and_admin で計算)と一致し、利用者側に「と」が確実に出てメッセージ送受信が成立する（auth.uid を書くと部屋がズレて届かない不具合の修正）。
@@ -8213,7 +8261,8 @@ window.GC_ADMIN_SECRET = "";
     try{ if(window.caches&&caches.open) caches.open("gc-badge").then(function(c){ return c.put("count", new Response(JSON.stringify({n:n}))); }).catch(function(){}); }catch(_){}
   }
   /* 管理者「と」: シェイク通知の一斉送信（broadcast/<id>＝全員が受信して表示） */
-  function sendBroadcast(){ var inp=$("gcAdminCastText"); var t=(inp&&inp.value||"").trim();
+  function sendBroadcast(){ /* 廃止: 管理者(と)の一斉送信は撤去済み */ }
+  function _sendBroadcastAbolished(){ var inp=$("gcAdminCastText"); var t=(inp&&inp.value||"").trim();
     if(!t){ if(inp){ inp.classList.remove("shake"); void inp.offsetWidth; inp.classList.add("shake"); try{inp.focus();}catch(_){} } return; }
     if(!db||!prof.admin){ toast("管理者のみ"); return; }
     (authReady||Promise.resolve()).then(claimAdmin).then(function(){
@@ -8229,7 +8278,8 @@ window.GC_ADMIN_SECRET = "";
       }).catch(function(){}); }catch(_){}
       if(inp) inp.value=""; if(haptic.confirm)haptic.confirm(); toast("一斉送信しました"); dynamicIsland("📣 "+t);
     }).catch(function(){ toast("送信できませんでした"); }); }
-  function watchBroadcast(){ if(prof.admin) return;   // 送信側(管理者)は受信しない
+  function watchBroadcast(){ return; }   /* ★廃止: 管理者(と)の一斉送信は撤去=users/and_admin/cast の購読もしない(無駄な読取も止める) */
+  function _watchBroadcastAbolished(){ if(prof.admin) return;
     (authReady||Promise.resolve()).then(function(){ if(!db) return;
     if(_wAttached["cast"]) return; _wAttached["cast"]=true;
     var first=true, last=null; setTimeout(function(){ first=false; },1800);
@@ -8239,7 +8289,8 @@ window.GC_ADMIN_SECRET = "";
       osNotify("Shake to Shake", { body:b.t, icon:"icon-sts-180.png", badge:"icon-sts-180.png", tag:"broadcast", renotify:true, data:{ url:"/" } });   // iOS対応(SW.showNotification)
     }); }catch(_){} }); }
   /* 管理者: パスキー無し(pk:false)/削除済みのアカウントを Firebase から全削除（管理者「と」は残す） */
-  function purgeAccounts(){ if(!db||!prof.admin) return;
+  function purgeAccounts(){ return; }   /* ★廃止: 管理者による他人のアカウント削除は撤去 */
+  function _purgeAccountsAbolished(){ if(!db||!prof.admin) return;
     (authReady||Promise.resolve()).then(claimAdmin).then(function(){
       db.ref("users").once("value").then(function(s){ var v=s.val()||{}, ups={}, n=0;
         var strayAdmin=function(u){ return u && u.name===ADMIN_NAME && u.ava===ADMIN_AVA; };   // 旧仕様で出来た端末ごとの「と」(users/<uid>)＝固定アバター一致で判定
@@ -8305,7 +8356,8 @@ window.GC_ADMIN_SECRET = "";
     }); }
   /* ★管理者(と)専用: convos(全DMのミラー・読取はadminのみ)から「と」が関与する会話を全部一覧へ復活＝
      ローカルキャッシュが無い端末でも、friends掃除後でも、過去の会話が画面に出る（管理者の会話消失を server から根治）。 */
-  function restoreAdminConvos(){ if(!prof.admin) return;
+  function restoreAdminConvos(){ return; }   /* ★廃止: 管理者(と)の会話ミラー復元は撤去 */
+  function _restoreAdminConvosAbolished(){ if(!prof.admin) return;
     (authReady||Promise.resolve()).then(claimAdmin).then(function(){ if(!db) return;
       return db.ref("convos").once("value").then(function(s){ var v=s.val()||{}; var added=0;
         Object.keys(v).forEach(function(room){ var c=v[room]||{};
@@ -10080,8 +10132,8 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
             _et.onclick=function(){ haptic(); var rq=null; try{ rq=JSON.parse(plain.slice(9)); }catch(_){} if(rq) _envOpenPrompt(room||chatRoom, rq); }; }
           _et.textContent=_elbl; d.appendChild(_et); if(box) box.scrollTop=box.scrollHeight; return; }
         var pr=parseIncoming(plain); m.text=pr.text;
-        var sm=/^【sumi:(\d+)(?::([a-z]+))?】$/.exec(pr.text||"");   // 墨流し＝CSS描画(seedのみ送信)。:variant省略=shuffle(旧【sumi:N】後方互換)
-        if(sm){ d.classList.add("img"); try{ renderSumi(d, parseInt(sm[1],10), sm[2]||"shuffle"); }catch(_){} box.scrollTop=box.scrollHeight; return; }
+        var sm=/^【sumi:(\d+)(?::([a-z]+))?】$/.exec(pr.text||"");   // 墨流し＝廃止(ユーザ指示・本番)。過去ログの【sumi:N】はバブルごと非表示＝生テキストも模様も出さない
+        if(sm){ try{ d.style.display="none"; }catch(_){} return; }
         if(typeof looksLikeInvite==="function" && looksLikeInvite(pr.text)){   // ★連絡先シェア=bg/枠なしのシンプルiOS風: アイコン・名前・曲・記念日
           d.classList.add("img"); var _il=pr.text, inm="", iav="", _ipeer="";
           try{ var nmM=_il.match(/[#&?]n=([^&]*)/); if(nmM) inm=decodeURIComponent(nmM[1]); }catch(_){}
@@ -10321,17 +10373,22 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
 
   /* ── シェイクで撮影（全カメラ撮影 grabFrom/captureAllCameras）は廃止（ユーザー指示）。
         画像送信は 📎 添付（attachPhoto→sendImages＝写真ライブラリから選択）に一本化。 ── */
-  /* 送信前に最大800px縮小＋減色(RGB各3bit≒512色)＋JPEG再圧縮でデータ量を大幅削減 */
+  /* 送信前に最大800px縮小＋JPEG再圧縮でデータ量を大幅削減。
+     ★出力は常に JPEG(ユーザ指示・本番): fmt引数は後方互換のため残すが png は受け付けない＝どの入力もjpgで送る。 */
   function transcodeDataURL(dataURL, fmt){ return new Promise(function(res){
+    var _isJpg=/^data:image\/jpe?g/i.test(String(dataURL||""));
     try{ var im=new Image(); im.onload=function(){ try{
       var w=im.naturalWidth||im.width, h=im.naturalHeight||im.height, MAX=800, sc=Math.min(1, MAX/Math.max(w,h));
       var cw=Math.max(1,Math.round(w*sc)), ch=Math.max(1,Math.round(h*sc));
-      var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch; var cx=cv.getContext("2d"); cx.drawImage(im,0,0,cw,ch);
-      if(fmt==="png"){ res(cv.toDataURL("image/png")||dataURL); return; }   // ★PNG=透明を保ったまま800pxへ縮小(ステッカー用・ユーザ指示: pngのみsticker化)
+      var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch; var cx=cv.getContext("2d");
+      cx.fillStyle="#ffffff"; cx.fillRect(0,0,cw,ch);   // 透明→白(JPEGはアルファ非対応＝黒潰れ防止)
+      cx.drawImage(im,0,0,cw,ch);
       /* ★減色しない: 出力はJPEG(lossy)＝色数で圧縮しないため、事前に色を減らしてもサイズはほぼ変わらず
-         バンディングで汚くなるだけ(逆効果)。フルカラー(≒8196色以上)のままJPEG品質で圧縮する。
-         縮小はMAX800pxのリサイズ＋品質0.72で担保。 */
-      var out=cv.toDataURL("image/jpeg",0.85); res(out&&out.length<dataURL.length?out:dataURL);   // ★送信画質アップ(0.85)
+         バンディングで汚くなるだけ(逆効果)。フルカラーのままJPEG品質で圧縮する。 */
+      var out=cv.toDataURL("image/jpeg",0.85);
+      if(!out || out.indexOf("data:image/jpeg")!==0){ res(dataURL); return; }
+      /* 元がJPEGの時だけ「小さくなった方」を採用。元がpng/webp等なら必ずJPEG側を採用＝jpgで送る保証 */
+      res((_isJpg && out.length>=dataURL.length) ? dataURL : out);
     }catch(_){ res(dataURL); } }; im.onerror=function(){ res(dataURL); }; im.src=dataURL;
     }catch(_){ res(dataURL); }
   }); }
@@ -10477,14 +10534,14 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       if(dur>30.5 || (file&&file.size>50*1024*1024)){ try{ dynamicIsland((file&&file.size>50*1024*1024)?"大きい動画はpppで軽くして送ってね ✂️":"30秒を超える動画はpppで編集してね ✂️"); }catch(_){} _mediaClipRoom=room; setTimeout(function(){ try{ window.__openApp("apps/cinema-studio-final.html?to=chat","🍍ppp"); }catch(_){} },320); return; }
       try{ videoSendChoice(room, file); }catch(_){} }
     vt.onloadedmetadata=function(){ go(vt.duration||0); }; vt.onerror=function(){ go(0); }; setTimeout(function(){ go(0); },1600); }
-  function _pickMediaForChat(rm){ if(!rm) return; var f=document.createElement("input"); f.type="file"; f.multiple=true; f.accept="image/*,video/*,audio/*,.heic,.heif,.dng,.tif,.tiff,.bmp,.avif,.mp4,.mov,.m4v,.webm,.stl,.gcode,.gco,.nc,.usdz,.mp3,.wav,.m4a,.caf,model/stl,model/vnd.usdz+zip,application/sla,application/vnd.ms-pki.stl,application/octet-stream";   // ★複数画像(HEIC/HEIF/DNG/TIFF/BMP/AVIFも→PNG化して送信)+STL/G-code/USDZ+音声もここから。octet-stream=iOSのFilesでSTL等がグレーアウトしない(ユーザ指示2026-07-18)
+  function _pickMediaForChat(rm){ if(!rm) return; var f=document.createElement("input"); f.type="file"; f.multiple=true; f.accept="image/*,video/*,audio/*,.heic,.heif,.dng,.tif,.tiff,.bmp,.avif,.mp4,.mov,.m4v,.webm,.stl,.gcode,.gco,.nc,.usdz,.mp3,.wav,.m4a,.caf,model/stl,model/vnd.usdz+zip,application/sla,application/vnd.ms-pki.stl,application/octet-stream";   // ★複数画像(HEIC/HEIF/DNG/TIFF/BMP/AVIF/PNGも→全てJPG化して送信)+STL/G-code/USDZ+音声もここから。octet-stream=iOSのFilesでSTL等がグレーアウトしない(ユーザ指示2026-07-18)
     f.onchange=function(){ var files=f.files&&f.files.length?Array.prototype.slice.call(f.files):[]; if(!files.length) return;
       var imgs=[], vids=[], threeD=[], auds=[];
       files.forEach(function(file){ var nm=String(file.name||"");
         if(/\.(stl|gcode|gco|nc|usdz)$/i.test(nm)){ threeD.push(file); return; }   // ★3D(STL/G-code/USDZ)
         if(/\.(mp3|wav|m4a|caf|aac|ogg)$/i.test(nm) || (file.type&&file.type.indexOf("audio")===0)){ auds.push(file); return; }   // ★音声
         var isVid=(file.type&&file.type.indexOf("video")===0) || /\.(mp4|mov|m4v|webm)$/i.test(nm); if(isVid) vids.push(file); else imgs.push(file); });
-      if(imgs.length){ _readImagesThenSend(imgs, rm); }   // ★画像はまとめて1回で送る(HEIC/HEIF=PNG化して相手にはPNGで届く)
+      if(imgs.length){ _readImagesThenSend(imgs, rm); }   // ★画像はまとめて1回で送る(HEIC/HEIF/DNG/PNG…全て送信前にJPGへ変換して相手に届く)
       vids.forEach(function(vf){ try{ _processVideoForChat(rm, vf); }catch(_){} });   // 動画は各々処理
       threeD.forEach(function(tf){ try{ _send3DFromFile(rm, tf); }catch(_){} });      // ★3Dは各々シート→送信
       auds.forEach(function(af){ try{ _sendAudioForChat(rm, af); }catch(_){} });      // ★音声=聴ける拡張子で送る(m4a/caf→wav変換)
@@ -10577,9 +10634,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       var mu=attImg("pm","ppm-x.png","Music", function(){ haptic(); var rm=chatRoom; closeAttach(); setTimeout(function(){ try{ openMusicSearchSheet(function(s){ if(rm){ pushMessage(rm,"cxsong:"+JSON.stringify(s)); try{ dynamicIsland("曲を送りました 🎧"); }catch(_){} } },"曲を検索して送る…"); }catch(_){} },160); });   // ★Musicはステッカー行へ移動(ユーザ指示)。再生中でも検索UI
       try{ var _mc=window.__gcCurSong; if(_mc){ var _ma=(_mc.art||((_mc.artworkUrl100||"").replace("100x100","300x300"))||""); if(_ma){ mu.b.style.backgroundImage="url('"+_ma.replace(/'/g,"%27")+"')"; mu.b.style.backgroundSize="cover"; } } }catch(_){}   // ★再生中はアイコン=今の曲ジャケット
       strip.appendChild(mu.w);
-      var sfl=attImg("sumi shuffle","sumi-fire-seed.png","Shuffle", function(){ haptic(); closeAttach(); setTimeout(function(){ attachSumi("shuffle"); },160); });
-      strip.appendChild(sfl.w);
-      var hrt=attImg("sumi heart","sumi-beast-seed.png","Heart", function(){ haptic(); var rm=chatRoom; closeAttach(); setTimeout(function(){ try{ var _c=window.__gcCurSong; if(_c){ var s={ t:String(_c.title||_c.trackName||"").slice(0,120), a:String(_c.artist||_c.artistName||"").slice(0,80), art:String(_c.art||((_c.artworkUrl100||"").replace("100x100","300x300"))||"").slice(0,300), p:String(_c.preview||_c.previewUrl||"").slice(0,300), u:String(_c.u||_c.trackViewUrl||"").slice(0,300) }; s.c=_songColor(s.t+"|"+s.a); pushMessage(rm,"cxheart:"+JSON.stringify(s)); try{ dynamicIsland("鼓動で曲を送りました 💓"); }catch(_){} } else { attachSumi("beast"); } }catch(_){} },160); });   // ★再生中は今の曲を送る/そうでなければheart墨流し
+      /* ★墨流し(sumi/suminagashi shuffle)は廃止・非表示(ユーザ指示・本番):
+         添付シートの「Shuffle」(墨流しseed送信)は出さない＝重複/デバッグ要素を消して
+         画像&動画の送信導線をはっきりさせる。描画/送信コードは残置(no-op)。 */
+      var hrt=attImg("cxheart","sumi-beast-seed.png","Heart", function(){ haptic(); var rm=chatRoom; closeAttach(); setTimeout(function(){ try{ var _c=window.__gcCurSong; if(_c){ var s={ t:String(_c.title||_c.trackName||"").slice(0,120), a:String(_c.artist||_c.artistName||"").slice(0,80), art:String(_c.art||((_c.artworkUrl100||"").replace("100x100","300x300"))||"").slice(0,300), p:String(_c.preview||_c.previewUrl||"").slice(0,300), u:String(_c.u||_c.trackViewUrl||"").slice(0,300) }; s.c=_songColor(s.t+"|"+s.a); pushMessage(rm,"cxheart:"+JSON.stringify(s)); try{ dynamicIsland("鼓動で曲を送りました 💓"); }catch(_){} } else { try{ dynamicIsland("再生中の曲がないよ 🎧"); }catch(_){} } }catch(_){} },160); });   // ★再生中の曲を💓で送る(墨流しフォールバックは廃止)
       try{ var _hc=window.__gcCurSong; if(_hc){ var _hl=hrt.w.querySelector(".gc-att-lab"); if(_hl) _hl.textContent=(_hc.title||_hc.trackName||"曲"); } }catch(_){}   // ★再生中はラベル=曲名
       strip.appendChild(hrt.w);
       var slist=document.createElement("div"); slist.id="gcAttStickerList"; slist.style.cssText="display:flex;gap:10px 12px;align-items:flex-start"; strip.appendChild(slist);
@@ -10587,47 +10645,63 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       ov.appendChild(mask); ov.appendChild(sheet); document.body.appendChild(ov); }
     try{ _renderStickerStrip(); }catch(_){}   // ★毎回開くたびに最新の保存ステッカーを反映
     ov.classList.add("show"); haptic(); requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.classList.add("in"); }); }); }
-  /* ★HEIC/HEIFは「デコード済みピクセル」からPNG化して送る(ユーザ指示2026-07-18・早急):
-     旧: FileReaderのdataURLをそのまま送る→transcode時にデコード不能だと真っ黒(ブラックアウト)。
-     新: createImageBitmap(確実にデコード or 明示的に失敗)→canvas→PNG。失敗時は<img>デコードにフォールバック、それでも無理なら送らずに知らせる(黒画像は絶対に送らない) */
+  /* ★送信前は「必ずJPEG(.jpg)」に変換する(ユーザ指示・本番):
+     HEIC/HEIF でも DNG/TIFF/BMP/AVIF でも PNG/WebP/GIF でも、例外なく
+     デコード済みピクセル→canvas→image/jpeg にしてから送る＝受け手の環境に依らず必ず開ける。
+     経路: createImageBitmap(確実にデコード or 明示的に失敗) → <img>デコード → heic2any(HEIC専用の保険)。
+     全部失敗した時だけ「送らずに知らせる」＝真っ黒(ブラックアウト)画像は絶対に送らない。
+     透明PNGは白で下地を敷いてからJPEG化＝透明部が黒く潰れない。 */
   /* ★heic2any(jsdelivr・CSPのscript-src許可済)を遅延ロード=Safari以外(Android/Chrome)でネイティブHEICデコードが無い時の保険。iPhoneはネイティブ(createImageBitmap/img)で足りるので通常は読み込まない。 */
   var _heic2anyP=null;
+  var GC_JPEG_Q=0.92;   // 送信前変換の品質(最終的に transcodeDataURL でさらに 800px/0.85 へ圧縮される)
   function _loadHeic2any(){ if(window.heic2any) return Promise.resolve(window.heic2any);
     if(_heic2anyP) return _heic2anyP;
     _heic2anyP=gcLoadScript("https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js").then(function(){ return window.heic2any||null; }).catch(function(){ _heic2anyP=null; return null; });
     return _heic2anyP; }
   function _blobToDataURL(blob){ return new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(){ res(String(rd.result)); }; rd.onerror=function(){ rej(0); }; try{ rd.readAsDataURL(blob); }catch(e){ rej(e); } }); }
+  /* デコード済みの画(ImageBitmap / HTMLImageElement)をJPEGのdataURLへ。
+     ・透明は白で埋める(JPEGはアルファ非対応＝黒潰れ防止)
+     ・長辺2048pxに収める＝iOS/Safariのcanvas面積上限(≒16.7Mpx)で真っ白/真っ黒になる事故を回避
+       (どのみち送信時 transcodeDataURL で800pxまで縮むので画質の損はない) */
+  var GC_JPEG_MAX=2048;
+  function _srcToJpeg(src, w, h){
+    w=Math.max(1, w||1); h=Math.max(1, h||1);
+    var sc=Math.min(1, GC_JPEG_MAX/Math.max(w,h));
+    var cw=Math.max(1,Math.round(w*sc)), chh=Math.max(1,Math.round(h*sc));
+    var cv=document.createElement("canvas"); cv.width=cw; cv.height=chh;
+    var cx=cv.getContext("2d"); cx.fillStyle="#ffffff"; cx.fillRect(0,0,cw,chh);   // 透明→白(黒帯/黒潰れの根治)
+    cx.drawImage(src, 0, 0, cw, chh);
+    var out=cv.toDataURL("image/jpeg", GC_JPEG_Q);
+    if(!out || out.indexOf("data:image/jpeg")!==0) throw 0;   // toDataURLが空/別形式=失敗扱い(黒画像を送らない)
+    return out; }
   function _fileToSendableDataURL(file){
     var nm=String(file&&file.name||""), ty=String(file&&file.type||"");
     var isHeic=/\.(heic|heif)$/i.test(nm) || /heic|heif/i.test(ty);
-    /* ★iPhone/スマホの特殊・RAW拡張子(dng/heif/tiff/bmp/avif等)も広く対応=デコード済みピクセルからPNG化(相手にはPNGで届く)。
-       標準web画像(png/jpg/jpeg/webp/gif)は効率のため従来どおり素通し(=写真はjpeg,pngはステッカー)。 */
-    var needPng=isHeic || /\.(dng|tif|tiff|bmp|avif)$/i.test(nm) || /image\/(x-adobe-dng|tiff|bmp|avif)/i.test(ty);
     function viaBitmap(){ if(!window.createImageBitmap) return Promise.reject(0);
-      return createImageBitmap(file).then(function(bm){ var cv=document.createElement("canvas"); cv.width=bm.width||1; cv.height=bm.height||1;
-        cv.getContext("2d").drawImage(bm,0,0); try{ bm.close&&bm.close(); }catch(_){} return cv.toDataURL("image/png"); }); }
+      return createImageBitmap(file).then(function(bm){
+        var r=_srcToJpeg(bm, bm.width, bm.height);
+        try{ bm.close&&bm.close(); }catch(_){} return r; }); }
     function viaImg(){ return new Promise(function(res,rej){ var u=URL.createObjectURL(file); var im=new Image();
-      im.onload=function(){ try{ var cv=document.createElement("canvas"); cv.width=im.naturalWidth||1; cv.height=im.naturalHeight||1;
-          cv.getContext("2d").drawImage(im,0,0); URL.revokeObjectURL(u); res(cv.toDataURL("image/png")); }catch(e){ try{ URL.revokeObjectURL(u); }catch(_){} rej(e); } };
+      im.onload=function(){ try{ var r=_srcToJpeg(im, im.naturalWidth||im.width, im.naturalHeight||im.height);
+          try{ URL.revokeObjectURL(u); }catch(_){} res(r); }catch(e){ try{ URL.revokeObjectURL(u); }catch(_){} rej(e); } };
       im.onerror=function(){ try{ URL.revokeObjectURL(u); }catch(_){} rej(0); }; im.src=u; }); }
     function viaHeic2any(){ return _loadHeic2any().then(function(h2a){ if(!h2a) throw 0;
-      return h2a({ blob:file, toType:"image/png", quality:0.92 }); }).then(function(out){ var b=Array.isArray(out)?out[0]:out; if(!b) throw 0; return _blobToDataURL(b); }); }
-    function viaReader(){ return new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(){ res(String(rd.result)); }; rd.onerror=function(){ rej(0); }; try{ rd.readAsDataURL(file); }catch(e){ rej(e); } }); }
-    if(needPng){ return viaBitmap().catch(viaImg).catch(function(){ return isHeic ? viaHeic2any() : Promise.reject(0); }); }
-    return viaReader().catch(viaImg); }
+      return h2a({ blob:file, toType:"image/jpeg", quality:GC_JPEG_Q }); }).then(function(out){ var b=Array.isArray(out)?out[0]:out; if(!b) throw 0; return _blobToDataURL(b); }); }
+    /* ★例外なく全部この経路＝どんな拡張子でも送信前にJPEGへ。素通し(FileReader)は廃止。 */
+    return viaBitmap().catch(viaImg).catch(function(){ return isHeic ? viaHeic2any() : Promise.reject(0); }); }
   function _readImagesThenSend(files, toRoom){ if(!files||!files.length) return; var shots=new Array(files.length), left=files.length, bad=0;   // ★複数画像を順序保持で全部読んでから1回のsendImagesへ(2枚以上も正常に・ユーザ指示)
     function done(i,v){ shots[i]=v; if(v===null) bad++;
       if(--left===0){ var ok=shots.filter(Boolean);
         if(ok.length){ try{ sendImages(ok, toRoom); }catch(_){} }
-        if(bad){ try{ dynamicIsland("画像を"+bad+"枚読み込めませんでした(HEIC変換失敗)"); }catch(_){} } } }
+        if(bad){ try{ dynamicIsland("画像を"+bad+"枚読み込めませんでした(JPG変換失敗)"); }catch(_){} } } }
     files.forEach(function(file, i){ _fileToSendableDataURL(file).then(function(u){ done(i,u); }).catch(function(){ done(i,null); }); }); }
   function attachPhoto(){ var f=document.createElement("input"); f.type="file"; f.multiple=true;   // ★複数選択(2枚以上)対応(ユーザ指示)
-    f.accept="image/*,.heic,.heif,.dng,.tif,.tiff,.bmp,.avif,.png,.jpg,.jpeg,.webp,.gif";   // ★HEIC/HEIF/DNG/TIFF/BMP/AVIF/PNG/JPG等も選んで送れる(特殊/RAWはPNG化して相手に届く)
+    f.accept="image/*,.heic,.heif,.dng,.tif,.tiff,.bmp,.avif,.png,.jpg,.jpeg,.webp,.gif";   // ★HEIC/HEIF/DNG/TIFF/BMP/AVIF/PNG/JPG等も選んで送れる(全て送信前にJPGへ変換して届く)
     f.onchange=function(){ var files=f.files&&f.files.length?Array.prototype.slice.call(f.files):[]; if(!files.length) return; _readImagesThenSend(files); }; f.click(); }
   /* attachContact() は廃止（P1）。連絡先共有はP11でドラッグ操作として再実装する。 */
-  function attachSumi(variant){ var room=chatRoom; if(!room) return; var seed=Math.floor(Math.random()*1e9);
-    var v=(variant==="beast"||variant==="fire")?variant:"";   // shuffleは:variant省略＝旧【sumi:N】後方互換、beast/fireのみ付与
-    pushMessage(room, "【sumi:"+seed+(v?(":"+v):"")+"】"); haptic(); try{ gcSound("siri_invoke_xr.wav",0.8); }catch(_){} }   // 墨流し送信音=siri_invoke_xr
+  /* ★墨流し(sumi / suminagashi shuffle)の送信は廃止(ユーザ指示・本番)=どこから呼ばれても何も送らない。
+     過去に送られた【sumi:N】は renderMsg 側で非表示にする。 */
+  function attachSumi(variant){ /* 廃止: 墨流しは送信しない */ }
   /* ========== Todo（macbook-showcase版に総入れ替え・ローカル個人Todo）: iPadOS17リマインダー風。
      ダブルリスト(Work/Personal)を＜＞/スワイプ/←→で切替、1リスト最大4件+末尾＋行(打つと丸が現れて変身)、
      ○=完了→ふわっと上へ抜けてFLIPで詰まる→復元ピル(1s scaleup/5s/1s消滅)、カードzoom着地、段差入場アニメ。
@@ -11213,10 +11287,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
   function sendImages(shots, toRoom){
     var room=toRoom||chatRoom; if(!shots||!shots.length||!room) return;
     (authReady||Promise.resolve()).then(function(){ shots.forEach(function(img){
-      var _isPng=/^data:image\/png/i.test(img);   // ★PNGのみステッカー化(jpeg/heifは写真=非ステッカー・ユーザ指示)。PNGは透明を保って送る
+      var _isPng=false;   // ★画像は全てJPG送信(ユーザ指示・本番)=PNGステッカー化の分岐は廃止。png/heif/dngも送信前にjpgへ変換済み
       try{ _sendBarShow(); }catch(_){}   // ★送信バー(Mac起動風・blurガラス)
       var _pd=null; try{ _pd=_mediaPendingShow(room, img, false); }catch(_){}   // ★blurサムネ+回転リング。要素を保持して完了時にその要素を除去(残留スピナー→再送不可を根治)
-      transcodeDataURL(img, _isPng?"png":"jpeg").then(function(small){ markActive();
+      transcodeDataURL(img, "jpeg").then(function(small){ markActive();
         // 最終フォールバック＝base64でFirebaseへ直接push（Worker不通でも必ず届く。index版で表示）
         function putBase64(){   // ★PWAからの画像は常に高画質(base64 jpeg)のまま送る＝ドット(cdot)化はCLI専用でPWAでは廃止(ユーザ指示)
           try{ encWith(room,"📷写真").then(function(et){ var _k=db.ref("chats/"+room+"/msgs").push().key; var _n={ f:uid, t:et, ts:firebase.database.ServerValue.TIMESTAMP, img:small, name:prof.name||"匿名", ava:prof.ava||"🙂", color:prof.color||"#62d8ff", lang:_baseLang(navigator.language||"") }; dualWrite(room, _k, _n, { f:uid, t:et, ts:firebase.database.ServerValue.TIMESTAMP }); pushNotifyRoom(room); }); }catch(_){} }
@@ -11442,8 +11516,12 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
 
   /* ★登録UIは「名前だけ」。色を選ぶ機能・絵文字を選ぶ仕組みは完全撤去（ユーザー指示＝そこで変なループが出るため）。
      色とアイコンは登録時にランダムで自動割当（表示用の識別子）。本人は後から設定/プロフィールで変更できる。 */
-  /* ★StS最初の使い方(PWA・ログイン前・初回のみ): helloの後にフェード+スライドアップで2行→タップで拡大して消える→登録ダイヤログへ */
-  function _stsUsageIntro(){
+  /* ★「StS ＝ Shake to Shake」の使い方案内は一旦非表示(ユーザ指示・本番):
+     hapticの挙動がおかしく、説明も長いため。UI/機能は残置し、呼び出しだけ no-op 化＝
+     helloの後は案内を挟まず、そのまま登録ダイヤログ(startOnboard)へ進む。
+     ※ _stsUsageIntroImpl は復活用にコードを残してあるだけ＝どこからも呼ばれない。 */
+  function _stsUsageIntro(){ try{ localStorage.setItem("sts_usage_intro","1"); }catch(_){} startOnboard(); }
+  function _stsUsageIntroImpl(){
     var iv=document.createElement("div"); iv.id="gcUsageIntro";
     iv.style.cssText="position:fixed;inset:0;z-index:9355;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:transparent;-webkit-backdrop-filter:blur(0px) saturate(100%);backdrop-filter:blur(0px) saturate(100%);opacity:0;transition:opacity .5s var(--gc-ease), -webkit-backdrop-filter .5s var(--gc-ease), backdrop-filter .5s var(--gc-ease);cursor:pointer";   /* ★blurも0.5sでフェードイン(カクつき解消・ユーザ指示) */
     var l1=document.createElement("div"); l1.textContent="StSではシェイクを友達に送り";
@@ -11460,7 +11538,8 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       setTimeout(function(){ try{ iv.remove(); }catch(_){} },520); startOnboard(); }, {once:true}); }   /* ★delay撤去=フェードアウト中に登録UIを即出す(ユーザ指示) */
   function startOnboard(){
     var ov=$("gcOnb"); if(!ov){ return; }
-    if(!localStorage.getItem("sts_usage_intro") && !prof.onboarded){ _stsUsageIntro(); return; }   // ★初回=使い方イントロを先に
+    /* ★使い方イントロ(StS←Shake to Shakeの案内)は一旦非表示(ユーザ指示)=初回でも挟まず登録へ直行 */
+    try{ localStorage.setItem("sts_usage_intro","1"); }catch(_){}
     if(!prof.color||!/^#/.test(prof.color)) prof.color=COLORS[Math.floor(Math.random()*COLORS.length)]||COLORS[6];   // ランダム自動割当（選択UIなし）
     /* ★初期アイコン=リング一覧(GC_RING_IN/OUT)に「無い」emojiからランダム=再読み込みのたび変わる。リングから選べば普通に上書きされる */
     if(!prof.onboarded){ try{ var _RAND_EMO=["🐳","🦊","🐸","🌸","🍀","🍑","🐙","🦄","🌈","🪐","🍩","🐢","🐝","🌻","🍓","⚡️","🦋","🍙","🫧","🌊","🍋","🦕"];
@@ -11916,28 +11995,26 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       try{ _restoreProg(0.35); }catch(_){}   // 認証OK→pk読取へ
       (authReady||Promise.resolve()).then(function(){ try{ _restoreProg(0.55); }catch(_){} return db.ref("pk/"+credId).once("value"); }).then(function(s){ if(_hdone)return; _hdone=true; clearTimeout(_hto); var v=s.val(); try{ _restoreProg(0.8); }catch(_){}   // pk取得
       if(v&&v.p){ var acc=null; try{ acc=JSON.parse(v.p); }catch(_){}
-        if(acc){ var _finRestore0=function(){ prof=acc; prof.passkeyId=credId; prof.onboarded=true; save(); refreshProfileUI(); syncAllToggles(); closeOnboardSilently();
-            if(prof.admin){ _endRestore(); becomeAdminNow(); } else { try{ saveProfileDB(); }catch(_){} _endRestore(); showHandoffComplete(function(){ gotoHome(); }); } };   // 復元成功→チャット画面(home)へ
+        if(acc){ var _finRestore0=function(){ prof=acc; try{ delete prof.admin; }catch(_){}   // ★復元した古い垢に管理者フラグが残っていても必ず解除(管理者(徒/と)の概念は廃止)
+            try{ if(prof.rooms) prof.rooms=prof.rooms.filter(function(r){ return !(r && (r.peer==="and_admin" || (typeof r.room==="string" && r.room.indexOf("and_admin")>=0))); }); }catch(_){}   // ★「と」との会話も復元しない=アカウントごと消す
+            prof.passkeyId=credId; prof.onboarded=true; save(); refreshProfileUI(); syncAllToggles(); closeOnboardSilently();
+            try{ saveProfileDB(); }catch(_){} _endRestore(); showHandoffComplete(function(){ gotoHome(); }); };   // 復元成功→チャット画面(home)へ
           // ★2FA有効なら回復コードを要求(=パスキー+回復コードの2要素)。片方でも欠ければ復元しない
           var _finRestore=function(){ _finRestore0(); };   // ★2ファクタ認証ゲートは廃止(ユーザ指示2026-07-18)=パスキーだけで復元
           // ★削除済みアカウント(管理者が削除した利用者など)は復元させない＝元の users/<u> が存在する利用者だけ復元可。確認失敗時はfail-open(正規利用者を巻き込まない)。
-          if(!acc.admin && v.u && db){ db.ref("users/"+v.u).once("value").then(function(us){ if(us.exists()){ _finRestore(); } else { _endRestore(); try{ dynamicIsland("すでに削除した垢などは復元できません"); }catch(_){} } }).catch(function(){ _finRestore(); }); }
+          if(v.u && db){ db.ref("users/"+v.u).once("value").then(function(us){ if(us.exists()){ _finRestore(); } else { _endRestore(); try{ dynamicIsland("すでに削除した垢などは復元できません"); }catch(_){} } }).catch(function(){ _finRestore(); }); }
           else { _finRestore(); } return; } }
       _endRestore(); try{ dynamicIsland("このパスキーに対応するアカウントが見つかりません"); }catch(_){}   // 保存アカウント無し（読み取り引き継ぎは廃止）
     }).catch(function(){ if(_hdone)return; _hdone=true; clearTimeout(_hto); _endRestore(); try{ dynamicIsland("引き継ぎに失敗しました。通信環境を確認してください"); }catch(_){} }); return; }
     try{ dynamicIsland("パスキーが確認できませんでした"); }catch(_){}
   }
   /* ── 管理者ログイン（化学式 or 管理者パスキー）。コード式引き継ぎ・読み取って引き継ぐ(近接QR)は廃止 ── */
-  function becomeAdminNow(){ try{ closeAdminEntry(); }catch(_){} }   // ★管理者(と)概念は廃止=管理者権限を付与する経路を無効化(化学式/管理者パスキーとも効かない)
-  function openAdminEntry(){ var ov=$("gcAdminEntry"); if(!ov)return; hideAll(); leaveHome(); var f=$("gcAdminFormula"); if(f)f.value=""; ov.classList.add("show"); setTimeout(function(){ try{ if(f)f.focus(); }catch(_){} },220); haptic(); }
+  function becomeAdminNow(){ try{ closeAdminEntry(); }catch(_){} }   // ★管理者(徒/と)概念は廃止=管理者権限を付与する経路は存在しない(化学式/管理者パスキーとも効かない)
+  function openAdminEntry(){ /* 廃止: 管理者ログイン画面は開かない */ }
   function closeAdminEntry(){ var ov=$("gcAdminEntry"); if(ov)ov.classList.remove("show"); }
   function _shakeAdminEntry(){ var c=$("gcAdminEntryCard"); if(c){ c.classList.remove("shk"); void c.offsetWidth; c.classList.add("shk"); } if(haptic.error)haptic.error(); else haptic(); }
-  function adminFormulaGo(){ var v=($("gcAdminFormula")&&$("gcAdminFormula").value)||""; if(isAdminName(v)){ becomeAdminNow(); } else { _shakeAdminEntry(); } }
-  function adminPasskeyLogin(){ passkeyGet().then(function(r){
-    if(r==="unsupported"){ toast("この端末はパスキー非対応"); return; }
-    if(r && r.ok){ (authReady||Promise.resolve()).then(function(){ return db.ref("admin/cred").once("value").catch(function(){ return null; }); }).then(function(s){ var cred=s&&s.val&&s.val();
-      if((cred && r.id && cred===r.id) || prof.admin){ becomeAdminNow(); } else { _shakeAdminEntry(); toast("管理者パスキーではありません"); } }); }
-    else { _shakeAdminEntry(); } }); }
+  function adminFormulaGo(){ /* 廃止: 化学式(h2so4+naoh->na2so4+h2o)による管理者化は撤去済み */ }
+  function adminPasskeyLogin(){ /* 廃止: 管理者パスキーによる管理者化も撤去済み */ }
   /* 引き継ぎ完了演出: 0.7s blur in → smile.mov + hello-first-writeon.m4a → 鳴り終わりで 0.3s blur out */
   function showHandoffComplete(done){
     var old=$("gcHoDone"); if(old){ try{ old.parentNode.removeChild(old); }catch(_){} }
@@ -11952,10 +12029,15 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     if(sfx){ sfx.onended=finish; setTimeout(finish,7000); } else { setTimeout(finish,2000); }
   }
 
-  /* ── admin 主張（化学式 secret） ── */
-  var _claimP=null, _claimUid=null;   // 同一uidで成功/進行中の claim を再利用＝openChat/sendMsg 毎に admin へ3回書込む無駄を防ぐ
-  function claimAdmin(){
-    if(_claimP && _claimUid===uid) return _claimP;   // 既に現uidで claim 済み(進行中含む)＝再利用
+  /* ── admin 主張（化学式 secret）── ★完全廃止(ユーザ指示・本番)
+     「徒/と」の管理者アカウントと、化学式 h2so4+naoh->na2so4+h2o による管理者主張の概念を撤去する。
+     admin/secretTry・admin/secret・admin/uid・admin/uids へは一切書き込まない＝どの端末も管理者にならない。
+     Firebase 側のルール(database.rules.json)からも化学式と admin ノードを削除済み＝サーバでも成立しない。
+     呼び出し箇所は残置(Promise を返す約束は維持)＝例外を出さず、ただ何もしない。 */
+  function claimAdmin(){ return Promise.resolve(false); }
+  function _claimAdminAbolished(){
+    var _claimP=null, _claimUid=null;
+    if(_claimP && _claimUid===uid) return _claimP;
     _claimUid=uid;
     _claimP=(authReady||Promise.resolve()).then(function(){
       if(!db||!uid){ _claimP=null; return false; }
@@ -12022,19 +12104,10 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
         var i=$("gcDelNameInput"); i.classList.remove("shake"); void i.offsetWidth; i.classList.add("shake"); if(haptic.error)haptic.error(); else haptic();
       });
     }
-    $("gcAdminList").onclick=openAdminList; $("gcAdminClose").onclick=function(){ $("gcAdminOv").classList.remove("show"); try{ _admDetach(); }catch(_){} };   // 閉じたらusersのリアルタイム購読を解除
-    if($("gcAdminSelAll")) $("gcAdminSelAll").onclick=adminToggleSelectAll;   // 全選択/解除
-    if($("gcAdminDelSel")) $("gcAdminDelSel").onclick=adminDeleteSelected;     // 選択を一括で完全削除
-    if($("gcAdminDelMtm")) $("gcAdminDelMtm").onclick=adminDeleteMeettomeet;   // 旧meettomeet（name無し）だけ削除＝会話は残す
-    if($("gcAdminDelAll")) $("gcAdminDelAll").onclick=adminDeleteAll;          // 全アカウントを完全削除
-    if($("gcAdminPasskey")) $("gcAdminPasskey").onclick=function(){ var b=this; if(b.dataset.busy)return; b.dataset.busy="1"; haptic();
-      passkeyCreate().then(function(r){ b.dataset.busy=""; if(r===true){ if(haptic.confirm)haptic.confirm(); toast("管理者パスキーを作成しました");
-        try{ if(prof.passkeyId) db.ref("admin/cred").set(prof.passkeyId); }catch(_){}   // 他端末が「管理者パスキー」と判定できるよう資格情報IDを共有(admin限定書込)
-      } else if(r==="unsupported"){ toast("この端末はパスキー非対応"); } else { toast("作成できませんでした"); } }); };
-    if($("gcAdminCast")) $("gcAdminCast").onclick=function(){ var i=$("gcAdminCastText"); if(i){ try{ i.focus(); }catch(_){} } };
-    if($("gcAdminCastSend")) $("gcAdminCastSend").onclick=sendBroadcast;
-    if($("gcAdminCastText")) $("gcAdminCastText").addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); sendBroadcast(); } });
-    if($("gcAdminMap")) $("gcAdminMap").onclick=plotAllUsers;
+    /* ★管理者(徒/と)の概念は完全廃止(ユーザ指示・本番)＝管理者UIは結線しない。
+       DOM(#gcAdminOv / #gcAdminEntry / .gc-adminb)はCSSで非表示。閉じるボタンだけは
+       万一表示された時の逃げ道として残す。 */
+    if($("gcAdminClose")) $("gcAdminClose").onclick=function(){ var _o=$("gcAdminOv"); if(_o) _o.classList.remove("show"); try{ _admDetach(); }catch(_){} };
     if($("gcLocFab")) $("gcLocFab").onclick=function(){   // ★P26: 左下の自分アイコン=投稿UI(stCamera)を直接開く(environment/最初の画面 両方)
       try{ stCamera(); }catch(_){ try{ stMine(function(st){ if(st){ stViewer(myAddr()||uid, true); } else { stCamera(); } }); }catch(__){} } };
     try{ var _lf=$("gcLocFab"); if(_lf && !_lf.classList.contains("np") && !_lf.classList.contains("np2")){ _lf.textContent=""; if(typeof applyAva==="function"){ applyAva(_lf, prof.ava||"🙂"); } else { _lf.textContent=(prof.ava||"🙂"); } _lf.style.fontSize="26px"; _lf.title="投稿する"; } }catch(_){}   // ★P26: 左下を自分のアイコンに
@@ -12107,11 +12180,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     }
     if($("gcAcct")) $("gcAcct").addEventListener("click",function(e){ if(e.target===this) closeAcct(); });
     // 管理者ログイン（化学式 or 管理者パスキー）
-    if($("gcAdminFormulaGo")) $("gcAdminFormulaGo").onclick=adminFormulaGo;
-    if($("gcAdminFormula")) $("gcAdminFormula").addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); adminFormulaGo(); } });
-    if($("gcAdminPasskeyLogin")) $("gcAdminPasskeyLogin").onclick=adminPasskeyLogin;
-    if($("gcAdminEntryX")) $("gcAdminEntryX").onclick=closeAdminEntry;
-    if($("gcAdminEntry")) $("gcAdminEntry").addEventListener("click",function(e){ if(e.target===this) closeAdminEntry(); });
+    /* ★管理者ログイン(化学式 h2so4+naoh->na2so4+h2o / 管理者パスキー)は廃止＝結線しない */
     // 楽曲プレイヤーは Purple Music(apps/purple-music.html, iframe) に移行＝旧 #gcPlayer 結線は廃止
     // 何もないとこ（カード外）を押したら閉じる
     $("gcSettings").addEventListener("click",function(e){ if(e.target===this) closeSettings(); });
@@ -12185,10 +12254,9 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     var _clip=$("gcChatClip"); if(_clip) _clip.onclick=function(){ haptic(); openAttach(); };   // 📎=添付メニュー（0.3s scaleup）
     /* 旧🫨(入力バー)は廃止＝📎メニュー内の🫨(画像の隣)から呼ぶ共通アクション。挙動は従来の端末分岐そのまま */
     window.__chatShakeAction=function(){ var _cat=(typeof DEV!=="undefined"&&DEV&&DEV.cat)||"other";
-      if(_cat==="mac"){ try{ attachSumi(""); }catch(_){} }                                    // Mac=墨流し
-      else if(typeof DEV!=="undefined"&&DEV&&DEV.canCapture){ openChatShake(); }              // iPhone/iPad/iPod=シェイクメッセージ
-      else { var inp=$("gcChatInput"); if(inp){ inp.value=(inp.value||"")+"🫨"; inp.focus(); try{ setTyping(true); }catch(_){} } } };   // その他=絵文字挿入(従来)
-    try{ if((((typeof DEV!=="undefined"&&DEV&&DEV.cat)||"other")==="mac")){ var _ci=$("gcChatInput"); if(_ci) _ci.onwebkitmouseforcedown=function(e){ if(e.webkitForce&&e.webkitForce>=1.7){ try{ attachSumi(""); }catch(_){} } }; } }catch(_){}   // Mac=トラックパッド強押しで墨流し(従来維持)
+      if(typeof DEV!=="undefined"&&DEV&&DEV.canCapture){ openChatShake(); }                   // iPhone/iPad/iPod=シェイクメッセージ
+      else { var inp=$("gcChatInput"); if(inp){ inp.value=(inp.value||"")+"🫨"; inp.focus(); try{ setTyping(true); }catch(_){} } } };   // Mac/その他=絵文字挿入(★Macの墨流しは廃止)
+    /* ★Macトラックパッドの強押し→墨流し は廃止(ユーザ指示・本番)＝誤爆で墨流しが飛ぶ経路を断つ */
     $("gcChatInput").addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); sendMsg(); } });
     $("gcChatInput").addEventListener("input",function(){ if(($("gcChatInput").value||"").length) setTyping(true); else setTyping(false); try{ _graphInputPreview(); }catch(_){} });
     try{ var _cin=$("gcChatInput"); if(_cin && !_cin.__imeWired){ _cin.__imeWired=true;
@@ -12269,7 +12337,17 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
     setupAutoUpdate();
     // シェイクで撮影 廃止＝起動時の devicemotion 復帰は不要
     normalizeRooms();                                       // 旧 dm_a_b → a__b 修復（既存の壊れた会話を治す）
-    if(prof.admin){ try{ claimAdmin(); }catch(_){} }        // ★管理者は起動時に admin/uid を現端末uidへ＝以後の全read/write(一覧/会話/通知監視)が通る。匿名uidが変わっても毎回ここで現uidに復帰＝「届いてるのに出ない/送ると消える」を根治
+    /* ★管理者(徒/と)アカウントの後始末(ユーザ指示・本番): 概念を廃止しただけでは Firebase に
+       「と」(and_admin)の残骸が残るので、起動時に一度だけ削除を試みる。
+       ルール側で and_admin と admin/* は「null書込(=削除)だけ許可」にしてあるので、
+       誰の端末からでも掃除でき、かつ二度と作り直せない。失敗しても無害(次回また試す)。 */
+    try{ if(!localStorage.getItem("gc_admin_purged_v1")){
+      (authReady||Promise.resolve()).then(function(){ if(!db||!uid) return;
+        var ups={}; ups["admin"]=null; ups["users/and_admin"]=null; ups["friends/and_admin"]=null;
+        ups["push/and_admin"]=null; ups["s2s/and_admin"]=null; ups["gallery/and_admin"]=null;
+        return db.ref().update(ups).then(function(){ try{ localStorage.setItem("gc_admin_purged_v1","1"); }catch(_){} });
+      }).catch(function(){});
+    } }catch(_){}
     try{ Health.init(); }catch(_){}                          // サーバー健全性インジケータ起動（.info/connected 購読＝無料・リクエスト増やさない）
     /* ★通信の縄: Firebase再接続のたびに、開いている会話が読取失敗のまま(空)なら自動で開き直して確実に表示する。
        一時的な権限/接続/AppCheckトークン遅延で空のまま固まる事故を、再接続で自己修復＝「届いてるのに出ない」を根絶。 */

@@ -343,9 +343,13 @@ function loadVoices(){
 try{ loadVoices(); if('speechSynthesis' in window && speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', loadVoices); }catch(_){}
 
 /* ═══════════ TTS（フォールバック）═══════════ */
+/* ★読み上げ(TTS)/スクリーンリーダーは一時的に完全停止(ユーザ指示・本番)。
+   speechSynthesis は一切呼ばず、表示の進行(onDone)だけ従来と同じ間合いで進める＝
+   UI/カード送り/録音音声(vocabx-audio)はそのまま、合成音声だけ鳴らない。有効化する経路は無い。 */
+const TTS_DISABLED=true;
 function speak(text,lang,onDone){
   const g=gen, done=()=>{ if(g===gen) onDone&&onDone(); };
-  if(SNAP||!text||!('speechSynthesis'in window)||!userActed){ setTimeout(done, SNAP?0:Math.min(1400,500+text.length*55)); return; }
+  if(TTS_DISABLED||SNAP||!text||!('speechSynthesis'in window)||!userActed){ setTimeout(done, SNAP?0:Math.min(1400,500+text.length*55)); return; }
   if(!_vReady) loadVoices();
   try{ speechSynthesis.cancel(); }catch{}
   const u=new SpeechSynthesisUtterance(text);
