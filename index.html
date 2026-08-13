@@ -4819,6 +4819,27 @@ window.GC_TTS_DISABLED = true;
   function _stRowBtn(txt){ var b=document.createElement("button");
     b.style.cssText="width:min(78vw,300px);border:none;border-radius:16px;background:rgba(255,255,255,.14);color:#fff;font:600 16px/1 -apple-system,'Hiragino Sans',sans-serif;padding:16px 18px;cursor:pointer;margin-top:10px;-webkit-tap-highlight-color:transparent;text-align:left"; b.textContent=txt; return b; }
   /* ★ノート/付箋メニュー(stMenu)とノート作成(stTextComposer)は到達不能な死コードのため削除(2026-07-15・ユーザ指示)。ストーリー投稿は stCamera から直接。付箋描画分岐は既存データ保護のため据え置き(新規作成は不可) */
+  /* ── iReal: 文字の投稿UI(検索appsの「iReal」タイルから開く)。UI内に「iReal」の文字は出さない(ユーザ指示)。
+     投稿ボタンは→ではなく↑(ユーザ指示)。投稿は既存のstPost(t)=20時間ステータス(ビューア/思い出は既存の文字描画をそのまま使う) ── */
+  (function(){ var ic=new Image(); ic.onload=function(){ window.__irealIcon="irealx.png"; }; ic.onerror=function(){ window.__irealIcon="iReal.png"; }; ic.src="irealx.png"; })();   // ★アイコン=irealx.png、無ければiReal.png
+  function openIReal(){
+    var ov=_stOverlay(9764);
+    var inp=document.createElement("input"); inp.type="text"; inp.maxLength=72; inp.placeholder="いまなにしてる？";
+    inp.setAttribute("autocomplete","off"); inp.setAttribute("autocapitalize","off"); inp.spellcheck=false; inp.setAttribute("enterkeyhint","send");
+    inp.style.cssText="width:min(80vw,340px);border:none;background:none;color:#fff;font:200 30px/1.35 -apple-system,'SF Pro Display','Hiragino Sans',sans-serif;text-align:center;outline:none;caret-color:"+((prof&&prof.color)||"#62d8ff")+";-webkit-tap-highlight-color:transparent";
+    inp.onclick=function(e){ e.stopPropagation(); };
+    var up=document.createElement("button"); up.textContent="↑"; up.title="シェア(20時間)"; up.setAttribute("aria-label","シェア");   // ★シェア画面の↑と同じ白丸(→は使わない)
+    up.style.cssText="width:58px;height:58px;border:none;border-radius:50%;background:#fff;color:#111;font:300 27px/1 -apple-system,'SF Pro Display',sans-serif;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.45);margin-top:34px;-webkit-tap-highlight-color:transparent";
+    function send(){ var v=(inp.value||"").trim();
+      if(!v){ if(haptic.error)haptic.error(); else haptic();   // 空=左右シェイクだけ(投稿しない)
+        inp.style.transition="none"; inp.style.transform="translateX(-9px)";
+        setTimeout(function(){ inp.style.transition="transform .3s var(--gc-spring)"; inp.style.transform="translateX(0)"; },40); return; }
+      haptic(); stPost({ t:v, img:null, vid:null }); ov.__close(); }
+    up.onclick=function(e){ e.stopPropagation(); send(); };
+    inp.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); send(); } });
+    ov.appendChild(inp); ov.appendChild(up);
+    setTimeout(function(){ try{ inp.focus(); }catch(_){} },90); haptic(); }
+  window.__openIReal=openIReal;
   function stMusicAttach(){ var t=window.__gcCurSong, f=null; try{ f=JSON.parse(localStorage.getItem("cx_fav")||"null"); }catch(_){}
     var s=t?{ t:String(t.title||t.trackName||"").slice(0,80), a:String(t.artist||t.artistName||"").slice(0,60), art:String(t.art||t.artworkUrl100||"").slice(0,300), p:String(t.preview||t.previewUrl||"").slice(0,300) }
           : (f&&f.title? { t:String(f.title).slice(0,80), a:String(f.artist||"").slice(0,60), art:String(f.art||"").slice(0,300), p:String(f.preview||"").slice(0,300) } : null);
@@ -8650,6 +8671,7 @@ function spotWarm(){}   // 旧テンプレ先読みは不要(SearchDeckは即時
         {n:"BEAST CODE", i:"apps/aero-leap/assets/arcade.png", al:"beast code びーすと", hidden:true, run:function(){ window.__openApp("apps/beast-code.html","BEAST CODE"); }},   // ★app一覧では非表示=名前を検索した時だけ出る
         {n:"iHax", i:"iHax-AI.png", al:"ihax ai あい", hidden:true, gone:function(){ return !window.__ihaxOK; }, run:function(){ try{ window.iHax.openApp(); }catch(_){} }},   // ★一旦非表示=「iHax」を検索した時だけ出る(WebGPU対応機のみ)
         {n:"StS Mac", i:"burble-mac.png", al:"sts mac まっく cli", run:function(){ try{ openStsMac(); }catch(_){} }},
+        {n:"iReal", i:(window.__irealIcon||"irealx.png"), al:"ireal あいりある いりある りある real 文字 もじ text てきすと", run:function(){ try{ openIReal(); }catch(_){} }},   // ★iReal=文字の投稿(アイコン: irealx.png→無ければiReal.png)
         {n:"思い出", i:"icon-moment.png", al:"memories moment もーめんと おもいで", run:function(){ try{ openMomentsArchive(); }catch(_){} }},   // ★自分の投稿アーカイブ(15ヶ月・♥無期限)
         {n:"Terrakoku", i:"globe.png", al:"terrakoku てらこく 歴史 れきし", hidden:true, run:function(){ try{ window.__openTerrakoku(); }catch(_){} }},   // ★検索した時だけ出る
         {n:"翻訳", i:"trans.png", al:"translate ほんやく translation", gone:function(){ return document.body.classList.contains("gc-noglobe"); }, run:function(){ try{ window.__gcGlobeTranslate(); }catch(_){} }},   // ★背景が地球儀の時のみ
@@ -11538,6 +11560,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       setTimeout(function(){ try{ iv.remove(); }catch(_){} },520); startOnboard(); }, {once:true}); }   /* ★delay撤去=フェードアウト中に登録UIを即出す(ユーザ指示) */
   function startOnboard(){
     var ov=$("gcOnb"); if(!ov){ return; }
+    if(prof.onboarded && prof.name){ try{ gotoHome(); }catch(_){} return; }   // ★登録済みアカウントでは登録UI(=パスキー作成に繋がる)を二度と出さない。名前/アイコンを変えても再登録扱いにしない＝パスキーはアカウント登録時だけ
     /* ★使い方イントロ(StS←Shake to Shakeの案内)は一旦非表示(ユーザ指示)=初回でも挟まず登録へ直行 */
     try{ localStorage.setItem("sts_usage_intro","1"); }catch(_){}
     if(!prof.color||!/^#/.test(prof.color)) prof.color=COLORS[Math.floor(Math.random()*COLORS.length)]||COLORS[6];   // ランダム自動割当（選択UIなし）
@@ -11786,7 +11809,7 @@ if(!bk){ bk=document.createElement("button"); bk.id="gcGlobeBack"; bk.type="butt
       if(!asAdmin && !isStandalone()){ showPwaGate(); return; }   // ★新規アカウント作成のみ PWA(standalone) 必須。管理者ログイン(化学式)はPWA不要でどこでも可
       if(asAdmin){ closeOnboardSilently(); applyAdminMode();
         claimAdmin().then(function(ok){ prof.admin=!!ok; enforceAdminIdentity(); prof.onboarded=true; prof.notif=true; save(); saveProfileDB(); refreshProfileUI(); try{ enableNotif(); }catch(_){} playComplete(); gotoHome(); }); return; }
-      if(!prof.passkeyDone){ showBioGate("create", function(){ prof.passkeyDone=true; save(); finishToReg(false); }, function(){ var g=$("nobGo"); if(g) g.classList.remove("busy"); }); return; }   // ★パスキー登録は必須。キャンセル=戻る＝→のスピナーを解除して登録画面に留まる(くるくるバグ修正)
+      if(!prof.passkeyDone && !prof.onboarded){ showBioGate("create", function(){ prof.passkeyDone=true; save(); finishToReg(false); }, function(){ var g=$("nobGo"); if(g) g.classList.remove("busy"); }); return; }   // ★パスキー登録は必須。キャンセル=戻る＝→のスピナーを解除して登録画面に留まる(くるくるバグ修正)。★onboarded済(名前/アイコン変更等)では絶対に出さない=パスキー作成UIはアカウント登録時だけ
       save(); saveProfileDB();
       ov.style.opacity="0"; setTimeout(function(){ ov.classList.remove("show"); ov.className=""; ov.innerHTML=""; ov.style.opacity=""; },650);
       try{ _onbMBTI(); }catch(_){ show("gcNotif"); }   // ★delay撤去=登録後は即MBTIへ(フェードアウトと並行・ユーザ指示)
